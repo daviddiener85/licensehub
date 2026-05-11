@@ -16,6 +16,7 @@ import {
   PaymentStatus,
   UserRole,
 } from "@/generated/prisma/client";
+import { createMandatePdf } from "@/lib/mandate-pdf";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 
@@ -59,11 +60,19 @@ function getIdPhoto(formData: FormData) {
     throw new Error("An ID photo is required before submitting the mandate form.");
   }
 
-  if (!["image/jpeg", "image/png", "image/webp"].includes(idPhoto.type)) {
-    throw new Error("The ID photo must be a JPG, PNG, or WebP image.");
+  if (!["image/jpeg", "image/png"].includes(idPhoto.type)) {
+    throw new Error("The ID photo must be a JPG or PNG image.");
   }
 
   return idPhoto;
+}
+
+function clientIdLabel(southAfricanIdEncrypted: string) {
+  if (southAfricanIdEncrypted.startsWith("encrypted-demo-id-hash-")) {
+    return "Demo ID on file";
+  }
+
+  return "Stored securely";
 }
 
 async function transitionApplication(
@@ -325,7 +334,9 @@ export async function submitMandateFormCapture(formData: FormData) {
   const idPhoto = getIdPhoto(formData);
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    select: { publicToken: true },
+    include: {
+      client: true,
+    },
   });
 
   const uploadDirectory = path.join(process.cwd(), "public", "uploads", "mandate-forms", applicationId);
@@ -338,6 +349,22 @@ export async function submitMandateFormCapture(formData: FormData) {
   await writeFile(absolutePath, idPhotoBytes);
 
   const storageKey = `/uploads/mandate-forms/${applicationId}/${fileName}`;
+  const pdfBytes = await createMandatePdf({
+    clientName: `${application.client.firstName} ${application.client.surname}`,
+    clientIdLabel: clientIdLabel(application.client.southAfricanIdEncrypted),
+    date: new Date(),
+    registrationNumber: application.registrationNumber,
+    vin: application.vin,
+    make: application.vehicleMake,
+    model: application.vehicleModel,
+    colour: application.vehicleColour,
+    signatureDataUrl,
+    idPhotoBytes,
+    idPhotoMimeType: idPhoto.type,
+  });
+  const pdfStorageKey = `/uploads/mandate-forms/${applicationId}/mandate-form.pdf`;
+
+  await writeFile(path.join(uploadDirectory, "mandate-form.pdf"), pdfBytes);
 
   await prisma.mandateFormSubmission.upsert({
     where: { applicationId },
@@ -371,7 +398,8 @@ export async function submitMandateFormCapture(formData: FormData) {
       status: DocumentStatus.PENDING,
       fileName: "mandate-form.pdf",
       mimeType: "application/pdf",
-      storageKey: `pending-pdf/${applicationId}/mandate-form.pdf`,
+      fileSizeBytes: pdfBytes.length,
+      storageKey: pdfStorageKey,
       rejectionReason: null,
       reviewedById: null,
       reviewedAt: null,
@@ -383,8 +411,8 @@ export async function submitMandateFormCapture(formData: FormData) {
       version: 1,
       fileName: "mandate-form.pdf",
       mimeType: "application/pdf",
-      fileSizeBytes: 0,
-      storageKey: `pending-pdf/${applicationId}/mandate-form.pdf`,
+      fileSizeBytes: pdfBytes.length,
+      storageKey: pdfStorageKey,
     },
   });
 

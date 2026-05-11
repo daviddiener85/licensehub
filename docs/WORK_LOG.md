@@ -2,6 +2,23 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-05-11 19:55 SAST
+
+### Mandate form PDF generation added
+
+- Added server-side PDF generation for the duplicate vehicle registration mandate form.
+- The generated PDF includes the populated request letter, vehicle details, captured client signature and uploaded ID photo.
+- Updated mandate form capture so submitting the signature and ID photo now creates `mandate-form.pdf`.
+- Updated the `MANDATE_FORM` document record with the generated PDF storage path and file size.
+- Added PDF links in client, admin and supplier views when the generated mandate form is available.
+- Limited ID photo uploads to JPG and PNG because those formats are embedded into the generated PDF.
+- Verified `npm run lint`, `npm run build` and a direct PDF generation smoke test.
+
+### Mandate form notes
+
+- Generated PDFs are stored locally for development under `public/uploads/mandate-forms`.
+- The client ID number still uses a secure placeholder until the application has an approved decrypt/display path for PDF generation.
+
 ## 2026-05-11 19:45 SAST
 
 ### Mandate form capture added

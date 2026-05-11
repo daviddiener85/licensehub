@@ -6,7 +6,7 @@ import { MandateCaptureForm } from "@/components/mandate-capture-form";
 import { MandateFormPreview } from "@/components/mandate-form-preview";
 import { DocumentType, PaymentStatus } from "@/generated/prisma/client";
 import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
-import { documentLabel, documentTypeDescriptions } from "@/lib/documents";
+import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { applicationPipeline } from "@/lib/workflow";
 
 export const dynamic = "force-dynamic";
@@ -125,6 +125,16 @@ export default async function ClientApplicationPage({
                   </div>
                   {documentTypeDescriptions[document.type] ? (
                     <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">{documentTypeDescriptions[document.type]}</p>
+                  ) : null}
+                  {documentHref(document.storageKey) ? (
+                    <a
+                      className="mt-2 inline-block text-xs font-semibold text-[#07315f] underline"
+                      href={documentHref(document.storageKey) ?? undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open generated PDF
+                    </a>
                   ) : null}
                 </div>
               ))}

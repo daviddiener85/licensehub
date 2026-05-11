@@ -18,6 +18,10 @@ export function documentLabel(type: DocumentType, fallback: string) {
   return documentTypeLabels[type] ?? formatDocumentName(fallback);
 }
 
+export function documentHref(storageKey: string) {
+  return storageKey.startsWith("/uploads/") ? storageKey : null;
+}
+
 export function formatDocumentName(fileName: string) {
   const nameWithoutExtension = fileName.replace(/\.[^/.]+$/, "");
 

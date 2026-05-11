@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { listSupplierApplications, statusLabel } from "@/lib/applications";
-import { documentLabel, documentTypeDescriptions } from "@/lib/documents";
+import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { supplierMarkProduced, supplierMarkReturning } from "@/lib/workflow-actions";
 import { supplierStatusActions } from "@/lib/workflow";
 
@@ -84,16 +84,36 @@ export default async function SupplierPage() {
                 </dl>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                  {selectedOrder.documents.map((document) => (
-                    <button key={document.id} className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">
-                      <span className="font-medium">{documentLabel(document.type, document.fileName)}</span>
-                      {documentTypeDescriptions[document.type] ? (
-                        <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
-                          {documentTypeDescriptions[document.type]}
-                        </span>
-                      ) : null}
-                    </button>
-                  ))}
+                  {selectedOrder.documents.map((document) => {
+                    const href = documentHref(document.storageKey);
+                    const content = (
+                      <>
+                        <span className="font-medium">{documentLabel(document.type, document.fileName)}</span>
+                        {documentTypeDescriptions[document.type] ? (
+                          <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                            {documentTypeDescriptions[document.type]}
+                          </span>
+                        ) : null}
+                        {href ? <span className="mt-1 block text-xs font-semibold text-[#07315f]">Open PDF</span> : null}
+                      </>
+                    );
+
+                    return href ? (
+                      <a
+                        key={document.id}
+                        href={href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="border border-[#d8d1c3] px-4 py-3 text-left text-sm"
+                      >
+                        {content}
+                      </a>
+                    ) : (
+                      <button key={document.id} className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">
+                        {content}
+                      </button>
+                    );
+                  })}
                   <button className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">
                     Payment {selectedOrder.payments.length > 0 ? "Confirmed" : "Not Confirmed"}
                   </button>

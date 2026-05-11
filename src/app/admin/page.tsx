@@ -7,7 +7,7 @@ import { ResubmissionActionForm } from "@/components/resubmission-action-form";
 import { PaymentStatus } from "@/generated/prisma/client";
 import { listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
-import { documentLabel, documentTypeDescriptions } from "@/lib/documents";
+import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import {
   approveToSupplier,
   cancelApplication,
@@ -288,19 +288,39 @@ export default async function AdminPage({
               {selectedApplication.id} · {selectedApplication.client.firstName} {selectedApplication.client.surname}
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {selectedApplication.documents.map((document) => (
-                <button key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
-                  <span className="text-[#1f2724]">{documentLabel(document.type, document.fileName)}: </span>
-                  <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
-                    {formatDocumentStatus(document.status)}
-                  </span>
-                  {documentTypeDescriptions[document.type] ? (
-                    <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
-                      {documentTypeDescriptions[document.type]}
+              {selectedApplication.documents.map((document) => {
+                const href = documentHref(document.storageKey);
+                const content = (
+                  <>
+                    <span className="text-[#1f2724]">{documentLabel(document.type, document.fileName)}: </span>
+                    <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
+                      {formatDocumentStatus(document.status)}
                     </span>
-                  ) : null}
-                </button>
-              ))}
+                    {documentTypeDescriptions[document.type] ? (
+                      <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                        {documentTypeDescriptions[document.type]}
+                      </span>
+                    ) : null}
+                    {href ? <span className="mt-1 block text-xs font-semibold text-[#07315f]">Open PDF</span> : null}
+                  </>
+                );
+
+                return href ? (
+                  <a
+                    key={document.id}
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="border border-[#d8d1c3] px-3 py-3 text-left text-sm"
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <button key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
+                    {content}
+                  </button>
+                );
+              })}
             </div>
             <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-3 text-sm">
               <span className="font-semibold">Mandate capture: </span>

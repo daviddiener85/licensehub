@@ -161,13 +161,13 @@ export function MandateCaptureForm({ applicationId, submittedAt, idPhotoFileName
           >
             <Upload size={28} className="mb-3 text-[#07315f]" aria-hidden="true" />
             <span className="font-semibold text-[#1f2724]">{fileName || "Upload ID photo"}</span>
-            <span className="mt-1 text-xs">JPG, PNG, or WebP. Make sure the full page is visible.</span>
+            <span className="mt-1 text-xs">JPG or PNG. Make sure the full page is visible.</span>
           </label>
           <input
             id="idPhoto"
             name="idPhoto"
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png"
             required
             className="sr-only"
             onChange={(event) => setFileName(event.currentTarget.files?.[0]?.name ?? "")}
