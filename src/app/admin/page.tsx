@@ -302,6 +302,14 @@ export default async function AdminPage({
                 </button>
               ))}
             </div>
+            <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-3 text-sm">
+              <span className="font-semibold">Mandate capture: </span>
+              {selectedApplication.mandateFormSubmission
+                ? `Signature and ID photo submitted on ${selectedApplication.mandateFormSubmission.submittedAt.toLocaleDateString(
+                    "en-ZA",
+                  )}.`
+                : "Awaiting client signature and ID photo."}
+            </div>
             <textarea
               className="mt-4 h-28 w-full border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm outline-none"
               defaultValue={

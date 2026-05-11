@@ -2,6 +2,24 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-05-11 19:45 SAST
+
+### Mandate form capture added
+
+- Added a `MandateFormSubmission` database model to store client mandate form capture data.
+- Added a Prisma migration for mandate form submissions and applied it locally.
+- Added a client-side signature pad for phone/touch signing.
+- Added ID photo upload for the mandate form identity verification step.
+- Added a server action that saves the signature and ID photo metadata against the application.
+- Added admin and supplier visibility for whether mandate capture has been submitted.
+- Ignored local upload files under `public/uploads` so client ID photos are not committed.
+- Verified `npm run lint` and `npm run build` both pass.
+
+### Mandate form notes
+
+- Uploaded ID photos are stored locally for development under `public/uploads/mandate-forms`.
+- The next implementation step is generating the final signed mandate PDF from the captured signature, ID photo and populated form data.
+
 ## 2026-05-11 19:30 SAST
 
 ### Mandate form foundation started

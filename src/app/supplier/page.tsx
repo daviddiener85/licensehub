@@ -100,6 +100,16 @@ export default async function SupplierPage() {
                   <button className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">
                     Application Summary
                   </button>
+                  <div className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">
+                    <span className="font-medium">Mandate capture</span>
+                    <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                      {selectedOrder.mandateFormSubmission
+                        ? `Signature and ID photo received ${selectedOrder.mandateFormSubmission.submittedAt.toLocaleDateString(
+                            "en-ZA",
+                          )}.`
+                        : "Awaiting client signature and ID photo."}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mt-6 flex flex-wrap gap-3 border-t border-[#d8d1c3] pt-5">

@@ -211,6 +211,7 @@ model Application {
   statusHistory  StatusHistory[]
   auditLogs      AuditLog[]
   dispatch       Dispatch?
+  mandateFormSubmission MandateFormSubmission?
   supplierEvents SupplierEvent[]
   notifications  Notification[]
   communications Communication[]
@@ -243,6 +244,20 @@ model Document {
 
   @@unique([applicationId, type, version])
   @@index([applicationId, type, status])
+}
+
+model MandateFormSubmission {
+  id                  String   @id @default(cuid())
+  applicationId       String   @unique
+  signatureDataUrl    String   @db.Text
+  idPhotoFileName     String
+  idPhotoMimeType     String
+  idPhotoSizeBytes    Int
+  idPhotoStorageKey   String
+  submittedAt         DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
 
 model Payment {

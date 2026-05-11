@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DatabaseSetup } from "@/components/database-setup";
+import { MandateCaptureForm } from "@/components/mandate-capture-form";
 import { MandateFormPreview } from "@/components/mandate-form-preview";
 import { DocumentType, PaymentStatus } from "@/generated/prisma/client";
 import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
@@ -139,6 +140,14 @@ export default async function ClientApplicationPage({
                 model={application.vehicleModel}
                 colour={application.vehicleColour}
                 date={mandateForm?.createdAt ?? application.submittedAt ?? application.createdAt}
+              />
+            </div>
+
+            <div className="mt-5">
+              <MandateCaptureForm
+                applicationId={application.id}
+                submittedAt={application.mandateFormSubmission?.submittedAt}
+                idPhotoFileName={application.mandateFormSubmission?.idPhotoFileName}
               />
             </div>
 

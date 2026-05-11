@@ -1,5 +1,9 @@
 "use server";
 
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+
 import { revalidatePath } from "next/cache";
 
 import {
@@ -7,6 +11,8 @@ import {
   CommunicationChannel,
   CommunicationDirection,
   CommunicationStatus,
+  DocumentStatus,
+  DocumentType,
   PaymentStatus,
   UserRole,
 } from "@/generated/prisma/client";
@@ -30,6 +36,34 @@ function getApplicationId(formData: FormData) {
   }
 
   return applicationId;
+}
+
+function safeFileName(fileName: string) {
+  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
+}
+
+function getSignatureDataUrl(formData: FormData) {
+  const signatureDataUrl = formData.get("signatureDataUrl");
+
+  if (typeof signatureDataUrl !== "string" || !signatureDataUrl.startsWith("data:image/png;base64,")) {
+    throw new Error("A phone signature is required before submitting the mandate form.");
+  }
+
+  return signatureDataUrl;
+}
+
+function getIdPhoto(formData: FormData) {
+  const idPhoto = formData.get("idPhoto");
+
+  if (!(idPhoto instanceof File) || idPhoto.size === 0) {
+    throw new Error("An ID photo is required before submitting the mandate form.");
+  }
+
+  if (!["image/jpeg", "image/png", "image/webp"].includes(idPhoto.type)) {
+    throw new Error("The ID photo must be a JPG, PNG, or WebP image.");
+  }
+
+  return idPhoto;
 }
 
 async function transitionApplication(
@@ -282,6 +316,79 @@ export async function sendClientMessage(formData: FormData) {
     },
   });
 
+  refreshWorkflowPages();
+}
+
+export async function submitMandateFormCapture(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const signatureDataUrl = getSignatureDataUrl(formData);
+  const idPhoto = getIdPhoto(formData);
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: { publicToken: true },
+  });
+
+  const uploadDirectory = path.join(process.cwd(), "public", "uploads", "mandate-forms", applicationId);
+  await mkdir(uploadDirectory, { recursive: true });
+
+  const fileName = `${randomUUID()}-${safeFileName(idPhoto.name || "id-photo")}`;
+  const absolutePath = path.join(uploadDirectory, fileName);
+  const idPhotoBytes = Buffer.from(await idPhoto.arrayBuffer());
+
+  await writeFile(absolutePath, idPhotoBytes);
+
+  const storageKey = `/uploads/mandate-forms/${applicationId}/${fileName}`;
+
+  await prisma.mandateFormSubmission.upsert({
+    where: { applicationId },
+    update: {
+      signatureDataUrl,
+      idPhotoFileName: idPhoto.name || fileName,
+      idPhotoMimeType: idPhoto.type,
+      idPhotoSizeBytes: idPhoto.size,
+      idPhotoStorageKey: storageKey,
+      submittedAt: new Date(),
+    },
+    create: {
+      applicationId,
+      signatureDataUrl,
+      idPhotoFileName: idPhoto.name || fileName,
+      idPhotoMimeType: idPhoto.type,
+      idPhotoSizeBytes: idPhoto.size,
+      idPhotoStorageKey: storageKey,
+    },
+  });
+
+  await prisma.document.upsert({
+    where: {
+      applicationId_type_version: {
+        applicationId,
+        type: DocumentType.MANDATE_FORM,
+        version: 1,
+      },
+    },
+    update: {
+      status: DocumentStatus.PENDING,
+      fileName: "mandate-form.pdf",
+      mimeType: "application/pdf",
+      storageKey: `pending-pdf/${applicationId}/mandate-form.pdf`,
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedAt: null,
+    },
+    create: {
+      applicationId,
+      type: DocumentType.MANDATE_FORM,
+      status: DocumentStatus.PENDING,
+      version: 1,
+      fileName: "mandate-form.pdf",
+      mimeType: "application/pdf",
+      fileSizeBytes: 0,
+      storageKey: `pending-pdf/${applicationId}/mandate-form.pdf`,
+    },
+  });
+
+  revalidatePath(`/client/${application.publicToken}`);
   refreshWorkflowPages();
 }
 

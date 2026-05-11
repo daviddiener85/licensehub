@@ -37,6 +37,7 @@ export async function listAdminApplications() {
       communications: {
         orderBy: { createdAt: "desc" },
       },
+      mandateFormSubmission: true,
     },
   });
 }
@@ -63,6 +64,7 @@ export async function listSupplierApplications() {
           id: true,
         },
       },
+      mandateFormSubmission: true,
     },
   });
 }
@@ -83,6 +85,7 @@ export async function getClientApplicationByToken(publicToken: string) {
         orderBy: { createdAt: "desc" },
       },
       dispatch: true,
+      mandateFormSubmission: true,
     },
   });
 }
