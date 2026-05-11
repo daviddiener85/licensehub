@@ -7,6 +7,7 @@ import { ResubmissionActionForm } from "@/components/resubmission-action-form";
 import { PaymentStatus } from "@/generated/prisma/client";
 import { listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
+import { documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import {
   approveToSupplier,
   cancelApplication,
@@ -48,18 +49,6 @@ function documentSummary(application: Awaited<ReturnType<typeof listAdminApplica
   }
 
   return "Accepted";
-}
-
-function formatDocumentName(fileName: string) {
-  const nameWithoutExtension = fileName.replace(/\.[^/.]+$/, "");
-  return nameWithoutExtension
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((word) => {
-      const normalizedWord = word.toLowerCase() === "licence" ? "license" : word;
-      return normalizedWord.charAt(0).toUpperCase() + normalizedWord.slice(1).toLowerCase();
-    })
-    .join(" ");
 }
 
 function documentStatusClass(status: string) {
@@ -263,7 +252,7 @@ export default async function AdminPage({
                       clientFirstName={application.client.firstName}
                       documents={application.documents.map((document) => ({
                         id: document.id,
-                        label: document.fileName,
+                        label: documentLabel(document.type, document.fileName),
                         currentReason: document.rejectionReason,
                       }))}
                       className="border border-[#8a6a2a] px-2 py-1 text-xs font-semibold text-[#6b5e4f]"
@@ -301,10 +290,15 @@ export default async function AdminPage({
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               {selectedApplication.documents.map((document) => (
                 <button key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
-                  <span className="text-[#1f2724]">{formatDocumentName(document.fileName)}: </span>
+                  <span className="text-[#1f2724]">{documentLabel(document.type, document.fileName)}: </span>
                   <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
                     {formatDocumentStatus(document.status)}
                   </span>
+                  {documentTypeDescriptions[document.type] ? (
+                    <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                      {documentTypeDescriptions[document.type]}
+                    </span>
+                  ) : null}
                 </button>
               ))}
             </div>
@@ -313,7 +307,7 @@ export default async function AdminPage({
               defaultValue={
                 selectedApplication.documents
                   .filter((document) => document.rejectionReason)
-                  .map((document) => `${document.fileName}: ${document.rejectionReason}`)
+                  .map((document) => `${documentLabel(document.type, document.fileName)}: ${document.rejectionReason}`)
                   .join("\n") || "No rejection notes captured yet."
               }
             />
@@ -324,7 +318,7 @@ export default async function AdminPage({
                 clientFirstName={selectedApplication.client.firstName}
                 documents={selectedApplication.documents.map((document) => ({
                   id: document.id,
-                  label: document.fileName,
+                  label: documentLabel(document.type, document.fileName),
                   currentReason: document.rejectionReason,
                 }))}
                 className="border border-[#8a6a2a] px-4 py-2 text-sm font-semibold text-[#6b5e4f]"

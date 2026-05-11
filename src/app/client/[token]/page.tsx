@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DatabaseSetup } from "@/components/database-setup";
-import { PaymentStatus } from "@/generated/prisma/client";
+import { MandateFormPreview } from "@/components/mandate-form-preview";
+import { DocumentType, PaymentStatus } from "@/generated/prisma/client";
 import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
+import { documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { applicationPipeline } from "@/lib/workflow";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +27,14 @@ function paymentSummary(application: NonNullable<Awaited<ReturnType<typeof getCl
   }
 
   return "Payment awaiting confirmation";
+}
+
+function clientIdLabel(application: NonNullable<Awaited<ReturnType<typeof getClientApplicationByToken>>>) {
+  if (application.client.southAfricanIdEncrypted.startsWith("encrypted-demo-id-hash-")) {
+    return "Demo ID on file";
+  }
+
+  return "Stored securely";
 }
 
 export default async function ClientApplicationPage({
@@ -52,6 +62,7 @@ export default async function ClientApplicationPage({
     visibleSteps.findIndex((step) => step.status === application.currentStatus),
   );
   const currentStage = applicationPipeline.find((step) => step.status === application.currentStatus);
+  const mandateForm = application.documents.find((document) => document.type === DocumentType.MANDATE_FORM);
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
@@ -103,14 +114,32 @@ export default async function ClientApplicationPage({
               {application.documents.map((document) => (
                 <div
                   key={document.id}
-                  className="flex items-center justify-between gap-4 border border-[#e4ded2] px-4 py-3"
+                  className="border border-[#e4ded2] px-4 py-3"
                 >
-                  <span className="text-sm font-medium">{document.fileName}</span>
-                  <span className="text-sm text-[#6b5e4f]">
-                    {document.status === "REJECTED" ? document.rejectionReason : statusLabel(document.status)}
-                  </span>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium">{documentLabel(document.type, document.fileName)}</span>
+                    <span className="text-sm text-[#6b5e4f]">
+                      {document.status === "REJECTED" ? document.rejectionReason : statusLabel(document.status)}
+                    </span>
+                  </div>
+                  {documentTypeDescriptions[document.type] ? (
+                    <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">{documentTypeDescriptions[document.type]}</p>
+                  ) : null}
                 </div>
               ))}
+            </div>
+
+            <div className="mt-5">
+              <MandateFormPreview
+                clientName={`${application.client.firstName} ${application.client.surname}`}
+                clientIdLabel={clientIdLabel(application)}
+                registrationNumber={application.registrationNumber}
+                vin={application.vin}
+                make={application.vehicleMake}
+                model={application.vehicleModel}
+                colour={application.vehicleColour}
+                date={mandateForm?.createdAt ?? application.submittedAt ?? application.createdAt}
+              />
             </div>
 
             {application.currentStatus === "DOCUMENTS_RESUBMIT_REQUIRED" ? (

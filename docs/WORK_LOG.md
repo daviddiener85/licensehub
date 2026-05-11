@@ -2,6 +2,23 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-05-11 19:30 SAST
+
+### Mandate form foundation started
+
+- Added a new `MANDATE_FORM` document type while retaining `MANDATE_LETTER` for legacy records.
+- Added a Prisma migration for the new mandate form document type and applied it locally.
+- Updated seed data and service document requirements to use `Completed mandate form` instead of handwritten mandate letters.
+- Added shared document labels so admin, client and supplier views use consistent document names.
+- Added a populated mandate form preview to the client application page based on the reference form design.
+- Verified `npm run lint` and `npm run build` both pass.
+
+### Mandate form notes
+
+- The preview is populated from captured application data: client name, date, registration number, VIN, make, model and colour.
+- The client ID number is still shown as a secure placeholder because the current app stores it encrypted and does not yet include a decrypt/display path for PDF generation.
+- Next implementation step: add the phone signature pad, ID photo capture/upload, and actual PDF generation from the approved mandate form template.
+
 ## 2026-05-11 19:24 SAST
 
 ### Local GitHub checkout setup fixed

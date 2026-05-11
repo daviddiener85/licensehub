@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { listSupplierApplications, statusLabel } from "@/lib/applications";
+import { documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { supplierMarkProduced, supplierMarkReturning } from "@/lib/workflow-actions";
 import { supplierStatusActions } from "@/lib/workflow";
 
@@ -85,7 +86,12 @@ export default async function SupplierPage() {
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
                   {selectedOrder.documents.map((document) => (
                     <button key={document.id} className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">
-                      {document.fileName}
+                      <span className="font-medium">{documentLabel(document.type, document.fileName)}</span>
+                      {documentTypeDescriptions[document.type] ? (
+                        <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                          {documentTypeDescriptions[document.type]}
+                        </span>
+                      ) : null}
                     </button>
                   ))}
                   <button className="border border-[#d8d1c3] px-4 py-3 text-left text-sm">

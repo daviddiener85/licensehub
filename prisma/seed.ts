@@ -53,7 +53,7 @@ const demoApplications = [
         fileName: "proof-of-address.pdf",
         rejectionReason: "Proof of address is older than 3 months.",
       },
-      { type: DocumentType.MANDATE_LETTER, status: DocumentStatus.ACCEPTED, fileName: "mandate-letter.jpg" },
+      { type: DocumentType.MANDATE_FORM, status: DocumentStatus.ACCEPTED, fileName: "mandate-form.pdf" },
     ],
     payment: {
       method: PaymentMethod.PAYSTACK,
@@ -85,7 +85,7 @@ const demoApplications = [
     documents: [
       { type: DocumentType.LICENCE_DISK_PHOTO, status: DocumentStatus.PENDING, fileName: "licence-disk.jpg" },
       { type: DocumentType.PROOF_OF_ADDRESS, status: DocumentStatus.PENDING, fileName: "proof-of-address.pdf" },
-      { type: DocumentType.MANDATE_LETTER, status: DocumentStatus.PENDING, fileName: "mandate-letter.jpg" },
+      { type: DocumentType.MANDATE_FORM, status: DocumentStatus.PENDING, fileName: "mandate-form.pdf" },
       { type: DocumentType.PROOF_OF_EFT_PAYMENT, status: DocumentStatus.PENDING, fileName: "eft-proof.pdf" },
     ],
     payment: {
@@ -119,7 +119,7 @@ const demoApplications = [
     documents: [
       { type: DocumentType.LICENCE_DISK_PHOTO, status: DocumentStatus.ACCEPTED, fileName: "licence-disk.jpg" },
       { type: DocumentType.PROOF_OF_ADDRESS, status: DocumentStatus.ACCEPTED, fileName: "proof-of-address.pdf" },
-      { type: DocumentType.MANDATE_LETTER, status: DocumentStatus.ACCEPTED, fileName: "mandate-letter.jpg" },
+      { type: DocumentType.MANDATE_FORM, status: DocumentStatus.ACCEPTED, fileName: "mandate-form.pdf" },
     ],
     payment: {
       method: PaymentMethod.PAYSTACK,
@@ -152,7 +152,7 @@ const demoApplications = [
     documents: [
       { type: DocumentType.LICENCE_DISK_PHOTO, status: DocumentStatus.ACCEPTED, fileName: "licence-disk.jpg" },
       { type: DocumentType.PROOF_OF_ADDRESS, status: DocumentStatus.ACCEPTED, fileName: "proof-of-address.pdf" },
-      { type: DocumentType.MANDATE_LETTER, status: DocumentStatus.ACCEPTED, fileName: "mandate-letter.jpg" },
+      { type: DocumentType.MANDATE_FORM, status: DocumentStatus.ACCEPTED, fileName: "mandate-form.pdf" },
     ],
     payment: {
       method: PaymentMethod.PAYSTACK,
@@ -227,18 +227,18 @@ async function main() {
             where: {
               serviceId_type: {
                 serviceId: "duplicate-certificate",
-                type: DocumentType.MANDATE_LETTER,
+                type: DocumentType.MANDATE_FORM,
               },
             },
             create: {
-              type: DocumentType.MANDATE_LETTER,
-              label: "Mandate letter",
-              description: "Handwritten letter addressed to License Hub with signature.",
+              type: DocumentType.MANDATE_FORM,
+              label: "Completed mandate form",
+              description: "System-generated signed PDF with client signature and ID photo embedded.",
               sortOrder: 3,
             },
             update: {
-              label: "Mandate letter",
-              description: "Handwritten letter addressed to License Hub with signature.",
+              label: "Completed mandate form",
+              description: "System-generated signed PDF with client signature and ID photo embedded.",
               sortOrder: 3,
             },
           },
@@ -266,13 +266,20 @@ async function main() {
             sortOrder: 2,
           },
           {
-            type: DocumentType.MANDATE_LETTER,
-            label: "Mandate letter",
-            description: "Handwritten letter addressed to License Hub with signature.",
+            type: DocumentType.MANDATE_FORM,
+            label: "Completed mandate form",
+            description: "System-generated signed PDF with client signature and ID photo embedded.",
             sortOrder: 3,
           },
         ],
       },
+    },
+  });
+
+  await prisma.serviceDocumentRequirement.deleteMany({
+    where: {
+      serviceId: "duplicate-certificate",
+      type: DocumentType.MANDATE_LETTER,
     },
   });
 
