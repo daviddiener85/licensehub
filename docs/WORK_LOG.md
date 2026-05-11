@@ -2,6 +2,16 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-05-11 19:24 SAST
+
+### Local GitHub checkout setup fixed
+
+- Fixed the local build error caused by the missing generated Prisma client.
+- Ran Prisma generation in the GitHub checkout and added `postinstall` so `prisma generate` runs automatically after future installs.
+- Restored the local `.env` file for development while keeping it ignored by git.
+- Added `.env.example` so required local environment variables are visible without committing secrets.
+- Verified `npm run build` completes successfully.
+
 ## 2026-05-11 19:13 SAST
 
 ### Signed SLA received
