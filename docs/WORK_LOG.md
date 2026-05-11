@@ -7,8 +7,8 @@ This repository keeps a dated record of product/specification decisions and impl
 ### Signed SLA received
 
 - Received the signed SLA.
+- Stored the signed SLA at `docs/agreements/Signed Service Agreement.pdf`.
 - Project record updated to note that the signed service-level agreement has been received.
-- Next step: store the signed SLA file in the agreed document location if it needs to be retained with the repository or linked from the project records.
 
 ## 2026-05-11 16:45 SAST
 
