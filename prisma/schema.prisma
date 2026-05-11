@@ -1,0 +1,401 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  SUPPLIER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ApplicationStatus {
+  DRAFT
+  PENDING_REVIEW
+  DOCUMENTS_RESUBMIT_REQUIRED
+  ADDITIONAL_CHARGE_RAISED
+  APPROVED
+  AT_SUPPLIER
+  SUPPLIER_PRODUCED
+  RETURNING_TO_LICENSE_HUB
+  DOCUMENT_RETURNED
+  DISPATCHED
+  CANCELLED
+}
+
+enum DocumentType {
+  LICENCE_DISK_PHOTO
+  PROOF_OF_ADDRESS
+  MANDATE_LETTER
+  PROOF_OF_EFT_PAYMENT
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum PaymentMethod {
+  PAYSTACK
+  EFT
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentType {
+  BASE_FEE
+  ADDITIONAL_CHARGE
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  WAIVED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+enum CommunicationDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum CommunicationChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum CommunicationStatus {
+  DRAFT
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  RECEIVED
+  FAILED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  name         String
+  email        String     @unique
+  cellphone    String?
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  reviewedDocuments  Document[]      @relation("DocumentReviewer")
+  statusChanges      StatusHistory[] @relation("StatusChangedBy")
+  auditLogs          AuditLog[]      @relation("AuditActor")
+  supplierEvents     SupplierEvent[] @relation("SupplierEventActor")
+  sentCommunications Communication[] @relation("CommunicationSender")
+}
+
+model Client {
+  id                      String   @id @default(cuid())
+  firstName               String
+  surname                 String
+  southAfricanIdEncrypted String
+  southAfricanIdHash      String   @unique
+  cellphone               String
+  email                   String
+  deliveryAddressLine1    String
+  deliveryAddressLine2    String?
+  deliverySuburb          String?
+  deliveryCity            String
+  deliveryProvince        String?
+  deliveryPostalCode      String
+  popiaConsentAcceptedAt  DateTime
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  applications Application[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String
+  basePrice   Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documentRequirements ServiceDocumentRequirement[]
+  applications         Application[]
+}
+
+model ServiceDocumentRequirement {
+  id          String       @id @default(cuid())
+  serviceId   String
+  type        DocumentType
+  label       String
+  description String?
+  isRequired  Boolean      @default(true)
+  sortOrder   Int          @default(0)
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, type])
+  @@index([serviceId, sortOrder])
+}
+
+model RetentionSetting {
+  id                       String   @id @default("default")
+  daysAfterCompletion      Int?
+  updatedByName            String?
+  complianceResponsibility String   @default("Business Owner")
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+model Application {
+  id                  String             @id @default(cuid())
+  publicToken         String             @unique
+  clientId            String
+  serviceId           String
+  currentStatus       ApplicationStatus  @default(DRAFT)
+  previousStatus      ApplicationStatus?
+  registrationNumber  String?
+  vehicleMake         String?
+  vehicleModel        String?
+  vehicleYear         Int?
+  vehicleColour       String?
+  vin                 String?
+  ocrConfidence       Decimal?           @db.Decimal(5, 2)
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  completedAt         DateTime?
+  cancelledAt         DateTime?
+  retentionEligibleAt DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  client         Client          @relation(fields: [clientId], references: [id])
+  service        Service         @relation(fields: [serviceId], references: [id])
+  documents      Document[]
+  payments       Payment[]
+  charges        Charge[]
+  statusHistory  StatusHistory[]
+  auditLogs      AuditLog[]
+  dispatch       Dispatch?
+  supplierEvents SupplierEvent[]
+  notifications  Notification[]
+  communications Communication[]
+
+  @@index([clientId])
+  @@index([serviceId])
+  @@index([currentStatus])
+  @@index([submittedAt])
+  @@index([retentionEligibleAt])
+}
+
+model Document {
+  id                String         @id @default(cuid())
+  applicationId     String
+  type              DocumentType
+  status            DocumentStatus @default(PENDING)
+  version           Int
+  fileName          String
+  mimeType          String
+  fileSizeBytes     Int
+  storageKey        String
+  proofDocumentDate DateTime?
+  rejectionReason   String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  createdAt         DateTime       @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewedBy  User?       @relation("DocumentReviewer", fields: [reviewedById], references: [id])
+
+  @@unique([applicationId, type, version])
+  @@index([applicationId, type, status])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  applicationId     String
+  chargeId          String?
+  type              PaymentType
+  method            PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("ZAR")
+  reference         String
+  providerReference String?
+  proofDocumentId   String?
+  confirmedAt       DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  charge      Charge?     @relation(fields: [chargeId], references: [id])
+
+  @@index([applicationId])
+  @@index([status])
+  @@index([reference])
+}
+
+model Charge {
+  id            String       @id @default(cuid())
+  applicationId String
+  description   String
+  reason        String
+  amount        Decimal      @db.Decimal(10, 2)
+  status        ChargeStatus @default(PENDING)
+  dueAt         DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+
+  @@index([applicationId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+model StatusHistory {
+  id            String             @id @default(cuid())
+  applicationId String
+  fromStatus    ApplicationStatus?
+  toStatus      ApplicationStatus
+  note          String?
+  changedById   String?
+  createdAt     DateTime           @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy   User?       @relation("StatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([applicationId, createdAt])
+  @@index([toStatus])
+}
+
+model SupplierEvent {
+  id            String            @id @default(cuid())
+  applicationId String
+  action        ApplicationStatus
+  note          String?
+  actorId       String
+  createdAt     DateTime          @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actor       User        @relation("SupplierEventActor", fields: [actorId], references: [id])
+
+  @@index([applicationId, createdAt])
+  @@index([action])
+}
+
+model Dispatch {
+  id             String    @id @default(cuid())
+  applicationId  String    @unique
+  courierName    String
+  trackingNumber String
+  trackingUrl    String?
+  dispatchedAt   DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id            String              @id @default(cuid())
+  applicationId String
+  channel       NotificationChannel
+  status        NotificationStatus  @default(QUEUED)
+  recipient     String
+  subject       String?
+  body          String
+  sentAt        DateTime?
+  failedAt      DateTime?
+  errorMessage  String?
+  createdAt     DateTime            @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([status])
+}
+
+model Communication {
+  id                String                 @id @default(cuid())
+  applicationId     String
+  channel           CommunicationChannel
+  direction         CommunicationDirection
+  status            CommunicationStatus    @default(QUEUED)
+  senderId          String?
+  recipientName     String
+  recipientAddress  String
+  templateKey       String?
+  body              String
+  providerMessageId String?
+  providerPayload   Json?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  receivedAt        DateTime?
+  failedAt          DateTime?
+  errorMessage      String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  sender      User?       @relation("CommunicationSender", fields: [senderId], references: [id])
+
+  @@index([applicationId, createdAt])
+  @@index([channel, status])
+  @@index([providerMessageId])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  applicationId String?
+  actorId       String?
+  action        String
+  entityType    String
+  entityId      String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  actor       User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([applicationId])
+  @@index([actorId])
+  @@index([createdAt])
+}
