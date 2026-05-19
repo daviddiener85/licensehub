@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import {
   ApplicationStatus,
+  ClientEntityType,
   DocumentStatus,
   DocumentType,
   PaymentMethod,
@@ -30,6 +31,8 @@ const demoApplications = [
     status: ApplicationStatus.DOCUMENTS_RESUBMIT_REQUIRED,
     previousStatus: ApplicationStatus.PENDING_REVIEW,
     client: {
+      entityType: ClientEntityType.PRIVATE_OWNER,
+      referralSource: "Morne referral",
       firstName: "Mia",
       surname: "Jacobs",
       idHash: "demo-id-hash-mia",
@@ -67,6 +70,8 @@ const demoApplications = [
     publicToken: "demo-eft-pending",
     status: ApplicationStatus.PENDING_REVIEW,
     client: {
+      entityType: ClientEntityType.PRIVATE_OWNER,
+      referralSource: "Website",
       firstName: "Aiden",
       surname: "Naidoo",
       idHash: "demo-id-hash-aiden",
@@ -101,6 +106,8 @@ const demoApplications = [
     status: ApplicationStatus.AT_SUPPLIER,
     previousStatus: ApplicationStatus.APPROVED,
     client: {
+      entityType: ClientEntityType.COMPANY_OR_TRUST,
+      referralSource: "Dealer partner",
       firstName: "Thando",
       surname: "Mokoena",
       idHash: "demo-id-hash-thando",
@@ -134,6 +141,8 @@ const demoApplications = [
     status: ApplicationStatus.RETURNING_TO_LICENSE_HUB,
     previousStatus: ApplicationStatus.SUPPLIER_PRODUCED,
     client: {
+      entityType: ClientEntityType.DECEASED_ESTATE,
+      referralSource: "Walk-in",
       firstName: "Leila",
       surname: "Petersen",
       idHash: "demo-id-hash-leila",
@@ -168,10 +177,14 @@ async function main() {
     where: { id: "default" },
     update: {
       complianceResponsibility: "Business Owner",
+      adminAutoRefreshEnabled: true,
+      adminRefreshIntervalSeconds: 30,
     },
     create: {
       id: "default",
       daysAfterCompletion: null,
+      adminAutoRefreshEnabled: true,
+      adminRefreshIntervalSeconds: 30,
       complianceResponsibility: "Business Owner",
     },
   });
@@ -276,6 +289,42 @@ async function main() {
     },
   });
 
+  await prisma.service.upsert({
+    where: { slug: "change-of-ownership" },
+    update: {
+      name: "Change of Ownership",
+      description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
+      basePrice: "0.00",
+      isActive: true,
+    },
+    create: {
+      id: "change-of-ownership",
+      slug: "change-of-ownership",
+      name: "Change of Ownership",
+      description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
+      basePrice: "0.00",
+      isActive: true,
+    },
+  });
+
+  await prisma.service.upsert({
+    where: { slug: "licence-renewal" },
+    update: {
+      name: "Licence Renewal",
+      description: "Vehicle licence renewal assistance. Available in Gauteng only.",
+      basePrice: "0.00",
+      isActive: true,
+    },
+    create: {
+      id: "licence-renewal",
+      slug: "licence-renewal",
+      name: "Licence Renewal",
+      description: "Vehicle licence renewal assistance. Available in Gauteng only.",
+      basePrice: "0.00",
+      isActive: true,
+    },
+  });
+
   await prisma.serviceDocumentRequirement.deleteMany({
     where: {
       serviceId: "duplicate-certificate",
@@ -319,6 +368,8 @@ async function main() {
     const client = await prisma.client.upsert({
       where: { southAfricanIdHash: demo.client.idHash },
       update: {
+        entityType: demo.client.entityType,
+        referralSource: demo.client.referralSource,
         firstName: demo.client.firstName,
         surname: demo.client.surname,
         cellphone: demo.client.cellphone,
@@ -327,6 +378,8 @@ async function main() {
         deliveryPostalCode: demo.client.postalCode,
       },
       create: {
+        entityType: demo.client.entityType,
+        referralSource: demo.client.referralSource,
         firstName: demo.client.firstName,
         surname: demo.client.surname,
         southAfricanIdEncrypted: `encrypted-${demo.client.idHash}`,
@@ -380,6 +433,7 @@ async function main() {
     await prisma.payment.deleteMany({ where: { applicationId: application.id } });
     await prisma.charge.deleteMany({ where: { applicationId: application.id } });
     await prisma.document.deleteMany({ where: { applicationId: application.id } });
+    await prisma.mandateFormSubmission.deleteMany({ where: { applicationId: application.id } });
     await prisma.supplierEvent.deleteMany({ where: { applicationId: application.id } });
     await prisma.statusHistory.deleteMany({ where: { applicationId: application.id } });
 

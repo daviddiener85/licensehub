@@ -37,7 +37,14 @@ export async function listAdminApplications() {
       communications: {
         orderBy: { createdAt: "desc" },
       },
+      orderComments: {
+        orderBy: { createdAt: "desc" },
+      },
       mandateFormSubmission: true,
+      statusHistory: {
+        orderBy: { createdAt: "desc" },
+        take: 12,
+      },
     },
   });
 }
@@ -63,6 +70,9 @@ export async function listSupplierApplications() {
         select: {
           id: true,
         },
+      },
+      orderComments: {
+        orderBy: { createdAt: "desc" },
       },
       mandateFormSubmission: true,
     },

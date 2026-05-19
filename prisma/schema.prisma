@@ -104,6 +104,24 @@ enum CommunicationStatus {
   FAILED
 }
 
+enum SupplierUrgency {
+  NORMAL
+  URGENT
+  VERY_URGENT
+}
+
+enum OrderCommentSource {
+  ADMIN
+  SUPPLIER
+}
+
+enum ClientEntityType {
+  PRIVATE_OWNER
+  DECEASED_ESTATE
+  COMPANY_OR_TRUST
+  NON_SA_CITIZEN
+}
+
 model User {
   id           String     @id @default(cuid())
   role         UserRole
@@ -124,6 +142,8 @@ model User {
 
 model Client {
   id                      String   @id @default(cuid())
+  entityType              ClientEntityType @default(PRIVATE_OWNER)
+  referralSource          String?
   firstName               String
   surname                 String
   southAfricanIdEncrypted String
@@ -175,6 +195,8 @@ model ServiceDocumentRequirement {
 model RetentionSetting {
   id                       String   @id @default("default")
   daysAfterCompletion      Int?
+  adminAutoRefreshEnabled  Boolean  @default(true)
+  adminRefreshIntervalSeconds Int    @default(30)
   updatedByName            String?
   complianceResponsibility String   @default("Business Owner")
   createdAt                DateTime @default(now())
@@ -195,6 +217,7 @@ model Application {
   vehicleColour       String?
   vin                 String?
   ocrConfidence       Decimal?           @db.Decimal(5, 2)
+  supplierUrgency     SupplierUrgency    @default(NORMAL)
   submittedAt         DateTime?
   approvedAt          DateTime?
   completedAt         DateTime?
@@ -215,12 +238,28 @@ model Application {
   supplierEvents SupplierEvent[]
   notifications  Notification[]
   communications Communication[]
+  orderComments  OrderComment[]
 
   @@index([clientId])
   @@index([serviceId])
   @@index([currentStatus])
+  @@index([supplierUrgency])
   @@index([submittedAt])
   @@index([retentionEligibleAt])
+}
+
+model OrderComment {
+  id            String             @id @default(cuid())
+  applicationId String
+  source        OrderCommentSource
+  authorName    String
+  body          String             @db.Text
+  createdAt     DateTime           @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+  @@index([source])
 }
 
 model Document {

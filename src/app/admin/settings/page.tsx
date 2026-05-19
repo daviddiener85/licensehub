@@ -6,6 +6,7 @@ import { formatRetentionSetting } from "@/lib/retention";
 import {
   createService,
   createUser,
+  updateAdminWorkspaceSetting,
   updateRetentionSetting,
   updateService,
   updateUser,
@@ -179,6 +180,38 @@ export default async function AdminSettingsPage() {
               <input name="updatedByName" type="hidden" value="License Hub Admin" />
               <button className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white">
                 Save Retention
+              </button>
+            </form>
+          </aside>
+
+          <aside className="mt-5 border border-[#d8d1c3] bg-white p-5">
+            <h2 className="text-xl font-semibold">Admin Workspace</h2>
+            <p className="mt-3 text-sm leading-6 text-[#52615b]">
+              Control how often the admin order list refreshes while the workspace is open.
+            </p>
+            <form action={updateAdminWorkspaceSetting} className="mt-6 flex flex-wrap items-end gap-4">
+              <label className="flex h-10 items-center gap-2 text-sm font-semibold">
+                <input
+                  defaultChecked={data.retentionSetting?.adminAutoRefreshEnabled ?? true}
+                  name="adminAutoRefreshEnabled"
+                  type="checkbox"
+                />
+                Enable auto-refresh
+              </label>
+              <label className="block w-full max-w-sm text-sm font-semibold">
+                Refresh interval in seconds
+                <input
+                  className="mt-2 h-10 w-full border border-[#d8d1c3] bg-[#fffdf8] px-3 font-normal outline-none"
+                  defaultValue={data.retentionSetting?.adminRefreshIntervalSeconds ?? 30}
+                  max="600"
+                  min="5"
+                  name="adminRefreshIntervalSeconds"
+                  type="number"
+                />
+              </label>
+              <input name="updatedByName" type="hidden" value="License Hub Admin" />
+              <button className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white">
+                Save Refresh
               </button>
             </form>
           </aside>

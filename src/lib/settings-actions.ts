@@ -83,6 +83,30 @@ export async function updateRetentionSetting(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function updateAdminWorkspaceSetting(formData: FormData) {
+  const interval = Number(stringField(formData, "adminRefreshIntervalSeconds") || 30);
+  const safeInterval = Math.max(5, Math.min(600, interval));
+  const autoRefreshEnabled = formData.get("adminAutoRefreshEnabled") === "on";
+
+  await prisma.retentionSetting.upsert({
+    where: { id: "default" },
+    update: {
+      adminAutoRefreshEnabled: autoRefreshEnabled,
+      adminRefreshIntervalSeconds: safeInterval,
+      updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
+    },
+    create: {
+      id: "default",
+      adminAutoRefreshEnabled: autoRefreshEnabled,
+      adminRefreshIntervalSeconds: safeInterval,
+      updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
+    },
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
+}
+
 export async function createUser(formData: FormData) {
   const name = stringField(formData, "name");
   const email = stringField(formData, "email").toLowerCase();
