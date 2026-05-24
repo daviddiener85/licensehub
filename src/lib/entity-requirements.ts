@@ -53,13 +53,13 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
       key: "executor-authority",
       label: "Executor authority document",
       description: "Letter of executorship or authority document for the estate representative.",
-      confirmedForUpload: false,
+      confirmedForUpload: true,
     },
     {
       key: "death-certificate",
       label: "Death certificate",
       description: "Estate supporting document to be confirmed in the final document list.",
-      confirmedForUpload: false,
+      confirmedForUpload: true,
     },
   ],
   [ClientEntityType.COMPANY_OR_TRUST]: [
@@ -68,13 +68,13 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
       key: "registration-or-trust-document",
       label: "Company or trust registration document",
       description: "Company registration, trust deed, or equivalent entity document.",
-      confirmedForUpload: false,
+      confirmedForUpload: true,
     },
     {
       key: "representative-authority",
       label: "Representative authority",
       description: "Resolution or authority letter for the person signing on behalf of the entity.",
-      confirmedForUpload: false,
+      confirmedForUpload: true,
     },
   ],
   [ClientEntityType.NON_SA_CITIZEN]: [
@@ -83,7 +83,7 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
       key: "passport-or-traffic-register",
       label: "Passport or traffic register document",
       description: "Non-SA citizen identity document to be confirmed for production handling.",
-      confirmedForUpload: false,
+      confirmedForUpload: true,
     },
   ],
 };

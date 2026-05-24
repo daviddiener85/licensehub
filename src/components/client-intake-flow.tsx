@@ -27,6 +27,7 @@ type IntakeService = {
   name: string;
   description: string;
   basePrice: string;
+  deliveryFee: string;
 };
 
 type ClientIntakeFlowProps = {
@@ -44,19 +45,22 @@ const fallbackServices: IntakeService[] = [
     slug: "duplicate-certificate",
     name: "Duplicate Certificate",
     description: "Replacement of lost vehicle certificates.",
-    basePrice: "0",
+    basePrice: "499",
+    deliveryFee: "0",
   },
   {
     slug: "change-of-ownership",
     name: "Change of Ownership",
     description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
     basePrice: "0",
+    deliveryFee: "0",
   },
   {
     slug: "licence-renewal",
     name: "Licence Renewal",
     description: "Vehicle licence renewal assistance. Available in Gauteng only.",
     basePrice: "0",
+    deliveryFee: "0",
   },
 ];
 
@@ -72,6 +76,11 @@ const initialLicenceDiskScanState = {
     model: "",
   },
   confidence: 0,
+};
+
+const initialPublicIntakeSubmitState = {
+  status: "idle" as const,
+  message: "",
 };
 
 const ownershipOptions: {
@@ -197,6 +206,10 @@ function uploadInputName(documentLabel: string) {
   return "supportingDocument";
 }
 
+function isMandateStepUpload(documentLabel: string) {
+  return uploadInputName(documentLabel) !== "licenceDiskPhoto";
+}
+
 export function ClientIntakeFlow({ reference, services = fallbackServices }: ClientIntakeFlowProps) {
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
@@ -232,6 +245,12 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
     deliveryProvince: "",
     deliveryPostalCode: "",
   });
+  const [entityDetails, setEntityDetails] = useState({
+    entityDisplayName: "",
+    entityRegistrationNumber: "",
+    representativeFullName: "",
+    representativeCapacity: "",
+  });
   const [popiaConsent, setPopiaConsent] = useState(false);
   const [vehicleDetails, setVehicleDetails] = useState({
     registrationNumber: "",
@@ -240,14 +259,20 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
     model: "",
   });
   const [licenceDiskFileName, setLicenceDiskFileName] = useState("");
+  const [licenceDiskUploadFile, setLicenceDiskUploadFile] = useState<File | null>(null);
   const [licenceDiskScanResultInvalidated, setLicenceDiskScanResultInvalidated] = useState(false);
   const [licenceDiskScanState, scanLicenceDiskAction, scanLicenceDiskPending] = useActionState(
     scanLicenceDiskPhoto,
     initialLicenceDiskScanState,
   );
+  const [publicIntakeSubmitState, createPublicApplicationIntakeAction] = useActionState(
+    createPublicApplicationIntake,
+    initialPublicIntakeSubmitState,
+  );
   const [vehicleDetailsConfirmed, setVehicleDetailsConfirmed] = useState(false);
   const [isDrawingSignature, setIsDrawingSignature] = useState(false);
   const [hasMandateSignature, setHasMandateSignature] = useState(false);
+  const [deliveryRequired, setDeliveryRequired] = useState(false);
   const selectedService =
     availableServices.find((service) => service.slug === selectedServiceSlug) ?? availableServices[0];
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
@@ -279,6 +304,12 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
   const vehicleDetailsComplete =
     effectiveVehicleDetails.registrationNumber.trim().length > 0 && licenceDiskFileName.trim().length > 0;
   const selectedServiceAmount = Number(selectedService.basePrice);
+  const selectedServiceDeliveryFee = Number(selectedService.deliveryFee);
+  const requiredUploadLabels = requiredDocuments
+    .filter((document) => isMandateStepUpload(document.label))
+    .filter((document) => ["idPhoto", "proofOfAddress"].includes(uploadInputName(document.label)))
+    .map((document) => document.label);
+  const requiredUploadsReady = requiredUploadLabels.every((label) => Boolean(selectedFiles[label]));
   const licenceDiskScanMessage = scanLicenceDiskPending
     ? "Trying to read the licence disk photo..."
     : licenceDiskScanState.status !== "idle" && !licenceDiskScanResultInvalidated
@@ -357,6 +388,20 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
     }
 
     signatureInputRef.current.value = canvas.toDataURL("image/png");
+  }
+
+  async function submitPublicIntake(formData: FormData) {
+    const submittedLicenceDisk = formData.get("licenceDiskPhoto");
+
+    if (
+      (!(submittedLicenceDisk instanceof File) || submittedLicenceDisk.size === 0) &&
+      licenceDiskUploadFile instanceof File &&
+      licenceDiskUploadFile.size > 0
+    ) {
+      formData.set("licenceDiskPhoto", licenceDiskUploadFile, licenceDiskUploadFile.name);
+    }
+
+    await createPublicApplicationIntakeAction(formData);
   }
 
   return (
@@ -575,6 +620,122 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                 }}
               />
             </label>
+
+            {ownershipType === "company-or-trust" ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold">
+                  Company or trust legal name
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.entityDisplayName}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        entityDisplayName: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  CIPC / BRNC / registration number
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.entityRegistrationNumber}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        entityRegistrationNumber: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Representative full name
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.representativeFullName}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        representativeFullName: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Representative role/capacity
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    placeholder="Director, trustee, authorised agent"
+                    value={entityDetails.representativeCapacity}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        representativeCapacity: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {ownershipType === "deceased-estate" ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <label className="text-sm font-semibold">
+                  Estate name or reference
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.entityDisplayName}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        entityDisplayName: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Executor/letter reference number
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.entityRegistrationNumber}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        entityRegistrationNumber: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Representative full name
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.representativeFullName}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        representativeFullName: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Representative role/capacity
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    placeholder="Executor, estate representative"
+                    value={entityDetails.representativeCapacity}
+                    onChange={(event) =>
+                      setEntityDetails((current) => ({
+                        ...current,
+                        representativeCapacity: event.currentTarget.value,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -615,9 +776,11 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                       capture="environment"
                       className="sr-only"
                       onChange={(event) => {
-                        const fileName = event.currentTarget.files?.[0]?.name ?? "";
+                        const selectedFile = event.currentTarget.files?.[0] ?? null;
+                        const fileName = selectedFile?.name ?? "";
 
                         setLicenceDiskFileName(fileName);
+                        setLicenceDiskUploadFile(selectedFile);
                         setLicenceDiskScanResultInvalidated(true);
                         setVehicleDetailsConfirmed(false);
                         setSelectedFiles((current) => ({
@@ -713,7 +876,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
               </p>
             </div>
             <div className="grid gap-2">
-              {requiredDocuments.map((document) => (
+              {requiredDocuments.filter((document) => isMandateStepUpload(document.label)).map((document) => (
                 <div key={document.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                   <div className="flex items-start gap-3">
                     <FileText size={18} className="mt-0.5 shrink-0 text-[#07315f]" aria-hidden="true" />
@@ -734,8 +897,8 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
           </div>
         ) : null}
 
-        {stepIndex === 6 ? (
-          <form action={createPublicApplicationIntake} onSubmit={preparePublicIntakeSubmit}>
+        {stepIndex === 6 || stepIndex === 7 ? (
+          <form action={submitPublicIntake} onSubmit={preparePublicIntakeSubmit}>
             <input type="hidden" name="serviceSlug" value={selectedService.slug} />
             <input type="hidden" name="ownershipType" value={ownershipType} />
             <input type="hidden" name="relation" value={relation || selectedOwnership.relationPrompt} />
@@ -747,186 +910,288 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
             <input type="hidden" name="vin" value={effectiveVehicleDetails.vin} />
             <input type="hidden" name="vehicleMake" value={effectiveVehicleDetails.make} />
             <input type="hidden" name="vehicleModel" value={effectiveVehicleDetails.model} />
+            <input type="hidden" name="paymentMethod" value="EFT" />
+            <input type="hidden" name="deliveryRequired" value={deliveryRequired ? "yes" : "no"} />
+            {Object.entries(entityDetails).map(([field, value]) => (
+              <input key={field} type="hidden" name={field} value={value} />
+            ))}
             <input ref={signatureInputRef} type="hidden" name="signatureDataUrl" />
 
-          <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-            <div>
-              <h2 className="text-2xl font-semibold">Review and sign mandate form</h2>
-              <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                Upload the supporting documents, then read the mandate form in full before signing. Your signature is
-                only captured after the populated form is visible.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                These uploads are selected here so the client can see what is needed. The next build step is to save each
-                file against the application record and generate the signed mandate PDF.
-              </p>
-            </div>
-            <div className="grid gap-3">
-              {requiredDocuments.map((document) => (
-                <div key={document.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="flex items-center gap-2 font-semibold">
-                      <Upload size={18} className="text-[#07315f]" aria-hidden="true" />
-                      {document.label}
+            {stepIndex >= 6 ? (
+              <div
+                className={
+                  stepIndex === 6
+                    ? "grid gap-5 lg:grid-cols-[0.85fr_1.15fr]"
+                    : "absolute -left-[10000px] top-auto h-px w-px overflow-hidden"
+                }
+              >
+                <div>
+                  <h2 className="text-2xl font-semibold">Review and sign mandate form</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#52615b]">
+                    Upload the supporting documents, then read the mandate form in full before signing. Your signature is
+                    only captured after the populated form is visible.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {requiredDocuments.filter((document) => isMandateStepUpload(document.label)).map((document) => (
+                    <div key={document.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span className="flex items-center gap-2 font-semibold">
+                          <Upload size={18} className="text-[#07315f]" aria-hidden="true" />
+                          {document.label}
+                        </span>
+                        <label className="cursor-pointer border border-[#d8d1c3] bg-white px-3 py-1.5 text-xs font-semibold text-[#52615b]">
+                          Choose File
+                          <input
+                            type="file"
+                            name={uploadInputName(document.label)}
+                            accept={
+                              uploadInputName(document.label) === "proofOfAddress"
+                                ? "image/jpeg,image/png,application/pdf"
+                                : "image/jpeg,image/png"
+                            }
+                            capture={uploadInputName(document.label) === "proofOfAddress" ? undefined : "environment"}
+                            required={
+                              stepIndex === 6 &&
+                              ["idPhoto", "licenceDiskPhoto", "proofOfAddress"].includes(uploadInputName(document.label))
+                            }
+                            className="sr-only"
+                            onChange={(event) => {
+                              const inputName = uploadInputName(document.label);
+                              const selectedFile = event.currentTarget.files?.[0] ?? null;
+                              const fileName = selectedFile?.name;
+
+                              if (inputName === "licenceDiskPhoto") {
+                                setLicenceDiskUploadFile(selectedFile);
+                                setLicenceDiskFileName(fileName ?? "");
+                              }
+
+                              setSelectedFiles((current) => ({
+                                ...current,
+                                [document.label]: fileName ?? "",
+                              }));
+                            }}
+                          />
+                        </label>
+                      </div>
+                      {selectedFiles[document.label] ? (
+                        <p className="mt-2 text-xs font-semibold text-[#1f7a4d]">{selectedFiles[document.label]}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                  <div className="border border-[#07315f] bg-white p-4 text-sm">
+                    <span className="flex items-center gap-2 text-base font-semibold">
+                      <PenLine size={18} className="text-[#07315f]" aria-hidden="true" />
+                      Mandate form
                     </span>
-                    <label className="cursor-pointer border border-[#d8d1c3] bg-white px-3 py-1.5 text-xs font-semibold text-[#52615b]">
-                      Choose File
-                      <input
-                        type="file"
-                        name={uploadInputName(document.label)}
-                        accept={
-                          uploadInputName(document.label) === "proofOfAddress"
-                            ? "image/jpeg,image/png,application/pdf"
-                            : "image/jpeg,image/png"
-                        }
-                        capture={uploadInputName(document.label) === "proofOfAddress" ? undefined : "environment"}
-                        required={["idPhoto", "licenceDiskPhoto", "proofOfAddress"].includes(
-                          uploadInputName(document.label),
-                        )}
-                        className="sr-only"
-                        onChange={(event) => {
-                          const fileName = event.currentTarget.files?.[0]?.name;
+                    <div className="mt-4 border border-[#d8d1c3] bg-[#fffdf8] p-4 leading-6 text-[#1f2724]">
+                      <p className="text-center text-base font-semibold uppercase">
+                        Request letter for duplicate vehicle registration document
+                      </p>
+                      <p className="mt-4">To Whom This May Concern</p>
+                      <p className="mt-3">
+                        I, <span className="font-semibold">{clientDetails.fullName || "Client name"}</span>, hereby state
+                        that I require assistance with my selected License Hub service,{" "}
+                        <span className="font-semibold">{selectedService.name}</span>.
+                      </p>
+                      <p className="mt-3">
+                        I request License Hub&apos;s assistance in preparing and submitting the required vehicle
+                        administration documents on my behalf, using the details I have provided and confirmed in this
+                        application.
+                      </p>
+                      <dl className="mt-4 grid gap-3 border-t border-[#eee8dc] pt-4 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Client</dt>
+                          <dd className="font-medium">{clientDetails.fullName || "To be confirmed"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">ID / passport / traffic register</dt>
+                          <dd className="font-medium">{clientDetails.identityNumber || "To be confirmed"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Registration</dt>
+                          <dd className="font-medium">{effectiveVehicleDetails.registrationNumber || "To be confirmed"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">VIN / chassis</dt>
+                          <dd className="font-medium">{effectiveVehicleDetails.vin || "To be confirmed"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Make</dt>
+                          <dd className="font-medium">{effectiveVehicleDetails.make || "To be confirmed"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Model</dt>
+                          <dd className="font-medium">{effectiveVehicleDetails.model || "To be confirmed"}</dd>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Relationship to vehicle</dt>
+                          <dd className="font-medium">{relation || selectedOwnership.relationPrompt}</dd>
+                        </div>
+                      </dl>
+                    </div>
 
-                          setSelectedFiles((current) => ({
-                            ...current,
-                            [document.label]: fileName ?? "",
-                          }));
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="font-semibold" htmlFor="public-mandate-signature-pad">
+                          Signature
+                        </label>
+                        <button
+                          type="button"
+                          onClick={clearMandateSignature}
+                          className="border border-[#d8d1c3] px-3 py-1.5 text-xs font-semibold text-[#6b5e4f]"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                      <canvas
+                        ref={signatureCanvasRef}
+                        id="public-mandate-signature-pad"
+                        width={900}
+                        height={360}
+                        className="mt-2 h-56 w-full touch-none border-2 border-[#07315f] bg-white sm:h-64"
+                        onPointerDown={(event) => {
+                          event.currentTarget.setPointerCapture(event.pointerId);
+                          drawSignatureStart(canvasPoint(event.currentTarget, event.clientX, event.clientY));
                         }}
+                        onPointerMove={(event) =>
+                          drawSignatureMove(canvasPoint(event.currentTarget, event.clientX, event.clientY))
+                        }
+                        onPointerUp={stopSignatureDrawing}
+                        onPointerCancel={stopSignatureDrawing}
+                        onPointerLeave={stopSignatureDrawing}
+                        aria-label="Signature pad"
                       />
-                    </label>
+                      <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
+                        Sign inside the box after reading the mandate form above. Use your finger on mobile.
+                      </p>
+                      {!hasMandateSignature ? (
+                        <p className="mt-1 text-xs font-semibold text-[#8a6a2a]">
+                          Signature required before payment can be requested.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
-                  {selectedFiles[document.label] ? (
-                    <p className="mt-2 text-xs font-semibold text-[#1f7a4d]">{selectedFiles[document.label]}</p>
-                  ) : null}
-                </div>
-              ))}
-              <div className="border border-[#07315f] bg-white p-4 text-sm">
-                <span className="flex items-center gap-2 text-base font-semibold">
-                  <PenLine size={18} className="text-[#07315f]" aria-hidden="true" />
-                  Mandate form
-                </span>
-                <div className="mt-4 border border-[#d8d1c3] bg-[#fffdf8] p-4 leading-6 text-[#1f2724]">
-                  <p className="text-center text-base font-semibold uppercase">
-                    Request letter for duplicate vehicle registration document
-                  </p>
-                  <p className="mt-4">To Whom This May Concern</p>
-                  <p className="mt-3">
-                    I, <span className="font-semibold">{clientDetails.fullName || "Client name"}</span>, hereby state
-                    that I require assistance with my selected License Hub service,{" "}
-                    <span className="font-semibold">{selectedService.name}</span>.
-                  </p>
-                  <p className="mt-3">
-                    I request License Hub&apos;s assistance in preparing and submitting the required vehicle
-                    administration documents on my behalf, using the details I have provided and confirmed in this
-                    application.
-                  </p>
-                  <dl className="mt-4 grid gap-3 border-t border-[#eee8dc] pt-4 sm:grid-cols-2">
-                    <div>
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Client</dt>
-                      <dd className="font-medium">{clientDetails.fullName || "To be confirmed"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">ID / passport / traffic register</dt>
-                      <dd className="font-medium">{clientDetails.identityNumber || "To be confirmed"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Registration</dt>
-                      <dd className="font-medium">{effectiveVehicleDetails.registrationNumber || "To be confirmed"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">VIN / chassis</dt>
-                      <dd className="font-medium">{effectiveVehicleDetails.vin || "To be confirmed"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Make</dt>
-                      <dd className="font-medium">{effectiveVehicleDetails.make || "To be confirmed"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Model</dt>
-                      <dd className="font-medium">{effectiveVehicleDetails.model || "To be confirmed"}</dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Relationship to vehicle</dt>
-                      <dd className="font-medium">{relation || selectedOwnership.relationPrompt}</dd>
-                    </div>
-                  </dl>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="font-semibold" htmlFor="public-mandate-signature-pad">
-                      Signature
-                    </label>
-                    <button
-                      type="button"
-                      onClick={clearMandateSignature}
-                      className="border border-[#d8d1c3] px-3 py-1.5 text-xs font-semibold text-[#6b5e4f]"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                  <canvas
-                    ref={signatureCanvasRef}
-                    id="public-mandate-signature-pad"
-                    width={900}
-                    height={360}
-                    className="mt-2 h-56 w-full touch-none border-2 border-[#07315f] bg-white sm:h-64"
-                    onPointerDown={(event) => {
-                      event.currentTarget.setPointerCapture(event.pointerId);
-                      drawSignatureStart(canvasPoint(event.currentTarget, event.clientX, event.clientY));
-                    }}
-                    onPointerMove={(event) => drawSignatureMove(canvasPoint(event.currentTarget, event.clientX, event.clientY))}
-                    onPointerUp={stopSignatureDrawing}
-                    onPointerCancel={stopSignatureDrawing}
-                    onPointerLeave={stopSignatureDrawing}
-                    aria-label="Signature pad"
-                  />
-                  <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
-                    Sign inside the box after reading the mandate form above. Use your finger on mobile.
-                  </p>
-                  {!hasMandateSignature ? (
-                    <p className="mt-1 text-xs font-semibold text-[#8a6a2a]">
-                      Signature required before payment can be requested.
-                    </p>
-                  ) : null}
                 </div>
               </div>
-              <SubmitApplicationButton />
-            </div>
-          </div>
-          </form>
-        ) : null}
+            ) : null}
 
-        {stepIndex === 7 ? (
-          <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-            <div>
-              <h2 className="text-2xl font-semibold">Payment request</h2>
-              <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                After the required details, documents and mandate signature are captured, License Hub can request payment
-                for the selected service.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                The production payment step can offer Paystack card payment and EFT instructions once those rules are
-                confirmed.
-              </p>
-            </div>
-            <aside className="border border-[#d8d1c3] bg-[#fffdf8] p-4">
-              <h3 className="flex items-center gap-2 text-lg font-semibold">
-                <CreditCard size={20} className="text-[#07315f]" aria-hidden="true" />
-                Amount due
-              </h3>
-              <p className="mt-4 text-3xl font-semibold">
-                {selectedServiceAmount > 0 ? `R${selectedServiceAmount.toFixed(2)}` : "To be confirmed"}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-[#6b5e4f]">{selectedService.name}</p>
-              <p className="mt-2 text-sm leading-6 text-[#6b5e4f]">
-                Payment is requested only after the application details and required documents are captured.
-              </p>
-              <p className="mt-5 border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
-                Payment is requested after the mandate form and documents are saved.
-              </p>
-            </aside>
-          </div>
+            {stepIndex === 7 ? (
+              <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+                <div>
+                  <h2 className="text-2xl font-semibold">Payment request</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#52615b]">
+                    Choose how the client will pay and whether delivery is required. The payment request is created once
+                    you submit this step.
+                  </p>
+                  <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                    <p className="font-semibold">Payment method</p>
+                    <div className="mt-3 border border-[#d8d1c3] bg-white px-3 py-2">
+                      <span className="text-sm font-semibold">EFT transfer</span>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-[#6b5e4f]">
+                      Card payments will be enabled after launch.
+                    </p>
+                  </div>
+
+                  <label className="mt-4 flex gap-3 border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm font-semibold">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={deliveryRequired}
+                      onChange={(event) => setDeliveryRequired(event.currentTarget.checked)}
+                    />
+                    <span>Delivery required for this application.</span>
+                  </label>
+
+                  {deliveryRequired ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {[
+                        {
+                          name: "paymentDeliveryAddressLine1",
+                          label: "Delivery address line 1",
+                          required: true,
+                          defaultValue: clientDetails.deliveryAddressLine1,
+                        },
+                        {
+                          name: "paymentDeliveryAddressLine2",
+                          label: "Delivery address line 2",
+                          required: false,
+                          defaultValue: clientDetails.deliveryAddressLine2,
+                        },
+                        {
+                          name: "paymentDeliverySuburb",
+                          label: "Delivery suburb",
+                          required: false,
+                          defaultValue: clientDetails.deliverySuburb,
+                        },
+                        {
+                          name: "paymentDeliveryCity",
+                          label: "Delivery city",
+                          required: true,
+                          defaultValue: clientDetails.deliveryCity,
+                        },
+                        {
+                          name: "paymentDeliveryProvince",
+                          label: "Delivery province",
+                          required: false,
+                          defaultValue: clientDetails.deliveryProvince,
+                        },
+                        {
+                          name: "paymentDeliveryPostalCode",
+                          label: "Delivery postal code",
+                          required: true,
+                          defaultValue: clientDetails.deliveryPostalCode,
+                        },
+                      ].map((field) => (
+                        <label key={field.name} className="text-sm font-semibold">
+                          {field.label}
+                          <input
+                            name={field.name}
+                            required={field.required}
+                            defaultValue={field.defaultValue}
+                            className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                <aside className="border border-[#d8d1c3] bg-[#fffdf8] p-4">
+                  <h3 className="flex items-center gap-2 text-lg font-semibold">
+                    <CreditCard size={20} className="text-[#07315f]" aria-hidden="true" />
+                    Amount due
+                  </h3>
+                  <p className="mt-4 text-3xl font-semibold">
+                    {selectedServiceAmount > 0
+                      ? `R${(selectedServiceAmount + (deliveryRequired ? selectedServiceDeliveryFee : 0)).toFixed(2)}`
+                      : "To be confirmed"}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[#6b5e4f]">{selectedService.name}</p>
+                  {deliveryRequired ? (
+                    <p className="mt-2 text-xs font-semibold text-[#6b5e4f]">
+                      Includes delivery fee: R{selectedServiceDeliveryFee.toFixed(2)}
+                    </p>
+                  ) : null}
+                  <p className="mt-4 text-sm leading-6 text-[#6b5e4f]">
+                    The application and payment request will be saved together when you submit.
+                  </p>
+                  {!requiredUploadsReady ? (
+                    <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
+                      Complete all required uploads in the Mandate Form step before requesting payment.
+                    </p>
+                  ) : null}
+                  {publicIntakeSubmitState.status === "error" ? (
+                    <p className="mt-3 border border-[#b35448] bg-[#fff5f3] p-3 text-xs font-semibold text-[#7d3128]">
+                      {publicIntakeSubmitState.message}
+                    </p>
+                  ) : null}
+                  <SubmitApplicationButton />
+                </aside>
+              </div>
+            ) : null}
+          </form>
         ) : null}
 
         <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-[#eee8dc] pt-5">
@@ -951,14 +1216,14 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
               stepIndex === steps.length - 1 ||
               (stepIndex === 2 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
-              stepIndex === 6
+              (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
             }
             className={[
               "inline-flex items-center gap-2 border px-4 py-2 text-sm font-semibold",
               stepIndex === steps.length - 1 ||
               (stepIndex === 2 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
-              stepIndex === 6
+              (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
                 ? "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
                 : "border-[#1f2724] bg-[#1f2724] text-white",
             ].join(" ")}

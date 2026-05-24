@@ -9,6 +9,7 @@ import { listSupplierApplications, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { clientEntityTypeLabels } from "@/lib/entity-requirements";
 import { addSupplierOrderComment, supplierMarkProduced, supplierMarkReturning } from "@/lib/workflow-actions";
+import { logout } from "@/lib/auth-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -137,6 +138,13 @@ export default async function SupplierPage({
             <div className="border border-[#16352d] bg-[#16352d] px-4 py-3 text-sm font-semibold text-white">
               {orders.length} active supplier {orders.length === 1 ? "order" : "orders"}
             </div>
+          </div>
+          <div className="mt-4">
+            <form action={logout}>
+              <button className="border border-[#d8d1c3] bg-white px-4 py-2 text-sm font-semibold text-[#52615b]">
+                Logout
+              </button>
+            </form>
           </div>
         </header>
 

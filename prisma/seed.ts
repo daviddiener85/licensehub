@@ -179,12 +179,26 @@ async function main() {
       complianceResponsibility: "Business Owner",
       adminAutoRefreshEnabled: true,
       adminRefreshIntervalSeconds: 30,
+      aiDocumentVerificationEnabled: false,
+      eftBankName: "Demo Bank",
+      eftAccountHolder: "License Hub (Pty) Ltd",
+      eftAccountNumber: "1234567890",
+      eftBranchCode: "250655",
+      eftAccountType: "Current",
+      eftReferenceInstruction: "Use your application reference as payment reference.",
     },
     create: {
       id: "default",
       daysAfterCompletion: null,
       adminAutoRefreshEnabled: true,
       adminRefreshIntervalSeconds: 30,
+      aiDocumentVerificationEnabled: false,
+      eftBankName: "Demo Bank",
+      eftAccountHolder: "License Hub (Pty) Ltd",
+      eftAccountNumber: "1234567890",
+      eftBranchCode: "250655",
+      eftAccountType: "Current",
+      eftReferenceInstruction: "Use your application reference as payment reference.",
       complianceResponsibility: "Business Owner",
     },
   });
@@ -194,7 +208,8 @@ async function main() {
     update: {
       name: "Duplicate Certificate",
       description: "Replacement of lost vehicle certificates.",
-      basePrice: "0.00",
+      basePrice: "499.00",
+      deliveryFee: "150.00",
       isActive: true,
       documentRequirements: {
         upsert: [
@@ -263,7 +278,8 @@ async function main() {
       slug: "duplicate-certificate",
       name: "Duplicate Certificate",
       description: "Replacement of lost vehicle certificates.",
-      basePrice: "0.00",
+      basePrice: "499.00",
+      deliveryFee: "150.00",
       documentRequirements: {
         create: [
           {
@@ -295,6 +311,7 @@ async function main() {
       name: "Change of Ownership",
       description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
       basePrice: "0.00",
+      deliveryFee: "150.00",
       isActive: true,
     },
     create: {
@@ -303,6 +320,7 @@ async function main() {
       name: "Change of Ownership",
       description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
       basePrice: "0.00",
+      deliveryFee: "150.00",
       isActive: true,
     },
   });
@@ -313,6 +331,7 @@ async function main() {
       name: "Licence Renewal",
       description: "Vehicle licence renewal assistance. Available in Gauteng only.",
       basePrice: "0.00",
+      deliveryFee: "150.00",
       isActive: true,
     },
     create: {
@@ -321,6 +340,7 @@ async function main() {
       name: "Licence Renewal",
       description: "Vehicle licence renewal assistance. Available in Gauteng only.",
       basePrice: "0.00",
+      deliveryFee: "150.00",
       isActive: true,
     },
   });

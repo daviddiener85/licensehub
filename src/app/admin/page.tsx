@@ -28,6 +28,7 @@ import {
   updateSupplierHandoff,
 } from "@/lib/workflow-actions";
 import { prisma } from "@/lib/prisma";
+import { logout } from "@/lib/auth-actions";
 
 const dayInMs = 1000 * 60 * 60 * 24;
 
@@ -62,17 +63,7 @@ function documentSummary(application: Awaited<ReturnType<typeof listAdminApplica
     (requirement) => requirement.confirmedForUpload,
   );
   const requirementStates = requirements.map((requirement) => {
-    if (requirement.key === "id-photo") {
-      return application.mandateFormSubmission ? "ACCEPTED" : "MISSING";
-    }
-
-    if (!requirement.documentType) {
-      return "MISSING";
-    }
-
-    const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
-
-    return latestDocument?.status ?? "MISSING";
+    return documentRequirementStatus(requirement, application);
   });
 
   const rejected = requirementStates.filter((status) => status === "REJECTED").length;
@@ -181,7 +172,24 @@ function documentRequirementStatus(
   }
 
   if (!requirement.documentType) {
-    return "MISSING";
+    const supportingDocuments = application.documents
+      .filter((document) => document.type === "OTHER")
+      .sort((first, second) => first.version - second.version);
+
+    const supportingIndexByRequirement: Partial<Record<string, number>> = {
+      "death-certificate": 0,
+      "executor-authority": 1,
+      "registration-or-trust-document": 0,
+      "representative-authority": 1,
+      "passport-or-traffic-register": 0,
+    };
+    const supportingIndex = supportingIndexByRequirement[requirement.key];
+
+    if (typeof supportingIndex !== "number") {
+      return "MISSING";
+    }
+
+    return supportingDocuments[supportingIndex]?.status ?? "MISSING";
   }
 
   const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
@@ -193,17 +201,7 @@ function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApp
   const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
-      if (requirement.key === "id-photo") {
-        return !application.mandateFormSubmission;
-      }
-
-      if (!requirement.documentType) {
-        return true;
-      }
-
-      const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
-
-      return !latestDocument || latestDocument.status !== "ACCEPTED";
+      return documentRequirementStatus(requirement, application) !== "ACCEPTED";
     });
 
   if (incompleteRequirement) {
@@ -216,6 +214,54 @@ function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApp
 function ageSummary(createdAt: Date) {
   const days = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / dayInMs));
   return days === 1 ? "1 day" : `${days} days`;
+}
+
+function adminChecklist(
+  application: Awaited<ReturnType<typeof listAdminApplications>>[number],
+) {
+  const requiredRequirements = documentRequirementsForEntityType(application.client.entityType).filter(
+    (requirement) => requirement.confirmedForUpload,
+  );
+  const allRequiredDocsAccepted = requiredRequirements.every(
+    (requirement) => documentRequirementStatus(requirement, application) === "ACCEPTED",
+  );
+  const hasEftProof = application.documents.some((document) => document.type === "PROOF_OF_EFT_PAYMENT");
+  const paymentConfirmed = application.payments.some((payment) => payment.method === "EFT" && payment.status === PaymentStatus.CONFIRMED);
+  const entityFieldsRequired =
+    application.client.entityType === "COMPANY_OR_TRUST" || application.client.entityType === "DECEASED_ESTATE";
+  const entityFieldsPresent = entityFieldsRequired
+    ? Boolean(
+        application.entityDisplayName &&
+          application.entityRegistrationNumber &&
+          application.representativeFullName &&
+          application.representativeCapacity,
+      )
+    : true;
+
+  return [
+    {
+      label: "EFT proof uploaded",
+      pass: hasEftProof,
+      detail: hasEftProof ? "Proof of EFT document found." : "No proof of EFT payment uploaded yet.",
+    },
+    {
+      label: "EFT payment confirmed",
+      pass: paymentConfirmed,
+      detail: paymentConfirmed ? "Payment confirmed by admin." : "Awaiting admin EFT confirmation.",
+    },
+    {
+      label: "Required documents accepted",
+      pass: allRequiredDocsAccepted,
+      detail: allRequiredDocsAccepted ? "All required documents are accepted." : "One or more required documents are missing, pending, or rejected.",
+    },
+    {
+      label: "Entity details complete",
+      pass: entityFieldsPresent,
+      detail: entityFieldsPresent
+        ? "Entity/representative details are complete for this flow."
+        : "Entity/representative details are incomplete.",
+    },
+  ];
 }
 
 function textParam(value: string | string[] | undefined) {
@@ -382,6 +428,7 @@ export default async function AdminPage({
   const adminAutoRefreshEnabled = retentionSetting?.adminAutoRefreshEnabled ?? true;
   const selectedApprovalBlockReason = approvalBlockReason(selectedApplication);
   const selectedPendingDocumentCount = selectedApplication.documents.filter((document) => document.status === "PENDING").length;
+  const selectedChecklist = adminChecklist(selectedApplication);
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
@@ -416,6 +463,11 @@ export default async function AdminPage({
             >
               Settings
             </Link>
+            <form action={logout}>
+              <button className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]">
+                Logout
+              </button>
+            </form>
           </div>
         </header>
 
@@ -621,6 +673,22 @@ export default async function AdminPage({
                   ) : null}
                 </dd>
               </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Entity / estate name</dt>
+                <dd className="mt-1 font-medium">{selectedApplication.entityDisplayName || "Not captured"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Entity / BRNC / reference</dt>
+                <dd className="mt-1 font-medium">{selectedApplication.entityRegistrationNumber || "Not captured"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Representative</dt>
+                <dd className="mt-1 font-medium">{selectedApplication.representativeFullName || "Not captured"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Representative role</dt>
+                <dd className="mt-1 font-medium">{selectedApplication.representativeCapacity || "Not captured"}</dd>
+              </div>
             </dl>
             <form
               action={updateSupplierHandoff}
@@ -820,6 +888,27 @@ export default async function AdminPage({
                   Approve Application
                 </ConfirmActionForm>
               )}
+            </div>
+            <div className="mt-4 border border-[#d8d1c3] bg-white p-4">
+              <h3 className="text-sm font-semibold">Admin Checklist</h3>
+              <div className="mt-3 space-y-2">
+                {selectedChecklist.map((item) => (
+                  <div key={item.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">{item.label}</span>
+                      <span
+                        className={[
+                          "text-xs font-semibold",
+                          item.pass ? "text-[#1f7a4d]" : "text-[#b3261e]",
+                        ].join(" ")}
+                      >
+                        {item.pass ? "PASS" : "FAIL"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#6b5e4f]">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

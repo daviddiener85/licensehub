@@ -21,9 +21,10 @@ export async function createService(formData: FormData) {
   const name = stringField(formData, "name");
   const description = stringField(formData, "description");
   const basePrice = stringField(formData, "basePrice");
+  const deliveryFee = stringField(formData, "deliveryFee");
 
-  if (!name || !basePrice) {
-    throw new Error("Service name and price are required.");
+  if (!name || !basePrice || !deliveryFee) {
+    throw new Error("Service name, price and delivery fee are required.");
   }
 
   await prisma.service.create({
@@ -32,6 +33,7 @@ export async function createService(formData: FormData) {
       slug: slugify(name),
       description,
       basePrice,
+      deliveryFee,
       isActive: formData.get("isActive") === "on",
     },
   });
@@ -44,9 +46,10 @@ export async function updateService(formData: FormData) {
   const name = stringField(formData, "name");
   const description = stringField(formData, "description");
   const basePrice = stringField(formData, "basePrice");
+  const deliveryFee = stringField(formData, "deliveryFee");
 
-  if (!serviceId || !name || !basePrice) {
-    throw new Error("Service id, name and price are required.");
+  if (!serviceId || !name || !basePrice || !deliveryFee) {
+    throw new Error("Service id, name, price and delivery fee are required.");
   }
 
   await prisma.service.update({
@@ -55,6 +58,7 @@ export async function updateService(formData: FormData) {
       name,
       description,
       basePrice,
+      deliveryFee,
       isActive: formData.get("isActive") === "on",
     },
   });
@@ -87,18 +91,39 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
   const interval = Number(stringField(formData, "adminRefreshIntervalSeconds") || 30);
   const safeInterval = Math.max(5, Math.min(600, interval));
   const autoRefreshEnabled = formData.get("adminAutoRefreshEnabled") === "on";
+  const aiDocumentVerificationEnabled = formData.get("aiDocumentVerificationEnabled") === "on";
+  const eftBankName = stringField(formData, "eftBankName");
+  const eftAccountNumber = stringField(formData, "eftAccountNumber");
+  const eftBranchCode = stringField(formData, "eftBranchCode");
+  const eftAccountType = stringField(formData, "eftAccountType");
+  const eftAccountHolder = stringField(formData, "eftAccountHolder");
+  const eftReferenceInstruction = stringField(formData, "eftReferenceInstruction");
 
   await prisma.retentionSetting.upsert({
     where: { id: "default" },
     update: {
       adminAutoRefreshEnabled: autoRefreshEnabled,
       adminRefreshIntervalSeconds: safeInterval,
+      aiDocumentVerificationEnabled,
+      eftBankName: eftBankName || null,
+      eftAccountNumber: eftAccountNumber || null,
+      eftBranchCode: eftBranchCode || null,
+      eftAccountType: eftAccountType || null,
+      eftAccountHolder: eftAccountHolder || null,
+      eftReferenceInstruction: eftReferenceInstruction || null,
       updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
     },
     create: {
       id: "default",
       adminAutoRefreshEnabled: autoRefreshEnabled,
       adminRefreshIntervalSeconds: safeInterval,
+      aiDocumentVerificationEnabled,
+      eftBankName: eftBankName || null,
+      eftAccountNumber: eftAccountNumber || null,
+      eftBranchCode: eftBranchCode || null,
+      eftAccountType: eftAccountType || null,
+      eftAccountHolder: eftAccountHolder || null,
+      eftReferenceInstruction: eftReferenceInstruction || null,
       updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
     },
   });

@@ -12,6 +12,7 @@ export default async function ApplyPage() {
       name: true,
       description: true,
       basePrice: true,
+      deliveryFee: true,
     },
   });
 
@@ -60,6 +61,7 @@ export default async function ApplyPage() {
           services={services.map((service) => ({
             ...service,
             basePrice: service.basePrice.toString(),
+            deliveryFee: service.deliveryFee.toString(),
           }))}
         />
       </section>

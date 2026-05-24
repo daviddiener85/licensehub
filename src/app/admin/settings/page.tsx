@@ -109,6 +109,18 @@ export default async function AdminSettingsPage() {
                         type="number"
                       />
                     </label>
+                    <label className="w-40 text-sm font-semibold">
+                      Delivery Fee
+                      <input
+                        className="mt-2 h-11 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                        defaultValue={service.deliveryFee.toString()}
+                        min="0"
+                        name="deliveryFee"
+                        required
+                        step="0.01"
+                        type="number"
+                      />
+                    </label>
                     <label className="flex h-11 items-center gap-2 text-sm font-semibold">
                       <input defaultChecked={service.isActive} name="isActive" type="checkbox" />
                       Active
@@ -145,6 +157,15 @@ export default async function AdminSettingsPage() {
                   min="0"
                   name="basePrice"
                   placeholder="Price"
+                  required
+                  step="0.01"
+                  type="number"
+                />
+                <input
+                  className="h-11 w-40 border border-[#d8d1c3] bg-white px-3 text-sm outline-none"
+                  min="0"
+                  name="deliveryFee"
+                  placeholder="Delivery Fee"
                   required
                   step="0.01"
                   type="number"
@@ -198,6 +219,14 @@ export default async function AdminSettingsPage() {
                 />
                 Enable auto-refresh
               </label>
+              <label className="flex h-10 items-center gap-2 text-sm font-semibold">
+                <input
+                  defaultChecked={data.retentionSetting?.aiDocumentVerificationEnabled ?? false}
+                  name="aiDocumentVerificationEnabled"
+                  type="checkbox"
+                />
+                Enable OpenAI document verification
+              </label>
               <label className="block w-full max-w-sm text-sm font-semibold">
                 Refresh interval in seconds
                 <input
@@ -209,6 +238,59 @@ export default async function AdminSettingsPage() {
                   type="number"
                 />
               </label>
+              <div className="grid w-full gap-3 border border-[#eee8dc] bg-[#fffdf8] p-4 md:grid-cols-2">
+                <p className="md:col-span-2 text-sm font-semibold text-[#6b5e4f]">EFT Banking Details</p>
+                <label className="text-sm font-semibold">
+                  Bank name
+                  <input
+                    name="eftBankName"
+                    defaultValue={data.retentionSetting?.eftBankName ?? ""}
+                    className="mt-1 h-10 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Account holder
+                  <input
+                    name="eftAccountHolder"
+                    defaultValue={data.retentionSetting?.eftAccountHolder ?? ""}
+                    className="mt-1 h-10 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Account number
+                  <input
+                    name="eftAccountNumber"
+                    defaultValue={data.retentionSetting?.eftAccountNumber ?? ""}
+                    className="mt-1 h-10 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Branch code
+                  <input
+                    name="eftBranchCode"
+                    defaultValue={data.retentionSetting?.eftBranchCode ?? ""}
+                    className="mt-1 h-10 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Account type
+                  <input
+                    name="eftAccountType"
+                    defaultValue={data.retentionSetting?.eftAccountType ?? ""}
+                    placeholder="Cheque / Current / Savings"
+                    className="mt-1 h-10 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                  />
+                </label>
+                <label className="text-sm font-semibold md:col-span-2">
+                  Reference instruction
+                  <input
+                    name="eftReferenceInstruction"
+                    defaultValue={data.retentionSetting?.eftReferenceInstruction ?? ""}
+                    placeholder="Use your application reference as payment reference."
+                    className="mt-1 h-10 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                  />
+                </label>
+              </div>
               <input name="updatedByName" type="hidden" value="License Hub Admin" />
               <button className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white">
                 Save Refresh

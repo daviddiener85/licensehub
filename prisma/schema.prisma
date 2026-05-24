@@ -169,6 +169,7 @@ model Service {
   slug        String   @unique
   description String
   basePrice   Decimal  @db.Decimal(10, 2)
+  deliveryFee Decimal  @default(0) @db.Decimal(10, 2)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -197,6 +198,13 @@ model RetentionSetting {
   daysAfterCompletion      Int?
   adminAutoRefreshEnabled  Boolean  @default(true)
   adminRefreshIntervalSeconds Int    @default(30)
+  aiDocumentVerificationEnabled Boolean @default(false)
+  eftBankName              String?
+  eftAccountNumber         String?
+  eftBranchCode            String?
+  eftAccountType           String?
+  eftAccountHolder         String?
+  eftReferenceInstruction  String?
   updatedByName            String?
   complianceResponsibility String   @default("Business Owner")
   createdAt                DateTime @default(now())
@@ -216,6 +224,10 @@ model Application {
   vehicleYear         Int?
   vehicleColour       String?
   vin                 String?
+  entityDisplayName   String?
+  entityRegistrationNumber String?
+  representativeFullName String?
+  representativeCapacity String?
   ocrConfidence       Decimal?           @db.Decimal(5, 2)
   supplierUrgency     SupplierUrgency    @default(NORMAL)
   submittedAt         DateTime?
@@ -310,6 +322,7 @@ model Payment {
   currency          String        @default("ZAR")
   reference         String
   providerReference String?
+  checkoutUrl       String?
   proofDocumentId   String?
   confirmedAt       DateTime?
   failedAt          DateTime?
