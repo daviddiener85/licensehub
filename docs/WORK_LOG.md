@@ -2,6 +2,38 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-05-31
+
+### Intake flow simplification, EFT status progression, and admin review UX updates
+
+- Reordered intake flow so **Vehicle Relationship** comes before **Who You Are**.
+- Simplified relationship model by removing explicit non-SA relationship selection; `Private owner` now covers SA and foreign individuals.
+- Added required **Citizenship status** selector at the top of **Who You Are** and hid the remaining form fields until selected.
+- Split foreign identity capture into separate required values (`Passport number` and `TRN number`) while keeping SA path as `ID number`.
+- Enforced non-SA supporting document requirement as both `Traffic register document (TRN)` and `Passport document`.
+- Removed separate non-SA ID-photo blocker and adjusted identity document handling for mandate generation.
+- Improved step transition UX:
+  - auto-scroll to active step content
+  - preserve progress-strip visibility while scrolling
+  - autofocus first input on Who You Are.
+- Updated priced EFT submission behavior:
+  - public submit now creates pending EFT payment and charge records immediately for priced services
+  - initial status now starts in awaiting-payment flow rather than awaiting-admin-quote for those submissions.
+- Updated admin status wording for duplicate/EFT flows:
+  - `Pending payment` when POP is not uploaded
+  - `Verify payment` once POP is uploaded.
+- Added admin in-page document quick view with:
+  - close button
+  - full-screen button
+  - open-original fallback
+  - image zoom controls (plus/minus/reset, wheel zoom, drag pan, touch pinch).
+- Added admin document review correction action `Mark pending` to undo mistaken accept/reject actions.
+- Replaced generic `Other document` labels with contextual requirement labels in admin views.
+- Expanded review audit notes to include specific document names for accept/reject/reset actions.
+- Collapsed review audit trail list behind an expandable dropdown.
+- Added safe admin empty-state handling when no applications exist (prevents selected-application null dereference).
+- Removed cancelled test applications from the DB when requested.
+
 ## 2026-05-24
 
 ### EFT-first launch flow, admin process hardening, and client communication updates

@@ -12,7 +12,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "test:entities": "tsx --tsconfig tsconfig.json scripts/entity-flow-simulation.ts"
+    "test:entities": "tsx --tsconfig tsconfig.json scripts/entity-flow-simulation.ts",
+    "jobs:pop-followup": "tsx --tsconfig tsconfig.json scripts/pop-payment-followup.ts",
+    "jobs:whatsapp-dispatch": "tsx --tsconfig tsconfig.json scripts/whatsapp-dispatch.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

@@ -237,6 +237,10 @@ model Application {
   quotedAt            DateTime?
   quoteApprovedAt     DateTime?
   quoteVersion        Int                @default(0)
+  popDueAt            DateTime?
+  lastPopReminderAt   DateTime?
+  popReminderCount    Int                @default(0)
+  autoCancelOnNoPop   Boolean            @default(true)
   approvedAt          DateTime?
   completedAt         DateTime?
   cancelledAt         DateTime?

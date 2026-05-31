@@ -1235,6 +1235,10 @@ export async function createPublicApplicationIntake(
             quoteVersion: 1,
             quotedAt: new Date(),
             quoteApprovedAt: new Date(),
+            popDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            lastPopReminderAt: null,
+            popReminderCount: 0,
+            autoCancelOnNoPop: true,
           }
         : {}),
       statusHistory: {
@@ -1270,7 +1274,6 @@ export async function createPublicApplicationIntake(
           amount: totalAmount,
           reference: `PAY-${applicationId}-Q1`,
           status: PaymentStatus.PENDING,
-          requestedAt: new Date(),
         },
       });
     }
@@ -1282,7 +1285,9 @@ export async function createPublicApplicationIntake(
           "Your License Hub order has been received.",
           `Reference number: ${applicationId}.`,
           "",
-          "Your EFT payment request is ready. Please use the payment reference shown on your application page.",
+          "Your EFT payment request is ready.",
+          `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
+          "Use the payment reference shown on your application page.",
         ].join("\n")
       : [
       `Hi ${firstName},`,
@@ -1379,6 +1384,11 @@ function getRequiredMoneyAmount(formData: FormData, fieldName: string, label: st
   }
 
   return amount.toFixed(2);
+}
+
+function paymentUploadLink(applicationId: string) {
+  const baseUrl = process.env.APP_BASE_URL?.trim() || "http://localhost:3000";
+  return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
 }
 
 export async function publishAdminQuote(formData: FormData) {
@@ -1484,6 +1494,28 @@ export async function approveClientQuote(formData: FormData) {
     note: "Client approved quote and payment request was created.",
     data: {
       quoteApprovedAt: new Date(),
+      popDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      lastPopReminderAt: null,
+      popReminderCount: 0,
+      autoCancelOnNoPop: true,
+    },
+  });
+
+  const applicationWithClient = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    include: { client: true },
+  });
+  await prisma.communication.create({
+    data: {
+      applicationId,
+      channel: CommunicationChannel.WHATSAPP,
+      direction: CommunicationDirection.OUTBOUND,
+      status: CommunicationStatus.QUEUED,
+      senderId: await actorIdFor(UserRole.ADMIN),
+      recipientName: `${applicationWithClient.client.firstName} ${applicationWithClient.client.surname}`,
+      recipientAddress: applicationWithClient.client.cellphone,
+      templateKey: "payment-pop-upload-link",
+      body: `Hi ${applicationWithClient.client.firstName}, please upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
     },
   });
 
