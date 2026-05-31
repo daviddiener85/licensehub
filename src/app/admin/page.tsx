@@ -3,11 +3,12 @@ import Link from "next/link";
 import { AdminApplicationCell } from "@/components/admin-application-cell";
 import { AdminRefreshController } from "@/components/admin-refresh-controller";
 import { AdminSeenOrders } from "@/components/admin-seen-orders";
+import { AdminDocumentQuickView } from "@/components/admin-document-quick-view";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
-import { PaymentStatus, SupplierUrgency } from "@/generated/prisma/client";
-import { listAdminApplications, statusLabel } from "@/lib/applications";
+import { DocumentType, PaymentStatus, SupplierUrgency } from "@/generated/prisma/client";
+import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import {
@@ -19,12 +20,14 @@ import {
   cancelApplication,
   confirmEftPayment,
   acceptDocument,
+  markDocumentPending,
   acceptAllPendingDocuments,
   markDispatched,
   markDocumentReturned,
   rejectDocument,
   requestResubmission,
   sendClientMessage,
+  publishAdminQuote,
   updateSupplierHandoff,
 } from "@/lib/workflow-actions";
 import { prisma } from "@/lib/prisma";
@@ -48,6 +51,13 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
   const latestPayment = application.payments[0];
 
   if (!latestPayment) {
+    if (
+      application.currentStatus === "AWAITING_ADMIN_QUOTE" ||
+      application.currentStatus === "QUOTE_PENDING_CLIENT_APPROVAL"
+    ) {
+      return "Quote pending";
+    }
+
     return "Not started";
   }
 
@@ -56,6 +66,18 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
   }
 
   return latestPayment.method === "EFT" ? "EFT pending" : latestPayment.status.toLowerCase();
+}
+
+function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  const isDuplicateCertificate = application.service.slug === "duplicate-certificate";
+  const isAwaitingEftVerification = application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT";
+
+  if (isDuplicateCertificate && isAwaitingEftVerification) {
+    const hasEftProof = application.documents.some((document) => document.type === DocumentType.PROOF_OF_EFT_PAYMENT);
+    return hasEftProof ? "Verify payment" : "Pending payment";
+  }
+
+  return statusLabel(application.currentStatus);
 }
 
 function documentSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
@@ -181,7 +203,8 @@ function documentRequirementStatus(
       "executor-authority": 1,
       "registration-or-trust-document": 0,
       "representative-authority": 1,
-      "passport-or-traffic-register": 0,
+      "traffic-register-document": 0,
+      "passport-document": 1,
     };
     const supportingIndex = supportingIndexByRequirement[requirement.key];
 
@@ -195,6 +218,26 @@ function documentRequirementStatus(
   const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
 
   return latestDocument?.status ?? "MISSING";
+}
+
+function supportingDocumentLabel(
+  document: Awaited<ReturnType<typeof listAdminApplications>>[number]["documents"][number],
+  application: Awaited<ReturnType<typeof listAdminApplications>>[number],
+) {
+  if (document.type !== "OTHER") {
+    return documentLabel(document.type, document.fileName);
+  }
+
+  const requirements = documentRequirementsForEntityType(application.client.entityType).filter(
+    (requirement) => requirement.confirmedForUpload && !requirement.documentType,
+  );
+  const supportingDocuments = application.documents
+    .filter((item) => item.type === "OTHER")
+    .sort((first, second) => first.version - second.version);
+  const supportingIndex = supportingDocuments.findIndex((item) => item.id === document.id);
+  const requirementForIndex = supportingIndex >= 0 ? requirements[supportingIndex] : null;
+
+  return requirementForIndex?.label ?? documentLabel(document.type, document.fileName);
 }
 
 function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
@@ -298,7 +341,10 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
     type?: "resubmission";
   }[] = [];
 
-  if (application.payments.some((payment) => payment.method === "EFT" && payment.status === PaymentStatus.PENDING)) {
+  if (
+    application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT" &&
+    application.payments.some((payment) => payment.method === "EFT" && payment.status === PaymentStatus.PENDING)
+  ) {
     actions.push({
       label: "Confirm EFT",
       action: confirmEftPayment,
@@ -419,13 +465,58 @@ export default async function AdminPage({
 
     return true;
   });
+  const adminRefreshIntervalSeconds = retentionSetting?.adminRefreshIntervalSeconds ?? 30;
+  const adminAutoRefreshEnabled = retentionSetting?.adminAutoRefreshEnabled ?? true;
+
+  if (applications.length === 0) {
+    return (
+      <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
+        <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8">
+          <header className="flex flex-col gap-4 border-b border-[#d8d1c3] pb-6 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <Link href="/" className="text-sm font-medium text-[#6b5e4f]">
+                Back
+              </Link>
+              <h1 className="mt-4 text-3xl font-semibold">Admin Workspace</h1>
+              <p className="mt-2 text-sm text-[#52615b]">
+                Review documents, confirm payments, raise charges, approve orders, and dispatch returns.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <AdminRefreshController enabled={adminAutoRefreshEnabled} intervalSeconds={adminRefreshIntervalSeconds} />
+              <Link
+                className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
+                href="/admin/clients"
+              >
+                Clients
+              </Link>
+              <Link
+                className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
+                href="/admin/settings"
+              >
+                Settings
+              </Link>
+              <form action={logout}>
+                <button className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]">
+                  Logout
+                </button>
+              </form>
+            </div>
+          </header>
+
+          <section className="mt-6 border border-[#d8d1c3] bg-white p-6 text-sm text-[#52615b]">
+            No applications found. Start a new client application to populate this workspace.
+          </section>
+        </div>
+      </main>
+    );
+  }
+
   const selectedApplication =
     applications.find((application) => application.id === selectedApplicationId) ?? filteredApplications[0] ?? applications[0];
   const selectedWhatsappTemplate = whatsappTemplates[0].body
     .replace("{{firstName}}", selectedApplication.client.firstName)
     .replace("{{applicationId}}", selectedApplication.id);
-  const adminRefreshIntervalSeconds = retentionSetting?.adminRefreshIntervalSeconds ?? 30;
-  const adminAutoRefreshEnabled = retentionSetting?.adminAutoRefreshEnabled ?? true;
   const selectedApprovalBlockReason = approvalBlockReason(selectedApplication);
   const selectedPendingDocumentCount = selectedApplication.documents.filter((document) => document.status === "PENDING").length;
   const selectedChecklist = adminChecklist(selectedApplication);
@@ -499,6 +590,9 @@ export default async function AdminPage({
               Status
               <select name="status" defaultValue={statusFilter} className="mt-1 w-full border border-[#d8d1c3] bg-white px-3 py-2 font-normal">
                 <option value="">All</option>
+                <option value="AWAITING_ADMIN_QUOTE">Awaiting Admin Quote</option>
+                <option value="QUOTE_PENDING_CLIENT_APPROVAL">Quote Pending Approval</option>
+                <option value="QUOTE_APPROVED_AWAITING_PAYMENT">Quote Approved Awaiting Payment</option>
                 <option value="PENDING_REVIEW">Pending Review</option>
                 <option value="DOCUMENTS_RESUBMIT_REQUIRED">Resubmit Required</option>
                 <option value="AT_SUPPLIER">At Supplier</option>
@@ -515,6 +609,7 @@ export default async function AdminPage({
                 <option value="">All</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="eft-pending">EFT pending</option>
+                <option value="quote-pending">Quote pending</option>
                 <option value="not-started">Not started</option>
               </select>
             </label>
@@ -595,7 +690,7 @@ export default async function AdminPage({
               <AdminApplicationCell applicationId={application.id}>{application.service.name}</AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>{paymentSummary(application)}</AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>{documentSummary(application)}</AdminApplicationCell>
-              <AdminApplicationCell applicationId={application.id}>{statusLabel(application.currentStatus)}</AdminApplicationCell>
+              <AdminApplicationCell applicationId={application.id}>{workflowStatusSummary(application)}</AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>{ageSummary(application.createdAt)}</AdminApplicationCell>
               <span className="flex flex-wrap gap-2">
                 {adminActions(application).map((item) =>
@@ -780,7 +875,7 @@ export default async function AdminPage({
 
                 return (
                   <div key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
-                    <span className="text-[#1f2724]">{documentLabel(document.type, document.fileName)}: </span>
+                    <span className="text-[#1f2724]">{supportingDocumentLabel(document, selectedApplication)}: </span>
                     <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
                       {formatDocumentStatus(document.status)}
                     </span>
@@ -790,9 +885,7 @@ export default async function AdminPage({
                       </span>
                     ) : null}
                     {href ? (
-                      <a href={href} target="_blank" rel="noreferrer" className="mt-2 block text-xs font-semibold text-[#07315f]">
-                        Open document
-                      </a>
+                      <AdminDocumentQuickView href={href} fileName={document.fileName} />
                     ) : null}
                     {document.rejectionReason ? (
                       <p className="mt-2 text-xs leading-5 text-[#b3261e]">{document.rejectionReason}</p>
@@ -803,26 +896,38 @@ export default async function AdminPage({
                       </p>
                     ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <form action={acceptDocument}>
-                        <input type="hidden" name="applicationId" value={selectedApplication.id} />
-                        <input type="hidden" name="documentId" value={document.id} />
-                        <button className="border border-[#1f7a4d] px-3 py-1.5 text-xs font-semibold text-[#1f7a4d]">
-                          Accept
-                        </button>
-                      </form>
-                      <form action={rejectDocument} className="flex flex-wrap gap-2">
-                        <input type="hidden" name="applicationId" value={selectedApplication.id} />
-                        <input type="hidden" name="documentId" value={document.id} />
-                        <input
-                          name="rejectionReason"
-                          placeholder="Reason"
-                          className="min-w-36 border border-[#d8d1c3] px-2 py-1.5 text-xs"
-                          required
-                        />
-                        <button className="border border-[#b3261e] px-3 py-1.5 text-xs font-semibold text-[#b3261e]">
-                          Reject
-                        </button>
-                      </form>
+                      {document.status === "PENDING" ? (
+                        <>
+                          <form action={acceptDocument}>
+                            <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                            <input type="hidden" name="documentId" value={document.id} />
+                            <button className="border border-[#1f7a4d] px-3 py-1.5 text-xs font-semibold text-[#1f7a4d]">
+                              Accept
+                            </button>
+                          </form>
+                          <form action={rejectDocument} className="flex flex-wrap gap-2">
+                            <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                            <input type="hidden" name="documentId" value={document.id} />
+                            <input
+                              name="rejectionReason"
+                              placeholder="Reason"
+                              className="min-w-36 border border-[#d8d1c3] px-2 py-1.5 text-xs"
+                              required
+                            />
+                            <button className="border border-[#b3261e] px-3 py-1.5 text-xs font-semibold text-[#b3261e]">
+                              Reject
+                            </button>
+                          </form>
+                        </>
+                      ) : (
+                        <form action={markDocumentPending}>
+                          <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                          <input type="hidden" name="documentId" value={document.id} />
+                          <button className="border border-[#8a6a2a] px-3 py-1.5 text-xs font-semibold text-[#6b5e4f]">
+                            Mark pending
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </div>
                 );
@@ -841,27 +946,29 @@ export default async function AdminPage({
               defaultValue={
                 selectedApplication.documents
                   .filter((document) => document.rejectionReason)
-                  .map((document) => `${documentLabel(document.type, document.fileName)}: ${document.rejectionReason}`)
+                  .map((document) => `${supportingDocumentLabel(document, selectedApplication)}: ${document.rejectionReason}`)
                   .join("\n") || "No rejection notes captured yet."
               }
             />
-            <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-3">
-              <h3 className="text-sm font-semibold">Review Audit Trail</h3>
-              <div className="mt-2 space-y-2">
-                {selectedApplication.statusHistory
-                  .filter((entry) => entry.note)
-                  .slice(0, 8)
-                  .map((entry) => (
-                    <div key={entry.id} className="border border-[#eee8dc] bg-white p-2 text-xs text-[#52615b]">
-                      <p className="font-semibold text-[#1f2724]">{entry.note}</p>
-                      <p className="mt-1">{entry.createdAt.toLocaleString("en-ZA")}</p>
-                    </div>
-                  ))}
-                {selectedApplication.statusHistory.filter((entry) => entry.note).length === 0 ? (
-                  <p className="text-xs text-[#52615b]">No review events captured yet.</p>
-                ) : null}
+            <details className="mt-4 border border-[#e4ded2] bg-[#fffdf8]">
+              <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Review Audit Trail</summary>
+              <div className="border-t border-[#eee8dc] p-3">
+                <div className="space-y-2">
+                  {selectedApplication.statusHistory
+                    .filter((entry) => entry.note)
+                    .slice(0, 8)
+                    .map((entry) => (
+                      <div key={entry.id} className="border border-[#eee8dc] bg-white p-2 text-xs text-[#52615b]">
+                        <p className="font-semibold text-[#1f2724]">{entry.note}</p>
+                        <p className="mt-1">{entry.createdAt.toLocaleString("en-ZA")}</p>
+                      </div>
+                    ))}
+                  {selectedApplication.statusHistory.filter((entry) => entry.note).length === 0 ? (
+                    <p className="text-xs text-[#52615b]">No review events captured yet.</p>
+                  ) : null}
+                </div>
               </div>
-            </div>
+            </details>
             <div className="mt-4 flex flex-wrap gap-3">
               <ResubmissionActionForm
                 action={requestResubmission}
@@ -869,7 +976,7 @@ export default async function AdminPage({
                 clientFirstName={selectedApplication.client.firstName}
                 documents={selectedApplication.documents.map((document) => ({
                   id: document.id,
-                  label: documentLabel(document.type, document.fileName),
+                  label: supportingDocumentLabel(document, selectedApplication),
                   currentReason: document.rejectionReason,
                 }))}
                 className="border border-[#8a6a2a] px-4 py-2 text-sm font-semibold text-[#6b5e4f]"
@@ -927,6 +1034,48 @@ export default async function AdminPage({
             <button className="mt-5 w-full border border-[#1f2724] px-4 py-2 text-sm font-semibold">
               Add Charge
             </button>
+            {["AWAITING_ADMIN_QUOTE", "QUOTE_PENDING_CLIENT_APPROVAL"].includes(selectedApplication.currentStatus) ? (
+              <form action={publishAdminQuote} className="mt-4 space-y-2 border border-[#eee8dc] bg-[#fffdf8] p-3">
+                <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                <h4 className="text-sm font-semibold">Publish Quote</h4>
+                <label className="block text-xs font-semibold text-[#6b5e4f]">
+                  Amount (ZAR)
+                  <input
+                    name="quoteAmount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 text-sm font-normal"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-[#6b5e4f]">
+                  Description
+                  <input
+                    name="quoteDescription"
+                    placeholder="License fee for vehicle"
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 text-sm font-normal"
+                  />
+                </label>
+                <button className="w-full border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
+                  Publish Quote To Client
+                </button>
+              </form>
+            ) : null}
+            <div className="mt-4 space-y-2 border border-[#eee8dc] bg-[#fffdf8] p-3">
+              <h4 className="text-sm font-semibold">Pending Charge Lines</h4>
+              {selectedApplication.charges.filter((charge) => charge.status === "PENDING").length === 0 ? (
+                <p className="text-xs text-[#52615b]">No pending quote lines.</p>
+              ) : (
+                selectedApplication.charges
+                  .filter((charge) => charge.status === "PENDING")
+                  .map((charge) => (
+                    <p key={charge.id} className="text-xs text-[#52615b]">
+                      {charge.description} · <span className="font-semibold">{formatMoney(charge.amount)}</span>
+                    </p>
+                  ))
+              )}
+            </div>
           </aside>
 
           <aside className="border border-[#d8d1c3] bg-white p-5">

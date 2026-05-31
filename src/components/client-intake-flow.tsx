@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useActionState, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   CreditCard,
   FileText,
-  IdCard,
   LoaderCircle,
   PenLine,
   Scale,
@@ -21,6 +20,7 @@ import {
 import { createPublicApplicationIntake, scanLicenceDiskPhoto } from "@/lib/workflow-actions";
 
 type OwnershipType = "private-owner" | "deceased-estate" | "company-or-trust" | "non-sa-citizen";
+type CitizenshipStatus = "" | "sa-citizen" | "foreigner";
 
 type IntakeService = {
   slug: string;
@@ -94,7 +94,7 @@ const ownershipOptions: {
     value: "private-owner",
     label: "Private owner",
     relationPrompt: "I am the registered owner or I am assisting the registered owner.",
-    description: "The vehicle is registered to an individual South African owner.",
+    description: "The vehicle is registered to an individual owner (South African or foreign).",
     icon: UserRound,
   },
   {
@@ -110,13 +110,6 @@ const ownershipOptions: {
     relationPrompt: "I am authorised to act for the company, close corporation, or trust.",
     description: "The vehicle is registered to a legal entity rather than a natural person.",
     icon: Building2,
-  },
-  {
-    value: "non-sa-citizen",
-    label: "Non-SA citizen",
-    relationPrompt: "I am the owner or authorised representative using foreign identity documents.",
-    description: "The owner is not using a South African ID number for this application.",
-    icon: IdCard,
   },
 ];
 
@@ -141,7 +134,8 @@ const documentsByOwnership: Record<OwnershipType, { label: string; description: 
     { label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
   "non-sa-citizen": [
-    { label: "Passport or traffic register document", description: "A clear identity document for the owner." },
+    { label: "Traffic register document (TRN)", description: "A clear TRN document for the owner." },
+    { label: "Passport document", description: "A clear passport document for the owner." },
     { label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
     { label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
@@ -150,8 +144,8 @@ const documentsByOwnership: Record<OwnershipType, { label: string; description: 
 const steps = [
   "Service",
   "Start",
-  "Who You Are",
   "Vehicle Relationship",
+  "Who You Are",
   "Vehicle Details",
   "Documents",
   "Mandate Form",
@@ -169,27 +163,36 @@ function canvasPoint(canvas: HTMLCanvasElement, clientX: number, clientY: number
   };
 }
 
-function SubmitApplicationButton() {
+function SubmitApplicationButton({ quoteFlow, disabled }: { quoteFlow: boolean; disabled?: boolean }) {
   const { pending } = useFormStatus();
+  const isDisabled = Boolean(disabled) || pending;
 
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={isDisabled}
       className={[
         "mt-5 w-full border px-4 py-3 text-sm font-semibold",
-        pending
+        isDisabled
           ? "cursor-wait border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
           : "border-[#1f2724] bg-[#1f2724] text-white",
       ].join(" ")}
     >
-      {pending ? "Saving application..." : "Request Payment"}
+      {pending ? "Saving application..." : quoteFlow ? "Submit For Quote" : "Submit Application"}
     </button>
   );
 }
 
 function uploadInputName(documentLabel: string) {
   const normalizedLabel = documentLabel.toLowerCase();
+
+  if (normalizedLabel.includes("traffic register") || normalizedLabel.includes("trn")) {
+    return "trafficRegisterDocument";
+  }
+
+  if (normalizedLabel.includes("passport")) {
+    return "passportDocument";
+  }
 
   if (normalizedLabel.includes("id") || normalizedLabel.includes("passport") || normalizedLabel.includes("traffic register")) {
     return "idPhoto";
@@ -213,6 +216,8 @@ function isMandateStepUpload(documentLabel: string) {
 export function ClientIntakeFlow({ reference, services = fallbackServices }: ClientIntakeFlowProps) {
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
+  const fullNameInputRef = useRef<HTMLInputElement>(null);
+  const stepContentTopRef = useRef<HTMLDivElement>(null);
   const availableServices = [...(services.length > 0 ? services : fallbackServices)].sort((first, second) => {
     if (first.slug === "duplicate-certificate") {
       return -1;
@@ -231,6 +236,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
       : availableServices[0].slug,
   );
   const [ownershipType, setOwnershipType] = useState<OwnershipType>("private-owner");
+  const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>("");
   const [relation, setRelation] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<Record<string, string>>({});
   const [clientDetails, setClientDetails] = useState({
@@ -238,6 +244,8 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
     cellphone: "",
     email: "",
     identityNumber: "",
+    passportNumber: "",
+    trnNumber: "",
     deliveryAddressLine1: "",
     deliveryAddressLine2: "",
     deliverySuburb: "",
@@ -275,8 +283,11 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
   const [deliveryRequired, setDeliveryRequired] = useState(false);
   const selectedService =
     availableServices.find((service) => service.slug === selectedServiceSlug) ?? availableServices[0];
+  const isQuoteFlowService = selectedService.slug === "license-fees" || selectedService.slug === "licence-fees";
+  const effectiveOwnershipType: OwnershipType =
+    ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
-  const requiredDocuments = useMemo(() => documentsByOwnership[ownershipType], [ownershipType]);
+  const requiredDocuments = useMemo(() => documentsByOwnership[effectiveOwnershipType], [effectiveOwnershipType]);
   const licenceDiskScanResultApplies =
     !licenceDiskScanResultInvalidated &&
     (licenceDiskScanState.status === "success" || licenceDiskScanState.status === "needs-review");
@@ -292,24 +303,39 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
     make: vehicleDetails.make || (licenceDiskScanResultApplies ? licenceDiskScanState.fields.make : ""),
     model: vehicleDetails.model || (licenceDiskScanResultApplies ? licenceDiskScanState.fields.model : ""),
   };
+  const identityDetailsComplete =
+    citizenshipStatus === "foreigner"
+      ? clientDetails.passportNumber.trim().length > 0 && clientDetails.trnNumber.trim().length > 0
+      : citizenshipStatus === "sa-citizen"
+        ? clientDetails.identityNumber.trim().length > 0
+        : false;
   const clientDetailsComplete = [
     clientDetails.fullName,
     clientDetails.cellphone,
     clientDetails.email,
-    clientDetails.identityNumber,
     clientDetails.deliveryAddressLine1,
     clientDetails.deliveryCity,
     clientDetails.deliveryPostalCode,
-  ].every((value) => value.trim().length > 0) && popiaConsent;
+  ].every((value) => value.trim().length > 0) && citizenshipStatus.length > 0 && identityDetailsComplete && popiaConsent;
   const vehicleDetailsComplete =
     effectiveVehicleDetails.registrationNumber.trim().length > 0 && licenceDiskFileName.trim().length > 0;
   const selectedServiceAmount = Number(selectedService.basePrice);
   const selectedServiceDeliveryFee = Number(selectedService.deliveryFee);
   const requiredUploadLabels = requiredDocuments
     .filter((document) => isMandateStepUpload(document.label))
-    .filter((document) => ["idPhoto", "proofOfAddress"].includes(uploadInputName(document.label)))
+    .filter((document) => {
+      const inputName = uploadInputName(document.label);
+      if (effectiveOwnershipType === "non-sa-citizen") {
+        return ["passportDocument", "trafficRegisterDocument", "proofOfAddress"].includes(inputName);
+      }
+
+      return ["idPhoto", "proofOfAddress"].includes(inputName);
+    })
     .map((document) => document.label);
   const requiredUploadsReady = requiredUploadLabels.every((label) => Boolean(selectedFiles[label]));
+  const nonSaIdentityPreview = [clientDetails.passportNumber, clientDetails.trnNumber]
+    .filter((value) => value.trim().length > 0)
+    .join(" / ");
   const licenceDiskScanMessage = scanLicenceDiskPending
     ? "Trying to read the licence disk photo..."
     : licenceDiskScanState.status !== "idle" && !licenceDiskScanResultInvalidated
@@ -317,6 +343,43 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
       : licenceDiskFileName
         ? "Licence disk photo selected. Enter the vehicle details from the disk below. You may try the AI scan, but manual confirmation is the source of truth."
         : "Choose a clear licence disk photo, then enter the vehicle details from the disk.";
+
+  useEffect(() => {
+    const stepTop = stepContentTopRef.current;
+
+    if (!stepTop) {
+      return;
+    }
+
+    const section = stepTop.closest("section");
+    const progressBar = section?.querySelector("div.border-b.border-\\[\\#eee8dc\\]") as HTMLDivElement | null;
+    const progressHeight = progressBar?.offsetHeight ?? 0;
+    const targetY = stepTop.getBoundingClientRect().top + window.scrollY - progressHeight - 8;
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: Math.max(0, targetY),
+        behavior: "smooth",
+      });
+    });
+  }, [stepIndex]);
+
+  useEffect(() => {
+    if (stepIndex !== 3) {
+      return;
+    }
+
+    const fullNameInput = fullNameInputRef.current;
+
+    if (!fullNameInput) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      fullNameInput.scrollIntoView({ behavior: "smooth", block: "start" });
+      fullNameInput.focus();
+    });
+  }, [stepIndex]);
 
   function nextStep() {
     setStepIndex((current) => Math.min(current + 1, steps.length - 1));
@@ -391,6 +454,10 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
   }
 
   async function submitPublicIntake(formData: FormData) {
+    formData.set("identityNumber", clientDetails.identityNumber.trim());
+    formData.set("passportNumber", clientDetails.passportNumber.trim());
+    formData.set("trnNumber", clientDetails.trnNumber.trim());
+
     const submittedLicenceDisk = formData.get("licenceDiskPhoto");
 
     if (
@@ -427,6 +494,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
       </div>
 
       <div className="p-4 sm:p-5">
+        <div ref={stepContentTopRef} />
         {stepIndex === 0 ? (
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
@@ -496,40 +564,70 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
           </div>
         ) : null}
 
-        {stepIndex === 2 ? (
+        {stepIndex === 3 ? (
           <div>
             <h2 className="text-2xl font-semibold">Tell us who you are</h2>
             <p className="mt-2 text-sm leading-6 text-[#52615b]">
               These details identify the person completing the application. The registered owner may be you, another
               person, an estate, or an entity.
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {[
-                ["fullName", "Full name", "text"],
-                ["cellphone", "Cellphone number", "tel"],
-                ["email", "Email address", "email"],
-                ["identityNumber", "ID, passport, or traffic register number", "text"],
-              ].map(([field, label, type]) => (
-                <label key={field} className="text-sm font-semibold">
-                  {label}
-                  <input
-                    type={type}
-                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
-                    value={clientDetails[field as keyof typeof clientDetails]}
-                    onChange={(event) => {
-                      const value = event.currentTarget.value;
+            <label className="mt-5 block text-sm font-semibold">
+              Citizenship status
+              <select
+                className="mt-1 w-full border border-[#d8d1c3] bg-white px-3 py-2 font-normal"
+                value={citizenshipStatus}
+                onChange={(event) => setCitizenshipStatus(event.currentTarget.value as CitizenshipStatus)}
+              >
+                <option value="">Select one</option>
+                <option value="sa-citizen">South African citizen</option>
+                <option value="foreigner">Foreigner</option>
+              </select>
+            </label>
 
-                      setClientDetails((current) => ({
-                        ...current,
-                        [field]: value,
-                      }));
-                    }}
-                  />
-                </label>
-              ))}
-            </div>
+            {citizenshipStatus.length === 0 ? (
+              <p className="mt-4 border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
+                Select citizenship status to continue with the form.
+              </p>
+            ) : null}
 
-            <div className="mt-6 border-t border-[#eee8dc] pt-5">
+            {citizenshipStatus.length > 0 ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {[
+                  ["fullName", "Full name", "text"],
+                  ["cellphone", "Cellphone number", "tel"],
+                  ["email", "Email address", "email"],
+                  ...(
+                    citizenshipStatus === "foreigner"
+                      ? ([
+                          ["passportNumber", "Passport number", "text"],
+                          ["trnNumber", "TRN number", "text"],
+                        ] as const)
+                      : ([["identityNumber", "ID number", "text"]] as const)
+                  ),
+                ].map(([field, label, type]) => (
+                  <label key={field} className="text-sm font-semibold">
+                    {label}
+                    <input
+                      type={type}
+                      ref={field === "fullName" ? fullNameInputRef : undefined}
+                      className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                      value={clientDetails[field as keyof typeof clientDetails]}
+                      onChange={(event) => {
+                        const value = event.currentTarget.value;
+
+                        setClientDetails((current) => ({
+                          ...current,
+                          [field]: value,
+                        }));
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : null}
+
+            {citizenshipStatus.length > 0 ? (
+              <div className="mt-6 border-t border-[#eee8dc] pt-5">
               <h3 className="text-base font-semibold">Client address</h3>
               <p className="mt-1 text-sm leading-6 text-[#52615b]">
                 Capture the client&apos;s current address for the application record. Delivery will be confirmed at the
@@ -570,11 +668,12 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                 />
                 <span>I agree that License Hub may use these details to process this application.</span>
               </label>
-            </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
-        {stepIndex === 3 ? (
+        {stepIndex === 2 ? (
           <div>
             <h2 className="text-2xl font-semibold">Who legally owns the vehicle?</h2>
             <p className="mt-2 text-sm leading-6 text-[#52615b]">
@@ -628,12 +727,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.entityDisplayName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        entityDisplayName: event.currentTarget.value,
-                      }))
-                    }
+                        entityDisplayName: value,
+                      }));
+                    }}
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -641,12 +741,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.entityRegistrationNumber}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        entityRegistrationNumber: event.currentTarget.value,
-                      }))
-                    }
+                        entityRegistrationNumber: value,
+                      }));
+                    }}
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -654,12 +755,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.representativeFullName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        representativeFullName: event.currentTarget.value,
-                      }))
-                    }
+                        representativeFullName: value,
+                      }));
+                    }}
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -668,12 +770,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     placeholder="Director, trustee, authorised agent"
                     value={entityDetails.representativeCapacity}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        representativeCapacity: event.currentTarget.value,
-                      }))
-                    }
+                        representativeCapacity: value,
+                      }));
+                    }}
                   />
                 </label>
               </div>
@@ -686,12 +789,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.entityDisplayName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        entityDisplayName: event.currentTarget.value,
-                      }))
-                    }
+                        entityDisplayName: value,
+                      }));
+                    }}
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -699,12 +803,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.entityRegistrationNumber}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        entityRegistrationNumber: event.currentTarget.value,
-                      }))
-                    }
+                        entityRegistrationNumber: value,
+                      }));
+                    }}
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -712,12 +817,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.representativeFullName}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        representativeFullName: event.currentTarget.value,
-                      }))
-                    }
+                        representativeFullName: value,
+                      }));
+                    }}
                   />
                 </label>
                 <label className="text-sm font-semibold">
@@ -726,12 +832,13 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     placeholder="Executor, estate representative"
                     value={entityDetails.representativeCapacity}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
                       setEntityDetails((current) => ({
                         ...current,
-                        representativeCapacity: event.currentTarget.value,
-                      }))
-                    }
+                        representativeCapacity: value,
+                      }));
+                    }}
                   />
                 </label>
               </div>
@@ -900,7 +1007,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
         {stepIndex === 6 || stepIndex === 7 ? (
           <form action={submitPublicIntake} onSubmit={preparePublicIntakeSubmit}>
             <input type="hidden" name="serviceSlug" value={selectedService.slug} />
-            <input type="hidden" name="ownershipType" value={ownershipType} />
+            <input type="hidden" name="ownershipType" value={effectiveOwnershipType} />
             <input type="hidden" name="relation" value={relation || selectedOwnership.relationPrompt} />
             {Object.entries(clientDetails).map(([field, value]) => (
               <input key={field} type="hidden" name={field} value={value} />
@@ -910,7 +1017,6 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
             <input type="hidden" name="vin" value={effectiveVehicleDetails.vin} />
             <input type="hidden" name="vehicleMake" value={effectiveVehicleDetails.make} />
             <input type="hidden" name="vehicleModel" value={effectiveVehicleDetails.model} />
-            <input type="hidden" name="paymentMethod" value="EFT" />
             <input type="hidden" name="deliveryRequired" value={deliveryRequired ? "yes" : "no"} />
             {Object.entries(entityDetails).map(([field, value]) => (
               <input key={field} type="hidden" name={field} value={value} />
@@ -953,7 +1059,9 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                             capture={uploadInputName(document.label) === "proofOfAddress" ? undefined : "environment"}
                             required={
                               stepIndex === 6 &&
-                              ["idPhoto", "licenceDiskPhoto", "proofOfAddress"].includes(uploadInputName(document.label))
+                              ["idPhoto", "licenceDiskPhoto", "proofOfAddress", "trafficRegisterDocument", "passportDocument"].includes(
+                                uploadInputName(document.label),
+                              )
                             }
                             className="sr-only"
                             onChange={(event) => {
@@ -990,9 +1098,24 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                       </p>
                       <p className="mt-4">To Whom This May Concern</p>
                       <p className="mt-3">
-                        I, <span className="font-semibold">{clientDetails.fullName || "Client name"}</span>, hereby state
-                        that I require assistance with my selected License Hub service,{" "}
-                        <span className="font-semibold">{selectedService.name}</span>.
+                        {ownershipType === "company-or-trust" || ownershipType === "deceased-estate" ? (
+                          <>
+                            I, <span className="font-semibold">{clientDetails.fullName || "Client name"}</span>, acting on
+                            behalf of{" "}
+                            <span className="font-semibold">
+                              {entityDetails.entityDisplayName ||
+                                (ownershipType === "company-or-trust" ? "the company or trust" : "the deceased estate")}
+                            </span>
+                            , hereby state that I require assistance with my selected License Hub service,{" "}
+                            <span className="font-semibold">{selectedService.name}</span>.
+                          </>
+                        ) : (
+                          <>
+                            I, <span className="font-semibold">{clientDetails.fullName || "Client name"}</span>, hereby
+                            state that I require assistance with my selected License Hub service,{" "}
+                            <span className="font-semibold">{selectedService.name}</span>.
+                          </>
+                        )}
                       </p>
                       <p className="mt-3">
                         I request License Hub&apos;s assistance in preparing and submitting the required vehicle
@@ -1005,8 +1128,14 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                           <dd className="font-medium">{clientDetails.fullName || "To be confirmed"}</dd>
                         </div>
                         <div>
-                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">ID / passport / traffic register</dt>
-                          <dd className="font-medium">{clientDetails.identityNumber || "To be confirmed"}</dd>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">
+                            {effectiveOwnershipType === "non-sa-citizen" ? "Passport / TRN" : "ID number"}
+                          </dt>
+                          <dd className="font-medium">
+                            {effectiveOwnershipType === "non-sa-citizen"
+                              ? nonSaIdentityPreview || clientDetails.identityNumber || "To be confirmed"
+                              : clientDetails.identityNumber || "To be confirmed"}
+                          </dd>
                         </div>
                         <div>
                           <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Registration</dt>
@@ -1067,7 +1196,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                       </p>
                       {!hasMandateSignature ? (
                         <p className="mt-1 text-xs font-semibold text-[#8a6a2a]">
-                          Signature required before payment can be requested.
+                          Signature required before application can be submitted.
                         </p>
                       ) : null}
                     </div>
@@ -1079,10 +1208,11 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
             {stepIndex === 7 ? (
               <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
                 <div>
-                  <h2 className="text-2xl font-semibold">Payment request</h2>
+                  <h2 className="text-2xl font-semibold">Quote and payment</h2>
                   <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                    Choose how the client will pay and whether delivery is required. The payment request is created once
-                    you submit this step.
+                    {isQuoteFlowService
+                      ? "Confirm delivery details. Admin will prepare the quote first, and payment instructions are created after the client approves that quote."
+                      : "Confirm delivery details before submitting the application."}
                   </p>
                   <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                     <p className="font-semibold">Payment method</p>
@@ -1175,11 +1305,18 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                     </p>
                   ) : null}
                   <p className="mt-4 text-sm leading-6 text-[#6b5e4f]">
-                    The application and payment request will be saved together when you submit.
+                    {isQuoteFlowService
+                      ? "The application will be submitted for admin quote preparation when you submit."
+                      : "The application will be submitted for processing when you submit."}
                   </p>
                   {!requiredUploadsReady ? (
                     <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
-                      Complete all required uploads in the Mandate Form step before requesting payment.
+                      Complete all required uploads in the Mandate Form step before submission.
+                    </p>
+                  ) : null}
+                  {!clientDetailsComplete ? (
+                    <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
+                      Complete required identity details in the Who You Are step before final submission.
                     </p>
                   ) : null}
                   {publicIntakeSubmitState.status === "error" ? (
@@ -1187,7 +1324,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                       {publicIntakeSubmitState.message}
                     </p>
                   ) : null}
-                  <SubmitApplicationButton />
+                  <SubmitApplicationButton quoteFlow={isQuoteFlowService} disabled={!clientDetailsComplete} />
                 </aside>
               </div>
             ) : null}
@@ -1214,14 +1351,14 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
             onClick={nextStep}
             disabled={
               stepIndex === steps.length - 1 ||
-              (stepIndex === 2 && !clientDetailsComplete) ||
+              (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
             }
             className={[
               "inline-flex items-center gap-2 border px-4 py-2 text-sm font-semibold",
               stepIndex === steps.length - 1 ||
-              (stepIndex === 2 && !clientDetailsComplete) ||
+              (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
                 ? "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"

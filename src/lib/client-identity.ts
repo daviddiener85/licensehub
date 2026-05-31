@@ -61,6 +61,10 @@ export function clientIdMandatePdfLabel(southAfricanIdEncrypted: string) {
     return decryptedId;
   }
 
+  if (!southAfricanIdEncrypted.startsWith(encryptedIdPrefix)) {
+    return southAfricanIdEncrypted;
+  }
+
   return demoIdLabels[southAfricanIdEncrypted] ?? "ID securely on file";
 }
 

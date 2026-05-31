@@ -80,9 +80,15 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
   [ClientEntityType.NON_SA_CITIZEN]: [
     ...baseRequirements,
     {
-      key: "passport-or-traffic-register",
-      label: "Passport or traffic register document",
-      description: "Non-SA citizen identity document to be confirmed for production handling.",
+      key: "traffic-register-document",
+      label: "Traffic register document (TRN)",
+      description: "Traffic register document required for non-SA citizen production handling.",
+      confirmedForUpload: true,
+    },
+    {
+      key: "passport-document",
+      label: "Passport document",
+      description: "Passport document required for non-SA citizen production handling.",
       confirmedForUpload: true,
     },
   ],

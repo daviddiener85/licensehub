@@ -2,6 +2,30 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-05-24
+
+### EFT-first launch flow, admin process hardening, and client communication updates
+
+- Stabilized the client `/apply` flow through to payment request creation.
+- Added service-level delivery fee support and included delivery in payment totals.
+- Set test pricing for Duplicate Certificate to `R499.00` base with delivery fee support.
+- Enforced EFT-first launch path while card payments remain deferred.
+- Added fictional EFT banking details to defaults for local/UAT use and displayed them on the client submitted page.
+- Fixed payment submit blockers caused by hidden-step validation and cross-step file handling issues.
+- Removed duplicate licence disk collection in mandate-related steps once captured in vehicle details.
+- Improved submitted-page UX with clearer "what happens next" guidance, EFT proof upload status confirmation, and latest uploaded proof visibility.
+- Added optional replace-proof action while keeping the default post-upload state clear and non-ambiguous.
+- Added automatic outbound WhatsApp communication queue record on public application submission:
+  - Confirms order received.
+  - Includes payment reference number.
+  - Confirms document review and ongoing updates.
+- Expanded admin/process/UAT documentation:
+  - Entity-specific admin flow sequences.
+  - UAT scripts per entity type.
+  - UAT gap log updates.
+- Added and updated auth and middleware foundations for protected role flows.
+- Completed validation checks with successful lint/build cycles after changes.
+
 ## 2026-05-15 08:30 SAST
 
 ### Admin client database added

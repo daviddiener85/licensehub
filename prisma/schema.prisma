@@ -19,6 +19,9 @@ enum UserStatus {
 
 enum ApplicationStatus {
   DRAFT
+  AWAITING_ADMIN_QUOTE
+  QUOTE_PENDING_CLIENT_APPROVAL
+  QUOTE_APPROVED_AWAITING_PAYMENT
   PENDING_REVIEW
   DOCUMENTS_RESUBMIT_REQUIRED
   ADDITIONAL_CHARGE_RAISED
@@ -231,6 +234,9 @@ model Application {
   ocrConfidence       Decimal?           @db.Decimal(5, 2)
   supplierUrgency     SupplierUrgency    @default(NORMAL)
   submittedAt         DateTime?
+  quotedAt            DateTime?
+  quoteApprovedAt     DateTime?
+  quoteVersion        Int                @default(0)
   approvedAt          DateTime?
   completedAt         DateTime?
   cancelledAt         DateTime?

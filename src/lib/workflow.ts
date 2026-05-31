@@ -7,6 +7,27 @@ export const applicationPipeline = [
     clientDescription: "Your application has been started. Complete all steps and payment to submit.",
   },
   {
+    key: "awaiting-admin-quote",
+    status: "AWAITING_ADMIN_QUOTE",
+    label: "Awaiting Admin Quote",
+    owner: "Admin",
+    clientDescription: "Your application has been received. Our team will prepare your fee quote next.",
+  },
+  {
+    key: "quote-pending-client-approval",
+    status: "QUOTE_PENDING_CLIENT_APPROVAL",
+    label: "Quote Pending Approval",
+    owner: "Client",
+    clientDescription: "Your quote is ready. Please review and approve to continue.",
+  },
+  {
+    key: "quote-approved-awaiting-payment",
+    status: "QUOTE_APPROVED_AWAITING_PAYMENT",
+    label: "Quote Approved - Awaiting Payment",
+    owner: "Client",
+    clientDescription: "Quote approved. Please complete payment so review can continue.",
+  },
+  {
     key: "pending-review",
     status: "PENDING_REVIEW",
     label: "Pending Review",

@@ -1,9 +1,10 @@
 import Link from "next/link";
 
-import { DocumentType, PaymentMethod } from "@/generated/prisma/client";
+import { ApplicationStatus, DocumentType, PaymentMethod } from "@/generated/prisma/client";
 import { EftProofUploadForm } from "@/components/eft-proof-upload-form";
+import { formatMoney } from "@/lib/applications";
 import { prisma } from "@/lib/prisma";
-import { uploadEftProof } from "@/lib/workflow-actions";
+import { approveClientQuote, uploadEftProof } from "@/lib/workflow-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,10 @@ export default async function ApplicationSubmittedPage({
         where: { id: application },
         include: {
           service: true,
+          charges: {
+            where: { status: "PENDING" },
+            orderBy: { createdAt: "desc" },
+          },
           payments: {
             orderBy: { createdAt: "desc" },
             take: 1,
@@ -47,9 +52,15 @@ export default async function ApplicationSubmittedPage({
   });
   const payment = applicationRecord?.payments[0] ?? null;
   const amountLabel = payment ? `R${Number(payment.amount).toFixed(2)}` : null;
+  const quoteLines = applicationRecord?.charges ?? [];
+  const quoteTotal = quoteLines.reduce((sum, charge) => sum + Number(charge.amount.toString()), 0);
   const latestEftProof = applicationRecord?.documents[0] ?? null;
   const hasEftProof = Boolean(latestEftProof);
   const shouldShowUploadForm = !hasEftProof || showUpload === "1";
+  const quoteAwaitingAdmin = applicationRecord?.currentStatus === ApplicationStatus.AWAITING_ADMIN_QUOTE;
+  const quotePendingClientApproval = applicationRecord?.currentStatus === ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL;
+  const quoteApprovedAwaitingPayment =
+    applicationRecord?.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT;
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f2724] sm:px-6 lg:px-8">
@@ -57,7 +68,7 @@ export default async function ApplicationSubmittedPage({
         <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub</p>
         <h1 className="mt-4 text-3xl font-semibold">Application received</h1>
         <p className="mt-4 text-sm leading-6 text-[#52615b]">
-          The application, supporting documents, mandate form, and payment request were saved successfully.
+          The application, supporting documents, and mandate form were saved successfully.
         </p>
 
         {application ? (
@@ -67,7 +78,46 @@ export default async function ApplicationSubmittedPage({
           </div>
         ) : null}
 
-	        {payment && amountLabel ? (
+        {quoteAwaitingAdmin ? (
+          <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4">
+            <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Quote status</p>
+            <p className="mt-2 text-sm leading-6 text-[#52615b]">
+              Your application is waiting for admin pricing. We will notify you as soon as your quote is ready to approve.
+            </p>
+          </div>
+        ) : null}
+
+        {quotePendingClientApproval ? (
+          <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4">
+            <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Quote ready for approval</p>
+            {quoteLines.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {quoteLines.map((charge) => (
+                  <div key={charge.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span>{charge.description}</span>
+                    <span className="font-semibold">{formatMoney(charge.amount)}</span>
+                  </div>
+                ))}
+                <div className="mt-2 border-t border-[#d8d1c3] pt-2 text-sm font-semibold">
+                  Total: {formatMoney({ toString: () => quoteTotal.toFixed(2) })}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-[#52615b]">No quote line items were found yet.</p>
+            )}
+            {applicationRecord ? (
+              <form action={approveClientQuote} className="mt-4">
+                <input type="hidden" name="applicationId" value={applicationRecord.id} />
+                <input type="hidden" name="publicToken" value={applicationRecord.publicToken} />
+                <button className="border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
+                  Approve quote
+                </button>
+              </form>
+            ) : null}
+          </div>
+        ) : null}
+
+        {payment && amountLabel && quoteApprovedAwaitingPayment ? (
           <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4">
             <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Payment instruction</p>
             <p className="mt-2 text-lg font-semibold">{amountLabel}</p>

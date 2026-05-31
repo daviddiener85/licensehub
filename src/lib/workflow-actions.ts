@@ -27,6 +27,7 @@ import { createMandatePdf } from "@/lib/mandate-pdf";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
+import { documentLabel } from "@/lib/documents";
 
 export type PublicIntakeSubmissionState = {
   status: "idle" | "error";
@@ -78,6 +79,24 @@ function getIdPhoto(formData: FormData) {
   }
 
   return idPhoto;
+}
+
+function getOptionalIdPhoto(formData: FormData) {
+  const idPhoto = formData.get("idPhoto");
+
+  if (!(idPhoto instanceof File) || idPhoto.size === 0) {
+    return null;
+  }
+
+  if (!["image/jpeg", "image/png"].includes(idPhoto.type)) {
+    throw new Error("The ID photo must be a JPG or PNG image.");
+  }
+
+  return idPhoto;
+}
+
+function isImageFile(file: File | null) {
+  return Boolean(file && (file.type === "image/jpeg" || file.type === "image/png"));
 }
 
 function getRequiredFile(formData: FormData, fieldName: string, label: string, allowedTypes: string[]) {
@@ -355,11 +374,12 @@ async function writeMandatePdf(
       firstName: string;
       surname: string;
       southAfricanIdEncrypted: string;
+      entityType: ClientEntityType;
     };
   },
   signatureDataUrl: string,
-  idPhotoBytes: Buffer,
-  idPhotoMimeType: string,
+  idPhotoBytes?: Buffer,
+  idPhotoMimeType?: string,
 ) {
   const applicationId = application.id;
   const uploadDirectory = path.join(process.cwd(), "public", "uploads", "mandate-forms", applicationId);
@@ -368,6 +388,8 @@ async function writeMandatePdf(
   const pdfBytes = await createMandatePdf({
     clientName: `${application.client.firstName} ${application.client.surname}`,
     clientIdLabel: clientIdMandatePdfLabel(application.client.southAfricanIdEncrypted),
+    entityType: application.client.entityType,
+    entityDisplayName: application.entityDisplayName,
     date: new Date(),
     registrationNumber: application.registrationNumber,
     vin: application.vin,
@@ -472,6 +494,47 @@ async function appendStatusHistoryNote(applicationId: string, actorId: string | 
       note,
     },
   });
+}
+
+async function auditLabelForDocument(applicationId: string, documentId: string) {
+  const document = await prisma.document.findUniqueOrThrow({
+    where: { id: documentId },
+    select: {
+      id: true,
+      type: true,
+      fileName: true,
+      version: true,
+      application: {
+        select: {
+          client: {
+            select: {
+              entityType: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (document.type !== DocumentType.OTHER) {
+    return documentLabel(document.type, document.fileName);
+  }
+
+  const supportingRequirements = documentRequirementsForEntityType(document.application.client.entityType).filter(
+    (requirement) => requirement.confirmedForUpload && !requirement.documentType,
+  );
+  const supportingDocuments = await prisma.document.findMany({
+    where: {
+      applicationId,
+      type: DocumentType.OTHER,
+    },
+    select: { id: true, version: true },
+    orderBy: { version: "asc" },
+  });
+  const supportingIndex = supportingDocuments.findIndex((item) => item.id === document.id);
+  const requirementForIndex = supportingIndex >= 0 ? supportingRequirements[supportingIndex] : null;
+
+  return requirementForIndex?.label ?? documentLabel(document.type, document.fileName);
 }
 
 function getRequiredString(formData: FormData, fieldName: string, label: string) {
@@ -941,6 +1004,7 @@ export async function createClientApplicationLink(formData: FormData) {
       referralSource: getOptionalString(formData, "referralSource"),
       firstName,
       surname,
+      southAfricanIdEncrypted: identityNumber,
       cellphone,
       email,
       deliveryAddressLine1,
@@ -955,7 +1019,7 @@ export async function createClientApplicationLink(formData: FormData) {
       referralSource: getOptionalString(formData, "referralSource"),
       firstName,
       surname,
-      southAfricanIdEncrypted: `pending-secure-id:${clientIdHash(identityNumber)}`,
+      southAfricanIdEncrypted: identityNumber,
       southAfricanIdHash: clientIdHash(identityNumber),
       cellphone,
       email,
@@ -1006,13 +1070,22 @@ export async function createPublicApplicationIntake(
     const entityType = getOwnershipEntityType(formData);
     const fullName = getRequiredString(formData, "fullName", "Full name");
     const { firstName, surname } = splitFullName(fullName);
-    const identityNumber = getRequiredString(formData, "identityNumber", "ID, passport, or traffic register number");
+    const passportNumber =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? getRequiredString(formData, "passportNumber", "Passport number")
+        : null;
+    const trnNumber =
+      entityType === ClientEntityType.NON_SA_CITIZEN ? getRequiredString(formData, "trnNumber", "TRN number") : null;
+    const identityNumber =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? `${passportNumber}|${trnNumber}`
+        : getRequiredString(formData, "identityNumber", "ID number");
+    const identityNumberForVerification = passportNumber ?? identityNumber;
     const cellphone = getRequiredString(formData, "cellphone", "Cellphone number");
     const email = getRequiredString(formData, "email", "Email address");
     const deliveryAddressLine1 = getRequiredString(formData, "deliveryAddressLine1", "Delivery address");
     const deliveryCity = getRequiredString(formData, "deliveryCity", "Delivery city");
     const deliveryPostalCode = getRequiredString(formData, "deliveryPostalCode", "Delivery postal code");
-    const paymentMethod = getPaymentMethod(formData);
     const deliveryRequired = getDeliveryRequired(formData);
     const entityDisplayName = getOptionalString(formData, "entityDisplayName");
     const entityRegistrationNumber = getOptionalString(formData, "entityRegistrationNumber");
@@ -1029,7 +1102,7 @@ export async function createPublicApplicationIntake(
       : deliveryPostalCode;
     const registrationNumber = getRequiredString(formData, "registrationNumber", "Registration number");
     const signatureDataUrl = getSignatureDataUrl(formData);
-    const idPhoto = getIdPhoto(formData);
+    const idPhoto = getOptionalIdPhoto(formData);
     const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [
       "image/jpeg",
       "image/png",
@@ -1039,6 +1112,40 @@ export async function createPublicApplicationIntake(
       "image/png",
       "application/pdf",
     ]);
+    const trafficRegisterDocument =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? getRequiredFile(formData, "trafficRegisterDocument", "Traffic register document (TRN)", [
+            "image/jpeg",
+            "image/png",
+            "application/pdf",
+          ])
+        : null;
+    const passportDocument =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? getRequiredFile(formData, "passportDocument", "Passport document", [
+            "image/jpeg",
+            "image/png",
+            "application/pdf",
+          ])
+        : null;
+    const identityPhotoForMandate =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? isImageFile(passportDocument)
+          ? passportDocument
+          : isImageFile(trafficRegisterDocument)
+            ? trafficRegisterDocument
+            : idPhoto
+        : idPhoto;
+    if (!identityPhotoForMandate && entityType !== ClientEntityType.NON_SA_CITIZEN) {
+      throw new Error("An ID photo is required before submitting the mandate form.");
+    }
+    const identityDocumentForStorage =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? passportDocument ?? trafficRegisterDocument ?? idPhoto
+        : identityPhotoForMandate;
+    if (!identityDocumentForStorage) {
+      throw new Error("A valid identity document is required before submitting the mandate form.");
+    }
     const supportingDocuments = formData
       .getAll("supportingDocument")
       .filter((value): value is File => value instanceof File && value.size > 0);
@@ -1051,8 +1158,15 @@ export async function createPublicApplicationIntake(
         slug: getSelectedServiceSlug(formData),
         isActive: true,
       },
-      select: { id: true, basePrice: true, deliveryFee: true },
+      select: { id: true, name: true, basePrice: true, deliveryFee: true },
     });
+    const baseAmount = Number(service.basePrice);
+    const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
+    const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
+    const startAwaitingPayment = Number(totalAmount) > 0;
+    const initialStatus = startAwaitingPayment
+      ? ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT
+      : ApplicationStatus.AWAITING_ADMIN_QUOTE;
     const client = await prisma.client.upsert({
     where: { southAfricanIdHash: identifierHash },
     update: {
@@ -1060,6 +1174,7 @@ export async function createPublicApplicationIntake(
       referralSource: "Website",
       firstName,
       surname,
+      southAfricanIdEncrypted: identityNumber,
       cellphone,
       email,
       deliveryAddressLine1: paymentDeliveryAddressLine1,
@@ -1081,7 +1196,7 @@ export async function createPublicApplicationIntake(
       referralSource: "Website",
       firstName,
       surname,
-      southAfricanIdEncrypted: `pending-secure-id:${identifierHash}`,
+      southAfricanIdEncrypted: identityNumber,
       southAfricanIdHash: identifierHash,
       cellphone,
       email,
@@ -1100,15 +1215,13 @@ export async function createPublicApplicationIntake(
       popiaConsentAcceptedAt: new Date(),
     },
   });
-    const totalAmount = service.basePrice.add(deliveryRequired ? service.deliveryFee : 0);
-
     const application = await prisma.application.create({
     data: {
       id: applicationId,
       publicToken,
       clientId: client.id,
       serviceId: service.id,
-      currentStatus: ApplicationStatus.DRAFT,
+      currentStatus: initialStatus,
       registrationNumber,
       vin: getOptionalString(formData, "vin"),
       vehicleMake: getOptionalString(formData, "vehicleMake"),
@@ -1117,11 +1230,20 @@ export async function createPublicApplicationIntake(
       entityRegistrationNumber,
       representativeFullName,
       representativeCapacity,
+      ...(startAwaitingPayment
+        ? {
+            quoteVersion: 1,
+            quotedAt: new Date(),
+            quoteApprovedAt: new Date(),
+          }
+        : {}),
       statusHistory: {
         create: {
           fromStatus: null,
-          toStatus: ApplicationStatus.DRAFT,
-          note: `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Payment method: ${paymentMethod}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
+          toStatus: initialStatus,
+          note: startAwaitingPayment
+            ? `Client started application from the public website and moved to awaiting EFT payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
+            : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
         },
       },
     },
@@ -1129,25 +1251,46 @@ export async function createPublicApplicationIntake(
       client: true,
     },
   });
-    const paymentReference = `PAY-${applicationId}`;
-    await prisma.payment.create({
-    data: {
-      applicationId,
-      type: PaymentType.BASE_FEE,
-      method: paymentMethod,
-      status: PaymentStatus.PENDING,
-      amount: totalAmount,
-      reference: paymentReference,
-    },
-  });
     const adminId = await actorIdFor(UserRole.ADMIN);
-    const whatsappConfirmationMessage = [
+    if (startAwaitingPayment) {
+      await prisma.charge.create({
+        data: {
+          applicationId,
+          description: `${service.name}${deliveryRequired && deliveryAmount > 0 ? " (including delivery)" : ""}`,
+          reason: "QUOTE_V1",
+          amount: totalAmount,
+        },
+      });
+
+      await prisma.payment.create({
+        data: {
+          applicationId,
+          method: PaymentMethod.EFT,
+          type: PaymentType.BASE_FEE,
+          amount: totalAmount,
+          reference: `PAY-${applicationId}-Q1`,
+          status: PaymentStatus.PENDING,
+          requestedAt: new Date(),
+        },
+      });
+    }
+
+    const whatsappConfirmationMessage = startAwaitingPayment
+      ? [
+          `Hi ${firstName},`,
+          "",
+          "Your License Hub order has been received.",
+          `Reference number: ${applicationId}.`,
+          "",
+          "Your EFT payment request is ready. Please use the payment reference shown on your application page.",
+        ].join("\n")
+      : [
       `Hi ${firstName},`,
       "",
       "Your License Hub order has been received.",
-      `Reference number: ${paymentReference}.`,
+      `Reference number: ${applicationId}.`,
       "",
-      "Your documents will now be reviewed and we'll keep you updated on your application status.",
+      "Our admin team will now prepare your quote and we'll keep you updated on your application status.",
     ].join("\n");
     await prisma.communication.create({
       data: {
@@ -1162,27 +1305,37 @@ export async function createPublicApplicationIntake(
         body: whatsappConfirmationMessage,
       },
     });
-    const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
+    const savedIdPhoto = await saveMandateIdPhoto(applicationId, identityDocumentForStorage);
 
     await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
     await saveUploadedDocument(applicationId, proofOfAddress, DocumentType.PROOF_OF_ADDRESS, "client-documents");
-    await saveAdditionalSupportingDocuments(applicationId, supportingDocuments);
+    const mandatorySupportingDocuments = [trafficRegisterDocument, passportDocument].filter(
+      (file): file is File => file instanceof File && file.size > 0,
+    );
+    await saveAdditionalSupportingDocuments(applicationId, [...mandatorySupportingDocuments, ...supportingDocuments]);
     await maybeVerifyUploadedDocumentsWithAi({
       applicationId,
       registrationNumber,
-      identityNumber,
+      identityNumber: identityNumberForVerification,
       entityDisplayName,
       entityRegistrationNumber,
-      files: [idPhoto, licenceDiskPhoto, proofOfAddress, ...supportingDocuments],
+      files: [idPhoto, licenceDiskPhoto, proofOfAddress, ...mandatorySupportingDocuments, ...supportingDocuments].filter(
+        (file): file is File => file instanceof File && file.size > 0,
+      ),
     });
-    await writeMandatePdf(application, signatureDataUrl, savedIdPhoto.idPhotoBytes, idPhoto.type);
+    await writeMandatePdf(
+      application,
+      signatureDataUrl,
+      identityPhotoForMandate ? Buffer.from(await identityPhotoForMandate.arrayBuffer()) : undefined,
+      identityPhotoForMandate?.type,
+    );
     await prisma.mandateFormSubmission.create({
     data: {
       applicationId,
       signatureDataUrl,
-      idPhotoFileName: idPhoto.name || savedIdPhoto.fileName,
-      idPhotoMimeType: idPhoto.type,
-      idPhotoSizeBytes: idPhoto.size,
+      idPhotoFileName: identityDocumentForStorage.name || savedIdPhoto.fileName,
+      idPhotoMimeType: identityDocumentForStorage.type || "application/octet-stream",
+      idPhotoSizeBytes: identityDocumentForStorage.size,
       idPhotoStorageKey: savedIdPhoto.storageKey,
     },
     });
@@ -1195,22 +1348,12 @@ export async function createPublicApplicationIntake(
       throw error;
     }
 
-    const message = error instanceof Error && error.message.length > 0 ? error.message : "Unable to request payment.";
+    const message = error instanceof Error && error.message.length > 0 ? error.message : "Unable to submit application.";
     return {
       status: "error",
       message,
     };
   }
-}
-
-function getPaymentMethod(formData: FormData) {
-  const value = formData.get("paymentMethod");
-
-  if (value === PaymentMethod.EFT) {
-    return PaymentMethod.EFT;
-  }
-
-  throw new Error("Only EFT payments are currently available.");
 }
 
 function getDeliveryRequired(formData: FormData) {
@@ -1227,9 +1370,150 @@ function getDeliveryRequired(formData: FormData) {
   throw new Error("Delivery selection is required.");
 }
 
+function getRequiredMoneyAmount(formData: FormData, fieldName: string, label: string) {
+  const value = getRequiredString(formData, fieldName, label);
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error(`${label} must be a valid amount greater than zero.`);
+  }
+
+  return amount.toFixed(2);
+}
+
+export async function publishAdminQuote(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const amount = getRequiredMoneyAmount(formData, "quoteAmount", "Quote amount");
+  const description =
+    getOptionalString(formData, "quoteDescription") || "License fee quote prepared by admin.";
+  const adminId = await actorIdFor(UserRole.ADMIN);
+
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    include: { client: true },
+  });
+
+  if (
+    application.currentStatus === ApplicationStatus.CANCELLED ||
+    application.currentStatus === ApplicationStatus.DISPATCHED
+  ) {
+    throw new Error("Cannot publish a quote for a closed application.");
+  }
+
+  const quoteVersion = (application.quoteVersion ?? 0) + 1;
+
+  await prisma.charge.create({
+    data: {
+      applicationId,
+      description,
+      reason: `QUOTE_V${quoteVersion}`,
+      amount,
+    },
+  });
+
+  await transitionApplication(applicationId, ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL, {
+    actorId: adminId,
+    note: `Admin published quote version ${quoteVersion} for client approval.`,
+    data: {
+      quoteVersion,
+      quotedAt: new Date(),
+      quoteApprovedAt: null,
+    },
+  });
+
+  await prisma.communication.create({
+    data: {
+      applicationId,
+      channel: CommunicationChannel.WHATSAPP,
+      direction: CommunicationDirection.OUTBOUND,
+      status: CommunicationStatus.QUEUED,
+      senderId: adminId,
+      recipientName: `${application.client.firstName} ${application.client.surname}`,
+      recipientAddress: application.client.cellphone,
+      templateKey: "quote-ready-for-approval",
+      body: `Hi ${application.client.firstName}, your quote is ready for application ${applicationId}. Please review and approve so we can proceed.`,
+    },
+  });
+
+  refreshWorkflowPages();
+  revalidatePath("/admin");
+}
+
+export async function approveClientQuote(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const publicToken = getRequiredString(formData, "publicToken", "Public token");
+
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    include: {
+      charges: {
+        where: { status: "PENDING" },
+      },
+    },
+  });
+
+  if (application.publicToken !== publicToken) {
+    throw new Error("Invalid quote approval token.");
+  }
+
+  if (application.currentStatus !== ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL) {
+    throw new Error("This quote is not currently awaiting client approval.");
+  }
+
+  const pendingCharges = application.charges.filter((charge) => charge.status === "PENDING");
+
+  if (pendingCharges.length === 0) {
+    throw new Error("No pending quote charges found for this application.");
+  }
+
+  const total = pendingCharges.reduce((sum, charge) => sum + Number(charge.amount.toString()), 0);
+  const paymentReference = `PAY-${applicationId}-Q${application.quoteVersion || 1}`;
+
+  await prisma.payment.create({
+    data: {
+      applicationId,
+      type: PaymentType.BASE_FEE,
+      method: PaymentMethod.EFT,
+      status: PaymentStatus.PENDING,
+      amount: total.toFixed(2),
+      reference: paymentReference,
+    },
+  });
+
+  await transitionApplication(applicationId, ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT, {
+    note: "Client approved quote and payment request was created.",
+    data: {
+      quoteApprovedAt: new Date(),
+    },
+  });
+
+  refreshWorkflowPages();
+  revalidatePath(`/apply/submitted?application=${applicationId}`);
+  redirect(`/apply/submitted?application=${encodeURIComponent(applicationId)}`);
+}
+
 export async function confirmEftPayment(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const adminId = await actorIdFor(UserRole.ADMIN);
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    include: {
+      payments: {
+        where: {
+          method: "EFT",
+          status: PaymentStatus.PENDING,
+        },
+      },
+    },
+  });
+
+  if (application.currentStatus !== ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT) {
+    throw new Error("Quote must be approved by the client before EFT confirmation.");
+  }
+
+  if (application.payments.length === 0) {
+    throw new Error("No pending EFT payment was found for this application.");
+  }
 
   await prisma.payment.updateMany({
     where: {
@@ -1334,6 +1618,7 @@ export async function acceptDocument(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const documentId = getRequiredString(formData, "documentId", "Document");
   const adminId = await actorIdFor(UserRole.ADMIN);
+  const documentAuditLabel = await auditLabelForDocument(applicationId, documentId);
 
   await prisma.document.update({
     where: { id: documentId },
@@ -1345,7 +1630,29 @@ export async function acceptDocument(formData: FormData) {
     },
   });
 
-  await appendStatusHistoryNote(applicationId, adminId, "Admin accepted a document during review.");
+  await appendStatusHistoryNote(applicationId, adminId, `Admin accepted ${documentAuditLabel} during review.`);
+
+  refreshWorkflowPages();
+  revalidatePath(`/admin?application=${applicationId}`);
+}
+
+export async function markDocumentPending(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const documentId = getRequiredString(formData, "documentId", "Document");
+  const adminId = await actorIdFor(UserRole.ADMIN);
+  const documentAuditLabel = await auditLabelForDocument(applicationId, documentId);
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: {
+      status: DocumentStatus.PENDING,
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedAt: null,
+    },
+  });
+
+  await appendStatusHistoryNote(applicationId, adminId, `Admin moved ${documentAuditLabel} back to pending.`);
 
   refreshWorkflowPages();
   revalidatePath(`/admin?application=${applicationId}`);
@@ -1397,6 +1704,7 @@ export async function rejectDocument(formData: FormData) {
   const documentId = getRequiredString(formData, "documentId", "Document");
   const rejectionReason = getRequiredString(formData, "rejectionReason", "Rejection reason");
   const adminId = await actorIdFor(UserRole.ADMIN);
+  const documentAuditLabel = await auditLabelForDocument(applicationId, documentId);
 
   await prisma.document.update({
     where: { id: documentId },
@@ -1410,7 +1718,7 @@ export async function rejectDocument(formData: FormData) {
 
   await transitionApplication(applicationId, ApplicationStatus.DOCUMENTS_RESUBMIT_REQUIRED, {
     actorId: adminId,
-    note: "Admin rejected a document during review and requested resubmission.",
+    note: `Admin rejected ${documentAuditLabel} during review and requested resubmission.`,
   });
 
   refreshWorkflowPages();
@@ -1466,7 +1774,25 @@ export async function approveToSupplier(formData: FormData) {
       }
 
       if (!requirement.documentType) {
-        return true;
+        const supportingDocuments = application.documents
+          .filter((document) => document.type === DocumentType.OTHER)
+          .sort((first, second) => first.version - second.version);
+        const supportingIndexByRequirement: Partial<Record<string, number>> = {
+          "death-certificate": 0,
+          "executor-authority": 1,
+          "registration-or-trust-document": 0,
+          "representative-authority": 1,
+          "traffic-register-document": 0,
+          "passport-document": 1,
+        };
+        const supportingIndex = supportingIndexByRequirement[requirement.key];
+
+        if (typeof supportingIndex !== "number") {
+          return true;
+        }
+
+        const supportingDocument = supportingDocuments[supportingIndex];
+        return !supportingDocument || supportingDocument.status !== DocumentStatus.ACCEPTED;
       }
 
       const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
