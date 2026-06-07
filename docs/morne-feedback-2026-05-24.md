@@ -9,7 +9,7 @@ This week we closed major intake, payment, mandate, and admin-review gaps and mo
 - Stabilized the public intake flow from `/apply` through to submission.
 - Added delivery fee support in services and included delivery fees in payable totals.
 - Set Duplicate Certificate test pricing to `R499.00`.
-- Kept EFT as the active payment path while card remains deferred.
+- Kept EFT as the active payment path while Paystack awaits provider review.
 - Improved post-submit clarity with stronger “what happens next” guidance.
 - Added and improved EFT proof-of-payment flow, including upload state clarity and replace-proof behavior.
 - Improved step progression UX with automatic scroll/focus and progress-strip visibility during transitions.
@@ -52,4 +52,3 @@ This week we closed major intake, payment, mandate, and admin-review gaps and mo
 - Admin review tooling is stronger, with better document clarity, correction controls, and audit readability.
 - Intake and identity capture rules are aligned more closely to expected real-world client scenarios.
 - Remaining work is primarily polish, consistency, and final business-rule confirmation rather than foundational flow construction.
-

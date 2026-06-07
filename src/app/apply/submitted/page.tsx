@@ -122,108 +122,119 @@ export default async function ApplicationSubmittedPage({
             <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Payment instruction</p>
             <p className="mt-2 text-lg font-semibold">{amountLabel}</p>
             <p className="mt-1 text-sm text-[#52615b]">{applicationRecord?.service.name}</p>
-            {payment.method === PaymentMethod.EFT ? (
-	              <div className="mt-3 space-y-3">
-                <p className="text-sm leading-6 text-[#52615b]">
-                  Please complete EFT payment and use reference <span className="font-semibold">{payment.reference}</span>.
-                  Admin will confirm payment before review continues.
-                </p>
-                {retentionSetting?.eftBankName &&
-                retentionSetting?.eftAccountNumber &&
-                retentionSetting?.eftAccountHolder ? (
-                  <div className="border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm">
-                    <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Banking details</p>
-                    <dl className="mt-2 grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Bank</dt>
-                        <dd>{retentionSetting.eftBankName}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account holder</dt>
-                        <dd>{retentionSetting.eftAccountHolder}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account number</dt>
-                        <dd>{retentionSetting.eftAccountNumber}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Branch code</dt>
-                        <dd>{retentionSetting.eftBranchCode || "Not provided"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account type</dt>
-                        <dd>{retentionSetting.eftAccountType || "Not provided"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Reference</dt>
-                        <dd className="font-semibold">{payment.reference}</dd>
-                      </div>
-                    </dl>
-                    <p className="mt-3 text-xs text-[#6b5e4f]">
-                      {retentionSetting.eftReferenceInstruction || "Use your application reference as payment reference."}
-                    </p>
+            <div className="mt-3 space-y-3">
+              {payment.method === PaymentMethod.PAYSTACK ? (
+                <>
+                  <p className="text-sm leading-6 text-[#52615b]">
+                    Complete your Paystack payment using reference{" "}
+                    <span className="font-semibold">{payment.reference}</span>.
+                  </p>
+                  <div className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
+                    <p className="text-xs font-semibold uppercase text-[#6b5e4f]">What happens next</p>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5">
+                      <li>Open the Paystack checkout link below.</li>
+                      <li>Pay with the test card or payment method provided by Paystack.</li>
+                      <li>After payment succeeds, your application moves to document review automatically.</li>
+                    </ol>
                   </div>
-                ) : (
-                  <p className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
-                    EFT banking details are not configured yet. Please contact License Hub support before paying.
+                  {payment.checkoutUrl ? (
+                    <a
+                      href={payment.checkoutUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
+                    >
+                      Pay now with Paystack
+                    </a>
+                  ) : (
+                    <p className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
+                      Paystack checkout is still being prepared. Please refresh this page in a moment.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm leading-6 text-[#52615b]">
+                    Please complete EFT payment and use reference{" "}
+                    <span className="font-semibold">{payment.reference}</span>.
+                    Admin will confirm payment before review continues.
                   </p>
-                )}
-                <div className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
-                  <p className="text-xs font-semibold uppercase text-[#6b5e4f]">What happens next</p>
-                  <ol className="mt-2 list-decimal space-y-1 pl-5">
-                    <li>Use the EFT banking details and reference shown above.</li>
-                    <li>
-                      {hasEftProof
-                        ? "Your proof of payment is uploaded and waiting for admin confirmation."
-                        : "Upload your EFT proof below so admin can verify payment."}
-                    </li>
-                    <li>Admin confirms payment, then your application moves to document review.</li>
-                  </ol>
-                </div>
-                {eftUploaded === "1" ? (
-                  <p className="border border-[#1f7a4d] bg-[#f4fbf7] p-3 text-sm font-semibold text-[#1f7a4d]">
-                    EFT proof uploaded successfully.
-                  </p>
-                ) : null}
-                {latestEftProof ? (
-                  <p className="border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm text-[#52615b]">
-                    Latest uploaded proof:{" "}
-                    <span className="font-semibold">{latestEftProof.fileName}</span>
-                  </p>
-                ) : null}
-                {shouldShowUploadForm && application ? (
-                  <EftProofUploadForm applicationId={application} action={uploadEftProof} />
-                ) : null}
-                {hasEftProof && !shouldShowUploadForm && application ? (
-                  <Link
-                    href={`/apply/submitted?application=${encodeURIComponent(application)}&showUpload=1`}
-                    className="inline-flex border border-[#d8d1c3] bg-white px-3 py-2 text-sm font-semibold text-[#52615b]"
-                  >
-                    Replace uploaded proof
-                  </Link>
-                ) : null}
-              </div>
-            ) : (
-              <div className="mt-3 space-y-3">
-                <p className="text-sm leading-6 text-[#52615b]">
-                  Paystack payment is selected. Use reference <span className="font-semibold">{payment.reference}</span>.
-                </p>
-                {payment.checkoutUrl ? (
-                  <a
-                    href={payment.checkoutUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
-                  >
-                    Pay now with Paystack
-                  </a>
-                ) : (
-                  <p className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
-                    Paystack checkout link is still being prepared. Please refresh this page in a moment.
-                  </p>
-                )}
-              </div>
-            )}
+                  {retentionSetting?.eftBankName &&
+                  retentionSetting?.eftAccountNumber &&
+                  retentionSetting?.eftAccountHolder ? (
+                    <div className="border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm">
+                      <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Banking details</p>
+                      <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Bank</dt>
+                          <dd>{retentionSetting.eftBankName}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account holder</dt>
+                          <dd>{retentionSetting.eftAccountHolder}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account number</dt>
+                          <dd>{retentionSetting.eftAccountNumber}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Branch code</dt>
+                          <dd>{retentionSetting.eftBranchCode || "Not provided"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account type</dt>
+                          <dd>{retentionSetting.eftAccountType || "Not provided"}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Reference</dt>
+                          <dd className="font-semibold">{payment.reference}</dd>
+                        </div>
+                      </dl>
+                      <p className="mt-3 text-xs text-[#6b5e4f]">
+                        {retentionSetting.eftReferenceInstruction || "Use your application reference as payment reference."}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
+                      EFT banking details are not configured yet. Please contact License Hub support before paying.
+                    </p>
+                  )}
+                  <div className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
+                    <p className="text-xs font-semibold uppercase text-[#6b5e4f]">What happens next</p>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5">
+                      <li>Use the EFT banking details and reference shown above.</li>
+                      <li>
+                        {hasEftProof
+                          ? "Your proof of payment is uploaded and waiting for admin confirmation."
+                          : "Upload your EFT proof below so admin can verify payment."}
+                      </li>
+                      <li>Admin confirms payment, then your application moves to document review.</li>
+                    </ol>
+                  </div>
+                  {eftUploaded === "1" ? (
+                    <p className="border border-[#1f7a4d] bg-[#f4fbf7] p-3 text-sm font-semibold text-[#1f7a4d]">
+                      EFT proof uploaded successfully.
+                    </p>
+                  ) : null}
+                  {latestEftProof ? (
+                    <p className="border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm text-[#52615b]">
+                      Latest uploaded proof: <span className="font-semibold">{latestEftProof.fileName}</span>
+                    </p>
+                  ) : null}
+                  {shouldShowUploadForm && application ? (
+                    <EftProofUploadForm applicationId={application} action={uploadEftProof} />
+                  ) : null}
+                  {hasEftProof && !shouldShowUploadForm && application ? (
+                    <Link
+                      href={`/apply/submitted?application=${encodeURIComponent(application)}&showUpload=1`}
+                      className="inline-flex border border-[#d8d1c3] bg-white px-3 py-2 text-sm font-semibold text-[#52615b]"
+                    >
+                      Replace uploaded proof
+                    </Link>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
         ) : null}
 

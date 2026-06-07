@@ -2,6 +2,32 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-06-07
+
+### Launch payment rule confirmed
+
+- EFT remains the launch default payment method.
+- Paystack is activated and awaiting provider review, and test keys can enable it in local/test flows.
+- Proof of EFT payment is required before admin confirms payment and continues review.
+
+### Paystack test wiring added
+
+- Added `PAYSTACK_PUBLIC_KEY` to the env template alongside the existing secret and webhook placeholders.
+- Added Paystack checkout initialization for payment requests when test keys are present.
+- Added a Paystack webhook route so successful test payments can confirm automatically.
+- Updated the submitted page and admin review UI to handle Paystack payments alongside EFT.
+
+### Apply page hardening
+
+- Made `/apply` fall back to the built-in service list if the database service lookup fails.
+- This prevents a transient service query problem from crashing the entire public application page.
+
+### Service schema compatibility fix
+
+- Added fallback service reads for environments where `Service.deliveryFee` has not been migrated yet.
+- `/apply`, `/admin/settings`, and public intake pricing now continue with a zero delivery fee fallback instead of crashing on missing-column errors.
+- Switched the service reads used by the public intake and admin settings pages to raw SQL so they tolerate the deployed schema lag safely.
+
 ## 2026-05-31
 
 ### Intake flow simplification, EFT status progression, and admin review UX updates
@@ -41,7 +67,7 @@ This repository keeps a dated record of product/specification decisions and impl
 - Stabilized the client `/apply` flow through to payment request creation.
 - Added service-level delivery fee support and included delivery in payment totals.
 - Set test pricing for Duplicate Certificate to `R499.00` base with delivery fee support.
-- Enforced EFT-first launch path while card payments remain deferred.
+- Enforced EFT-first launch path while Paystack is still awaiting provider review.
 - Added fictional EFT banking details to defaults for local/UAT use and displayed them on the client submitted page.
 - Fixed payment submit blockers caused by hidden-step validation and cross-step file handling issues.
 - Removed duplicate licence disk collection in mandate-related steps once captured in vehicle details.

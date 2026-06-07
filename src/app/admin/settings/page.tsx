@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DatabaseSetup } from "@/components/database-setup";
 import { prisma } from "@/lib/prisma";
+import { listServiceDetails } from "@/lib/services";
 import { formatRetentionSetting } from "@/lib/retention";
 import {
   createService,
@@ -17,8 +18,9 @@ export const dynamic = "force-dynamic";
 
 async function getSettingsData() {
   const [services, retentionSetting, users] = await Promise.all([
-    prisma.service.findMany({
-      orderBy: { name: "asc" },
+    listServiceDetails().catch((error) => {
+      console.error("Service load for admin settings failed:", error);
+      return [];
     }),
     prisma.retentionSetting.findUnique({
       where: { id: "default" },

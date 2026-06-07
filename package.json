@@ -13,6 +13,8 @@
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test:entities": "tsx --tsconfig tsconfig.json scripts/entity-flow-simulation.ts",
+    "check:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-config-smoke-check.ts",
+    "dry-run:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-checkout-dry-run.ts",
     "jobs:pop-followup": "tsx --tsconfig tsconfig.json scripts/pop-payment-followup.ts",
     "jobs:whatsapp-dispatch": "tsx --tsconfig tsconfig.json scripts/whatsapp-dispatch.ts"
   },

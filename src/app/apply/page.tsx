@@ -1,19 +1,12 @@
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
-import { prisma } from "@/lib/prisma";
+import { listActiveServices } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplyPage() {
-  const services = await prisma.service.findMany({
-    where: { isActive: true },
-    orderBy: { name: "asc" },
-    select: {
-      slug: true,
-      name: true,
-      description: true,
-      basePrice: true,
-      deliveryFee: true,
-    },
+  const services = await listActiveServices().catch((error) => {
+    console.error("Failed to load services for /apply:", error);
+    return [];
   });
 
   return (

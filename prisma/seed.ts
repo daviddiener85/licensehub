@@ -50,6 +50,7 @@ const demoApplications = [
     },
     documents: [
       { type: DocumentType.LICENCE_DISK_PHOTO, status: DocumentStatus.ACCEPTED, fileName: "licence-disk.jpg" },
+      { type: DocumentType.PROOF_OF_EFT_PAYMENT, status: DocumentStatus.ACCEPTED, fileName: "eft-proof.pdf" },
       {
         type: DocumentType.PROOF_OF_ADDRESS,
         status: DocumentStatus.REJECTED,
@@ -59,7 +60,7 @@ const demoApplications = [
       { type: DocumentType.MANDATE_FORM, status: DocumentStatus.ACCEPTED, fileName: "mandate-form.pdf" },
     ],
     payment: {
-      method: PaymentMethod.PAYSTACK,
+      method: PaymentMethod.EFT,
       status: PaymentStatus.CONFIRMED,
       amount: "850.00",
       reference: "LH-2026-0018-BASE",
@@ -125,11 +126,12 @@ const demoApplications = [
     },
     documents: [
       { type: DocumentType.LICENCE_DISK_PHOTO, status: DocumentStatus.ACCEPTED, fileName: "licence-disk.jpg" },
+      { type: DocumentType.PROOF_OF_EFT_PAYMENT, status: DocumentStatus.ACCEPTED, fileName: "eft-proof.pdf" },
       { type: DocumentType.PROOF_OF_ADDRESS, status: DocumentStatus.ACCEPTED, fileName: "proof-of-address.pdf" },
       { type: DocumentType.MANDATE_FORM, status: DocumentStatus.ACCEPTED, fileName: "mandate-form.pdf" },
     ],
     payment: {
-      method: PaymentMethod.PAYSTACK,
+      method: PaymentMethod.EFT,
       status: PaymentStatus.CONFIRMED,
       amount: "850.00",
       reference: "LH-2026-0020-BASE",
@@ -160,11 +162,12 @@ const demoApplications = [
     },
     documents: [
       { type: DocumentType.LICENCE_DISK_PHOTO, status: DocumentStatus.ACCEPTED, fileName: "licence-disk.jpg" },
+      { type: DocumentType.PROOF_OF_EFT_PAYMENT, status: DocumentStatus.ACCEPTED, fileName: "eft-proof.pdf" },
       { type: DocumentType.PROOF_OF_ADDRESS, status: DocumentStatus.ACCEPTED, fileName: "proof-of-address.pdf" },
       { type: DocumentType.MANDATE_FORM, status: DocumentStatus.ACCEPTED, fileName: "mandate-form.pdf" },
     ],
     payment: {
-      method: PaymentMethod.PAYSTACK,
+      method: PaymentMethod.EFT,
       status: PaymentStatus.CONFIRMED,
       amount: "850.00",
       reference: "LH-2026-0021-BASE",

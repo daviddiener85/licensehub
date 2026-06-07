@@ -130,7 +130,7 @@ export const buildModules = [
   },
   {
     title: "Integrations",
-    description: "Paystack, SMS, email, OCR, private file storage, and retention automation.",
+    description: "Paystack review readiness, SMS, email, OCR, private file storage, and retention automation.",
     status: "Stub first",
   },
 ] as const;

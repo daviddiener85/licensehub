@@ -24,10 +24,12 @@ import {
 } from "@/generated/prisma/client";
 import { clientIdMandatePdfLabel } from "@/lib/client-identity";
 import { createMandatePdf } from "@/lib/mandate-pdf";
+import { initializePaystackTransaction, isPaystackConfigured, paystackCallbackUrl } from "@/lib/paystack";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
 import { documentLabel } from "@/lib/documents";
+import { findActiveServiceBySlug } from "@/lib/services";
 
 export type PublicIntakeSubmissionState = {
   status: "idle" | "error";
@@ -993,10 +995,7 @@ export async function createClientApplicationLink(formData: FormData) {
   const registrationNumber = getRequiredString(formData, "registrationNumber", "Registration number");
   const applicationId = await nextApplicationId();
   const publicToken = randomUUID();
-  const service = await prisma.service.findUniqueOrThrow({
-    where: { slug: "duplicate-certificate" },
-    select: { id: true },
-  });
+  const service = await findActiveServiceBySlug("duplicate-certificate");
   const client = await prisma.client.upsert({
     where: { southAfricanIdHash: clientIdHash(identityNumber) },
     update: {
@@ -1153,17 +1152,25 @@ export async function createPublicApplicationIntake(
     const applicationId = await nextApplicationId();
     const publicToken = randomUUID();
     const identifierHash = clientIdHash(identityNumber);
-    const service = await prisma.service.findFirstOrThrow({
-      where: {
-        slug: getSelectedServiceSlug(formData),
-        isActive: true,
-      },
-      select: { id: true, name: true, basePrice: true, deliveryFee: true },
+    const service = await findActiveServiceBySlug(getSelectedServiceSlug(formData)).catch((error) => {
+      console.error("Service load for intake failed:", error);
+      throw new Error("The selected service could not be loaded right now. Please try again.");
     });
     const baseAmount = Number(service.basePrice);
     const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
     const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
     const startAwaitingPayment = Number(totalAmount) > 0;
+    const paymentReference = `PAY-${applicationId}-Q1`;
+    const paymentMethod = paymentMethodForLaunch();
+    const paymentRequest = startAwaitingPayment
+      ? await buildPaymentRequest({
+          applicationId,
+          email,
+          amount: totalAmount,
+          reference: paymentReference,
+        })
+      : null;
+    const paymentMethodLabel = paymentMethod === PaymentMethod.PAYSTACK ? "Paystack" : "EFT";
     const initialStatus = startAwaitingPayment
       ? ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT
       : ApplicationStatus.AWAITING_ADMIN_QUOTE;
@@ -1246,7 +1253,7 @@ export async function createPublicApplicationIntake(
           fromStatus: null,
           toStatus: initialStatus,
           note: startAwaitingPayment
-            ? `Client started application from the public website and moved to awaiting EFT payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
+            ? `Client started application from the public website and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
             : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
         },
       },
@@ -1269,11 +1276,13 @@ export async function createPublicApplicationIntake(
       await prisma.payment.create({
         data: {
           applicationId,
-          method: PaymentMethod.EFT,
+          method: paymentMethod,
           type: PaymentType.BASE_FEE,
           amount: totalAmount,
-          reference: `PAY-${applicationId}-Q1`,
+          reference: paymentReference,
           status: PaymentStatus.PENDING,
+          checkoutUrl: paymentRequest?.checkoutUrl ?? null,
+          providerReference: paymentRequest?.providerReference ?? null,
         },
       });
     }
@@ -1285,8 +1294,12 @@ export async function createPublicApplicationIntake(
           "Your License Hub order has been received.",
           `Reference number: ${applicationId}.`,
           "",
-          "Your EFT payment request is ready.",
-          `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
+          paymentMethod === PaymentMethod.PAYSTACK
+            ? "Your Paystack payment request is ready."
+            : "Your EFT payment request is ready.",
+          paymentMethod === PaymentMethod.PAYSTACK
+            ? `Pay now here: ${paymentUploadLink(applicationId)}`
+            : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
           "Use the payment reference shown on your application page.",
         ].join("\n")
       : [
@@ -1391,6 +1404,45 @@ function paymentUploadLink(applicationId: string) {
   return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
 }
 
+function paymentMethodForLaunch() {
+  return isPaystackConfigured() ? PaymentMethod.PAYSTACK : PaymentMethod.EFT;
+}
+
+async function buildPaymentRequest(options: {
+  applicationId: string;
+  email: string;
+  amount: string;
+  reference: string;
+}) {
+  const method = paymentMethodForLaunch();
+
+  if (method !== PaymentMethod.PAYSTACK) {
+    return {
+      method,
+      checkoutUrl: null as string | null,
+      providerReference: null as string | null,
+    };
+  }
+
+  const initialized = await initializePaystackTransaction({
+    amount: options.amount,
+    email: options.email,
+    reference: options.reference,
+    callbackUrl: paystackCallbackUrl(options.applicationId),
+    metadata: {
+      applicationId: options.applicationId,
+      paymentReference: options.reference,
+    },
+    channels: ["card", "bank_transfer", "eft"],
+  });
+
+  return {
+    method,
+    checkoutUrl: initialized.authorizationUrl,
+    providerReference: initialized.accessCode,
+  };
+}
+
 export async function publishAdminQuote(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const amount = getRequiredMoneyAmount(formData, "quoteAmount", "Quote amount");
@@ -1456,6 +1508,14 @@ export async function approveClientQuote(formData: FormData) {
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     include: {
+      client: {
+        select: {
+          email: true,
+          firstName: true,
+          surname: true,
+          cellphone: true,
+        },
+      },
       charges: {
         where: { status: "PENDING" },
       },
@@ -1478,15 +1538,24 @@ export async function approveClientQuote(formData: FormData) {
 
   const total = pendingCharges.reduce((sum, charge) => sum + Number(charge.amount.toString()), 0);
   const paymentReference = `PAY-${applicationId}-Q${application.quoteVersion || 1}`;
+  const paymentMethod = paymentMethodForLaunch();
+  const paymentRequest = await buildPaymentRequest({
+    applicationId,
+    email: application.client.email,
+    amount: total.toFixed(2),
+    reference: paymentReference,
+  });
 
   await prisma.payment.create({
     data: {
       applicationId,
       type: PaymentType.BASE_FEE,
-      method: PaymentMethod.EFT,
+      method: paymentMethod,
       status: PaymentStatus.PENDING,
       amount: total.toFixed(2),
       reference: paymentReference,
+      checkoutUrl: paymentRequest.checkoutUrl,
+      providerReference: paymentRequest.providerReference,
     },
   });
 
@@ -1515,7 +1584,10 @@ export async function approveClientQuote(formData: FormData) {
       recipientName: `${applicationWithClient.client.firstName} ${applicationWithClient.client.surname}`,
       recipientAddress: applicationWithClient.client.cellphone,
       templateKey: "payment-pop-upload-link",
-      body: `Hi ${applicationWithClient.client.firstName}, please upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
+      body:
+        paymentMethod === PaymentMethod.PAYSTACK
+          ? `Hi ${applicationWithClient.client.firstName}, your Paystack payment request is ready here: ${paymentUploadLink(applicationId)}.`
+          : `Hi ${applicationWithClient.client.firstName}, please upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
     },
   });
 

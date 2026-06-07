@@ -7,7 +7,7 @@ import { AdminDocumentQuickView } from "@/components/admin-document-quick-view";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
-import { DocumentType, PaymentStatus, SupplierUrgency } from "@/generated/prisma/client";
+import { DocumentType, PaymentMethod, PaymentStatus, SupplierUrgency } from "@/generated/prisma/client";
 import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
@@ -65,14 +65,27 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
     return "Confirmed";
   }
 
-  return latestPayment.method === "EFT" ? "EFT pending" : latestPayment.status.toLowerCase();
+  if (latestPayment.status !== PaymentStatus.PENDING) {
+    return latestPayment.status.toLowerCase();
+  }
+
+  if (latestPayment.method === PaymentMethod.PAYSTACK) {
+    return "Paystack pending";
+  }
+
+  return "EFT pending";
 }
 
 function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
   const isDuplicateCertificate = application.service.slug === "duplicate-certificate";
   const isAwaitingEftVerification = application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT";
+  const latestPayment = application.payments[0];
 
   if (isDuplicateCertificate && isAwaitingEftVerification) {
+    if (latestPayment?.method === PaymentMethod.PAYSTACK) {
+      return latestPayment.status === PaymentStatus.CONFIRMED ? "Paystack confirmed" : "Paystack pending";
+    }
+
     const hasEftProof = application.documents.some((document) => document.type === DocumentType.PROOF_OF_EFT_PAYMENT);
     return hasEftProof ? "Verify payment" : "Pending payment";
   }
@@ -262,14 +275,14 @@ function ageSummary(createdAt: Date) {
 function adminChecklist(
   application: Awaited<ReturnType<typeof listAdminApplications>>[number],
 ) {
+  const latestPayment = application.payments[0] ?? null;
   const requiredRequirements = documentRequirementsForEntityType(application.client.entityType).filter(
     (requirement) => requirement.confirmedForUpload,
   );
   const allRequiredDocsAccepted = requiredRequirements.every(
     (requirement) => documentRequirementStatus(requirement, application) === "ACCEPTED",
   );
-  const hasEftProof = application.documents.some((document) => document.type === "PROOF_OF_EFT_PAYMENT");
-  const paymentConfirmed = application.payments.some((payment) => payment.method === "EFT" && payment.status === PaymentStatus.CONFIRMED);
+  const paymentConfirmed = latestPayment?.status === PaymentStatus.CONFIRMED;
   const entityFieldsRequired =
     application.client.entityType === "COMPANY_OR_TRUST" || application.client.entityType === "DECEASED_ESTATE";
   const entityFieldsPresent = entityFieldsRequired
@@ -281,17 +294,32 @@ function adminChecklist(
       )
     : true;
 
+  const paymentItems =
+    latestPayment?.method === PaymentMethod.PAYSTACK
+      ? [
+          {
+            label: "Paystack payment confirmed",
+            pass: paymentConfirmed,
+            detail: paymentConfirmed ? "Paystack payment confirmed automatically." : "Awaiting Paystack confirmation.",
+          },
+        ]
+      : [
+          {
+            label: "EFT proof uploaded",
+            pass: application.documents.some((document) => document.type === "PROOF_OF_EFT_PAYMENT"),
+            detail: application.documents.some((document) => document.type === "PROOF_OF_EFT_PAYMENT")
+              ? "Proof of EFT document found."
+              : "No proof of EFT payment uploaded yet.",
+          },
+          {
+            label: "EFT payment confirmed",
+            pass: paymentConfirmed,
+            detail: paymentConfirmed ? "Payment confirmed by admin." : "Awaiting admin EFT confirmation.",
+          },
+        ];
+
   return [
-    {
-      label: "EFT proof uploaded",
-      pass: hasEftProof,
-      detail: hasEftProof ? "Proof of EFT document found." : "No proof of EFT payment uploaded yet.",
-    },
-    {
-      label: "EFT payment confirmed",
-      pass: paymentConfirmed,
-      detail: paymentConfirmed ? "Payment confirmed by admin." : "Awaiting admin EFT confirmation.",
-    },
+    ...paymentItems,
     {
       label: "Required documents accepted",
       pass: allRequiredDocsAccepted,
@@ -423,8 +451,8 @@ export default async function AdminPage({
     return <DatabaseSetup message="Admin applications could not be loaded from PostgreSQL." />;
   }
 
-  const unconfirmedEftCount = applications.filter((application) =>
-    application.payments.some((payment) => payment.method === "EFT" && payment.status !== PaymentStatus.CONFIRMED),
+  const unconfirmedPaymentCount = applications.filter((application) =>
+    application.payments.some((payment) => payment.status !== PaymentStatus.CONFIRMED),
   ).length;
   const atSupplierCount = applications.filter((application) =>
     ["AT_SUPPLIER", "SUPPLIER_PRODUCED", "RETURNING_TO_LICENSE_HUB"].includes(application.currentStatus),
@@ -564,7 +592,7 @@ export default async function AdminPage({
 
         <section className="mt-6 grid gap-3 md:grid-cols-4">
           {[
-            `Unconfirmed EFT: ${unconfirmedEftCount}`,
+            `Unconfirmed payments: ${unconfirmedPaymentCount}`,
             "Drafts older than 7 days: 0",
             "Unpaid charges: 0",
             `At supplier: ${atSupplierCount}`,
@@ -609,6 +637,7 @@ export default async function AdminPage({
                 <option value="">All</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="eft-pending">EFT pending</option>
+                <option value="paystack-pending">Paystack pending</option>
                 <option value="quote-pending">Quote pending</option>
                 <option value="not-started">Not started</option>
               </select>

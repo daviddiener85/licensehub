@@ -2,6 +2,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
+// Next.js loads env vars automatically, but standalone TSX scripts do not.
+// Load `.env` for local script execution before reading DATABASE_URL.
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === "function") {
+  process.loadEnvFile();
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
