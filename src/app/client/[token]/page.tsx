@@ -1,4 +1,6 @@
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
+import { isPaystackConfigured } from "@/lib/paystack";
+import { listActiveServices } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +10,11 @@ export default async function ClientApplicationPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const services = await listActiveServices().catch((error) => {
+    console.error("Failed to load services for /client/[token]:", error);
+    return [];
+  });
+  const paystackEnabled = isPaystackConfigured();
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
@@ -62,7 +69,15 @@ export default async function ClientApplicationPage({
       </section>
 
       <section id="intake" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        <ClientIntakeFlow reference={token} />
+        <ClientIntakeFlow
+          reference={token}
+          paystackEnabled={paystackEnabled}
+          services={services.map((service) => ({
+            ...service,
+            basePrice: service.basePrice.toString(),
+            deliveryFee: service.deliveryFee.toString(),
+          }))}
+        />
       </section>
     </main>
   );

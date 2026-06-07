@@ -8,6 +8,7 @@ import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
 import { DocumentType, PaymentMethod, PaymentStatus, SupplierUrgency } from "@/generated/prisma/client";
+import type { ApplicationChargeRecord, ApplicationDocumentRecord } from "@/lib/applications";
 import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
@@ -86,7 +87,9 @@ function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminA
       return latestPayment.status === PaymentStatus.CONFIRMED ? "Paystack confirmed" : "Paystack pending";
     }
 
-    const hasEftProof = application.documents.some((document) => document.type === DocumentType.PROOF_OF_EFT_PAYMENT);
+    const hasEftProof = application.documents.some(
+      (document: ApplicationDocumentRecord) => document.type === DocumentType.PROOF_OF_EFT_PAYMENT,
+    );
     return hasEftProof ? "Verify payment" : "Pending payment";
   }
 
@@ -208,7 +211,7 @@ function documentRequirementStatus(
 
   if (!requirement.documentType) {
     const supportingDocuments = application.documents
-      .filter((document) => document.type === "OTHER")
+      .filter((document: ApplicationDocumentRecord) => document.type === "OTHER")
       .sort((first, second) => first.version - second.version);
 
     const supportingIndexByRequirement: Partial<Record<string, number>> = {
@@ -228,7 +231,9 @@ function documentRequirementStatus(
     return supportingDocuments[supportingIndex]?.status ?? "MISSING";
   }
 
-  const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
+  const latestDocument = application.documents.find(
+    (document: ApplicationDocumentRecord) => document.type === requirement.documentType,
+  );
 
   return latestDocument?.status ?? "MISSING";
 }
@@ -306,8 +311,12 @@ function adminChecklist(
       : [
           {
             label: "EFT proof uploaded",
-            pass: application.documents.some((document) => document.type === "PROOF_OF_EFT_PAYMENT"),
-            detail: application.documents.some((document) => document.type === "PROOF_OF_EFT_PAYMENT")
+            pass: application.documents.some(
+              (document: ApplicationDocumentRecord) => document.type === "PROOF_OF_EFT_PAYMENT",
+            ),
+            detail: application.documents.some(
+              (document: ApplicationDocumentRecord) => document.type === "PROOF_OF_EFT_PAYMENT",
+            )
               ? "Proof of EFT document found."
               : "No proof of EFT payment uploaded yet.",
           },
@@ -546,7 +555,12 @@ export default async function AdminPage({
     .replace("{{firstName}}", selectedApplication.client.firstName)
     .replace("{{applicationId}}", selectedApplication.id);
   const selectedApprovalBlockReason = approvalBlockReason(selectedApplication);
-  const selectedPendingDocumentCount = selectedApplication.documents.filter((document) => document.status === "PENDING").length;
+  const selectedPendingDocumentCount = selectedApplication.documents.filter(
+    (document: ApplicationDocumentRecord) => document.status === "PENDING",
+  ).length;
+  const selectedPendingCharges = selectedApplication.charges.filter(
+    (charge: ApplicationChargeRecord) => charge.status === "PENDING",
+  );
   const selectedChecklist = adminChecklist(selectedApplication);
 
   return (
@@ -729,7 +743,7 @@ export default async function AdminPage({
                       action={requestResubmission}
                       applicationId={application.id}
                       clientFirstName={application.client.firstName}
-                      documents={application.documents.map((document) => ({
+                      documents={application.documents.map((document: ApplicationDocumentRecord) => ({
                         id: document.id,
                         label: documentLabel(document.type, document.fileName),
                         currentReason: document.rejectionReason,
@@ -899,8 +913,8 @@ export default async function AdminPage({
               )}
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {selectedApplication.documents.map((document) => {
-                const href = documentHref(document.storageKey);
+              {selectedApplication.documents.map((document: ApplicationDocumentRecord) => {
+                const href = document.storageKey ? documentHref(document.storageKey) : null;
 
                 return (
                   <div key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
@@ -974,8 +988,11 @@ export default async function AdminPage({
               className="mt-4 h-28 w-full border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm outline-none"
               defaultValue={
                 selectedApplication.documents
-                  .filter((document) => document.rejectionReason)
-                  .map((document) => `${supportingDocumentLabel(document, selectedApplication)}: ${document.rejectionReason}`)
+                  .filter((document: ApplicationDocumentRecord) => document.rejectionReason)
+                  .map(
+                    (document: ApplicationDocumentRecord) =>
+                      `${supportingDocumentLabel(document, selectedApplication)}: ${document.rejectionReason}`,
+                  )
                   .join("\n") || "No rejection notes captured yet."
               }
             />
@@ -1003,7 +1020,7 @@ export default async function AdminPage({
                 action={requestResubmission}
                 applicationId={selectedApplication.id}
                 clientFirstName={selectedApplication.client.firstName}
-                documents={selectedApplication.documents.map((document) => ({
+                documents={selectedApplication.documents.map((document: ApplicationDocumentRecord) => ({
                   id: document.id,
                   label: supportingDocumentLabel(document, selectedApplication),
                   currentReason: document.rejectionReason,
@@ -1093,16 +1110,14 @@ export default async function AdminPage({
             ) : null}
             <div className="mt-4 space-y-2 border border-[#eee8dc] bg-[#fffdf8] p-3">
               <h4 className="text-sm font-semibold">Pending Charge Lines</h4>
-              {selectedApplication.charges.filter((charge) => charge.status === "PENDING").length === 0 ? (
+              {selectedPendingCharges.length === 0 ? (
                 <p className="text-xs text-[#52615b]">No pending quote lines.</p>
               ) : (
-                selectedApplication.charges
-                  .filter((charge) => charge.status === "PENDING")
-                  .map((charge) => (
-                    <p key={charge.id} className="text-xs text-[#52615b]">
-                      {charge.description} · <span className="font-semibold">{formatMoney(charge.amount)}</span>
-                    </p>
-                  ))
+                selectedPendingCharges.map((charge: ApplicationChargeRecord) => (
+                  <p key={charge.id} className="text-xs text-[#52615b]">
+                    {charge.description} · <span className="font-semibold">{formatMoney(charge.amount)}</span>
+                  </p>
+                ))
               )}
             </div>
           </aside>

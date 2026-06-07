@@ -287,7 +287,7 @@ export default async function SupplierPage({
                     </div>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       {selectedOrder.documents.map((document) => {
-                        const href = documentHref(document.storageKey);
+                        const href = document.storageKey ? documentHref(document.storageKey) : null;
                         const content = (
                           <>
                             <FileText className="h-5 w-5 text-[#0f766e]" />

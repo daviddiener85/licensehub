@@ -1156,18 +1156,24 @@ export async function createPublicApplicationIntake(
       console.error("Service load for intake failed:", error);
       throw new Error("The selected service could not be loaded right now. Please try again.");
     });
+    const applicationEntityColumnsAvailable = await applicationHasEntityColumns();
     const baseAmount = Number(service.basePrice);
     const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
     const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
     const startAwaitingPayment = Number(totalAmount) > 0;
     const paymentReference = `PAY-${applicationId}-Q1`;
-    const paymentMethod = paymentMethodForLaunch();
+    const requestedPaymentMethodValue = requestedPaymentMethod(formData);
+    const paymentMethod =
+      requestedPaymentMethodValue === PaymentMethod.PAYSTACK && isPaystackConfigured()
+        ? PaymentMethod.PAYSTACK
+        : PaymentMethod.EFT;
     const paymentRequest = startAwaitingPayment
       ? await buildPaymentRequest({
           applicationId,
           email,
           amount: totalAmount,
           reference: paymentReference,
+          paymentMethod,
         })
       : null;
     const paymentMethodLabel = paymentMethod === PaymentMethod.PAYSTACK ? "Paystack" : "EFT";
@@ -1233,10 +1239,14 @@ export async function createPublicApplicationIntake(
       vin: getOptionalString(formData, "vin"),
       vehicleMake: getOptionalString(formData, "vehicleMake"),
       vehicleModel: getOptionalString(formData, "vehicleModel"),
-      entityDisplayName,
-      entityRegistrationNumber,
-      representativeFullName,
-      representativeCapacity,
+      ...(applicationEntityColumnsAvailable
+        ? {
+            entityDisplayName,
+            entityRegistrationNumber,
+            representativeFullName,
+            representativeCapacity,
+          }
+        : {}),
       ...(startAwaitingPayment
         ? {
             quoteVersion: 1,
@@ -1404,8 +1414,29 @@ function paymentUploadLink(applicationId: string) {
   return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
 }
 
+async function applicationHasEntityColumns() {
+  const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'Application'
+  `;
+
+  return columns.some((column) => column.column_name === "entityDisplayName");
+}
+
 function paymentMethodForLaunch() {
   return isPaystackConfigured() ? PaymentMethod.PAYSTACK : PaymentMethod.EFT;
+}
+
+function requestedPaymentMethod(formData: FormData) {
+  const value = getOptionalString(formData, "paymentMethod");
+
+  if (value === PaymentMethod.PAYSTACK) {
+    return PaymentMethod.PAYSTACK;
+  }
+
+  return PaymentMethod.EFT;
 }
 
 async function buildPaymentRequest(options: {
@@ -1413,10 +1444,11 @@ async function buildPaymentRequest(options: {
   email: string;
   amount: string;
   reference: string;
+  paymentMethod?: PaymentMethod;
 }) {
-  const method = paymentMethodForLaunch();
+  const method = options.paymentMethod ?? paymentMethodForLaunch();
 
-  if (method !== PaymentMethod.PAYSTACK) {
+  if (method !== PaymentMethod.PAYSTACK || !isPaystackConfigured()) {
     return {
       method,
       checkoutUrl: null as string | null,
@@ -1544,6 +1576,7 @@ export async function approveClientQuote(formData: FormData) {
     email: application.client.email,
     amount: total.toFixed(2),
     reference: paymentReference,
+    paymentMethod,
   });
 
   await prisma.payment.create({

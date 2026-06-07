@@ -33,7 +33,10 @@ type IntakeService = {
 type ClientIntakeFlowProps = {
   reference?: string;
   services?: IntakeService[];
+  paystackEnabled?: boolean;
 };
+
+type PaymentChoice = "EFT" | "PAYSTACK";
 
 type Point = {
   x: number;
@@ -213,7 +216,11 @@ function isMandateStepUpload(documentLabel: string) {
   return uploadInputName(documentLabel) !== "licenceDiskPhoto";
 }
 
-export function ClientIntakeFlow({ reference, services = fallbackServices }: ClientIntakeFlowProps) {
+export function ClientIntakeFlow({
+  reference,
+  services = fallbackServices,
+  paystackEnabled = false,
+}: ClientIntakeFlowProps) {
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const fullNameInputRef = useRef<HTMLInputElement>(null);
@@ -281,6 +288,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
   const [isDrawingSignature, setIsDrawingSignature] = useState(false);
   const [hasMandateSignature, setHasMandateSignature] = useState(false);
   const [deliveryRequired, setDeliveryRequired] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentChoice>("EFT");
   const selectedService =
     availableServices.find((service) => service.slug === selectedServiceSlug) ?? availableServices[0];
   const isQuoteFlowService = selectedService.slug === "license-fees" || selectedService.slug === "licence-fees";
@@ -321,6 +329,9 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
     effectiveVehicleDetails.registrationNumber.trim().length > 0 && licenceDiskFileName.trim().length > 0;
   const selectedServiceAmount = Number(selectedService.basePrice);
   const selectedServiceDeliveryFee = Number(selectedService.deliveryFee);
+  const selectedServiceDisplayAmount = Number.isFinite(selectedServiceAmount) && selectedServiceAmount > 0 ? selectedServiceAmount : 0;
+  const selectedServiceDisplayDeliveryFee =
+    Number.isFinite(selectedServiceDeliveryFee) && selectedServiceDeliveryFee > 0 ? selectedServiceDeliveryFee : 0;
   const requiredUploadLabels = requiredDocuments
     .filter((document) => isMandateStepUpload(document.label))
     .filter((document) => {
@@ -380,6 +391,8 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
       fullNameInput.focus();
     });
   }, [stepIndex]);
+
+  const effectivePaymentMethod: PaymentChoice = paystackEnabled ? paymentMethod : "EFT";
 
   function nextStep() {
     setStepIndex((current) => Math.min(current + 1, steps.length - 1));
@@ -1007,6 +1020,7 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
         {stepIndex === 6 || stepIndex === 7 ? (
           <form action={submitPublicIntake} onSubmit={preparePublicIntakeSubmit}>
             <input type="hidden" name="serviceSlug" value={selectedService.slug} />
+            <input type="hidden" name="paymentMethod" value={effectivePaymentMethod} />
             <input type="hidden" name="ownershipType" value={effectiveOwnershipType} />
             <input type="hidden" name="relation" value={relation || selectedOwnership.relationPrompt} />
             {Object.entries(clientDetails).map(([field, value]) => (
@@ -1216,11 +1230,44 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                   </p>
                   <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                     <p className="font-semibold">Payment method</p>
-                    <div className="mt-3 border border-[#d8d1c3] bg-white px-3 py-2">
-                      <span className="text-sm font-semibold">EFT transfer</span>
+                    <div className="mt-3 grid gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("EFT")}
+                        className={[
+                          "border px-3 py-2 text-left",
+                          effectivePaymentMethod === "EFT"
+                            ? "border-[#1f2724] bg-[#fff8df]"
+                            : "border-[#d8d1c3] bg-white",
+                        ].join(" ")}
+                      >
+                        <span className="block text-sm font-semibold">EFT transfer</span>
+                        <span className="mt-1 block text-xs font-semibold text-[#6b5e4f]">
+                          Upload proof of payment after submitting.
+                        </span>
+                      </button>
+                      {paystackEnabled ? (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("PAYSTACK")}
+                          className={[
+                            "border px-3 py-2 text-left",
+                            effectivePaymentMethod === "PAYSTACK"
+                              ? "border-[#1f2724] bg-[#fff8df]"
+                              : "border-[#d8d1c3] bg-white",
+                          ].join(" ")}
+                        >
+                          <span className="block text-sm font-semibold">Paystack</span>
+                          <span className="mt-1 block text-xs font-semibold text-[#6b5e4f]">
+                            Pay by card or another Paystack-supported method.
+                          </span>
+                        </button>
+                      ) : null}
                     </div>
                     <p className="mt-2 text-xs font-semibold text-[#6b5e4f]">
-                      Card payments will be enabled after launch.
+                      {paystackEnabled
+                        ? "Choose EFT or Paystack before you submit."
+                        : "Card payments will be enabled after launch."}
                     </p>
                   </div>
 
@@ -1294,14 +1341,14 @@ export function ClientIntakeFlow({ reference, services = fallbackServices }: Cli
                     Amount due
                   </h3>
                   <p className="mt-4 text-3xl font-semibold">
-                    {selectedServiceAmount > 0
-                      ? `R${(selectedServiceAmount + (deliveryRequired ? selectedServiceDeliveryFee : 0)).toFixed(2)}`
+                    {selectedServiceDisplayAmount > 0
+                      ? `R${(selectedServiceDisplayAmount + (deliveryRequired ? selectedServiceDisplayDeliveryFee : 0)).toFixed(2)}`
                       : "To be confirmed"}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[#6b5e4f]">{selectedService.name}</p>
                   {deliveryRequired ? (
                     <p className="mt-2 text-xs font-semibold text-[#6b5e4f]">
-                      Includes delivery fee: R{selectedServiceDeliveryFee.toFixed(2)}
+                      Includes delivery fee: R{selectedServiceDisplayDeliveryFee.toFixed(2)}
                     </p>
                   ) : null}
                   <p className="mt-4 text-sm leading-6 text-[#6b5e4f]">

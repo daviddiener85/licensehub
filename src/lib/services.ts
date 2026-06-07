@@ -14,6 +14,35 @@ export type ServiceDetail = ServiceSummary & {
   isActive: boolean;
 };
 
+const fallbackServicePricing: Record<string, { basePrice: string; deliveryFee: string }> = {
+  "duplicate-certificate": {
+    basePrice: "499.00",
+    deliveryFee: "150.00",
+  },
+};
+
+function normalizeServicePricing<T extends { slug: string; basePrice: Prisma.Decimal; deliveryFee: Prisma.Decimal }>(
+  service: T,
+) {
+  const fallback = fallbackServicePricing[service.slug];
+
+  if (!fallback) {
+    return service;
+  }
+
+  const basePrice = Number(service.basePrice.toString());
+  const deliveryFee = Number(service.deliveryFee.toString());
+
+  return {
+    ...service,
+    basePrice: Number.isFinite(basePrice) && basePrice > 0 ? service.basePrice : new Prisma.Decimal(fallback.basePrice),
+    deliveryFee:
+      Number.isFinite(deliveryFee) && deliveryFee > 0
+        ? service.deliveryFee
+        : new Prisma.Decimal(fallback.deliveryFee),
+  };
+}
+
 async function hasDeliveryFeeColumn() {
   const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
     SELECT column_name
@@ -36,7 +65,7 @@ export async function listActiveServices(): Promise<ServiceSummary[]> {
       ORDER BY name ASC
     `;
 
-    return rows;
+    return rows.map((row) => normalizeServicePricing(row));
   }
 
   const rows = await prisma.$queryRaw<Array<ServiceSummary>>`
@@ -46,7 +75,7 @@ export async function listActiveServices(): Promise<ServiceSummary[]> {
     ORDER BY name ASC
   `;
 
-  return rows;
+  return rows.map((row) => normalizeServicePricing(row));
 }
 
 export async function findActiveServiceBySlug(slug: string): Promise<ServiceDetail> {
@@ -64,7 +93,7 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
       throw new Error("Service not found.");
     }
 
-    return rows[0];
+    return normalizeServicePricing(rows[0]);
   }
 
   const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
@@ -78,23 +107,27 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
     throw new Error("Service not found.");
   }
 
-  return rows[0];
+  return normalizeServicePricing(rows[0]);
 }
 
 export async function listServiceDetails(): Promise<ServiceDetail[]> {
   const columnExists = await hasDeliveryFeeColumn();
 
   if (columnExists) {
-    return prisma.$queryRaw<Array<ServiceDetail>>`
+    const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
       SELECT id, slug, name, description, "basePrice", "deliveryFee", "isActive"
       FROM "Service"
       ORDER BY name ASC
     `;
+
+    return rows.map((row) => normalizeServicePricing(row));
   }
 
-  return prisma.$queryRaw<Array<ServiceDetail>>`
+  const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
     SELECT id, slug, name, description, "basePrice", 0::numeric AS "deliveryFee", "isActive"
     FROM "Service"
     ORDER BY name ASC
   `;
+
+  return rows.map((row) => normalizeServicePricing(row));
 }
