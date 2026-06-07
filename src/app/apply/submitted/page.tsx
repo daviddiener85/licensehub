@@ -94,15 +94,17 @@ export default async function ApplicationSubmittedPage({
   const paymentConfirmed = payment?.status === PaymentStatus.CONFIRMED;
   const applicationProcessing =
     applicationRecord?.currentStatus === ApplicationStatus.PENDING_REVIEW || paymentConfirmed || returnedFromPaystack;
+  const pageTitle = applicationProcessing ? "Payment received" : "Application received";
+  const pageSummary = applicationProcessing
+    ? "License Hub is processing your order. Please watch WhatsApp for progress updates from our team."
+    : "The application, supporting documents, and mandate form were saved successfully.";
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f2724] sm:px-6 lg:px-8">
       <section className="mx-auto max-w-3xl border border-[#d8d1c3] bg-white p-6 sm:p-8">
         <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub</p>
-        <h1 className="mt-4 text-3xl font-semibold">Application received</h1>
-        <p className="mt-4 text-sm leading-6 text-[#52615b]">
-          The application, supporting documents, and mandate form were saved successfully.
-        </p>
+        <h1 className="mt-4 text-3xl font-semibold">{pageTitle}</h1>
+        <p className="mt-4 text-sm leading-6 text-[#52615b]">{pageSummary}</p>
 
         {application ? (
           <div className="mt-6 border border-[#eee8dc] bg-[#fffdf8] p-4">
@@ -189,11 +191,9 @@ export default async function ApplicationSubmittedPage({
                   {payment.checkoutUrl ? (
                     <a
                       href={payment.checkoutUrl}
-                      target="_blank"
-                      rel="noreferrer"
                       className="inline-flex border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
                     >
-                      Pay now with Paystack
+                      Continue to Paystack
                     </a>
                   ) : (
                     <p className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
