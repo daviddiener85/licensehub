@@ -17,15 +17,33 @@ export default async function ApplicationSubmittedPage({
   const applicationRecord = application
     ? await prisma.application.findUnique({
         where: { id: application },
-        include: {
-          service: true,
+        select: {
+          id: true,
+          publicToken: true,
+          currentStatus: true,
+          service: {
+            select: {
+              name: true,
+            },
+          },
           charges: {
             where: { status: "PENDING" },
             orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              description: true,
+              amount: true,
+            },
           },
           payments: {
             orderBy: { createdAt: "desc" },
             take: 1,
+            select: {
+              method: true,
+              amount: true,
+              reference: true,
+              checkoutUrl: true,
+            },
           },
           documents: {
             where: { type: DocumentType.PROOF_OF_EFT_PAYMENT },

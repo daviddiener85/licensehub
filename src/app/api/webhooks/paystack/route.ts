@@ -58,6 +58,7 @@ export async function POST(request: Request) {
           currentStatus: ApplicationStatus.PENDING_REVIEW,
           previousStatus: payment.application.currentStatus,
         },
+        select: { id: true },
       });
 
       await prisma.statusHistory.create({

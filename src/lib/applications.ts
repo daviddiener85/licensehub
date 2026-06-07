@@ -26,6 +26,16 @@ const missingApplicationEntityFields = {
   representativeCapacity: null,
 } as const;
 
+const missingApplicationQuoteFields = {
+  quotedAt: null,
+  quoteApprovedAt: null,
+  quoteVersion: 0,
+  popDueAt: null,
+  lastPopReminderAt: null,
+  popReminderCount: 0,
+  autoCancelOnNoPop: true,
+} as const;
+
 export type ApplicationDocumentRecord = {
   id: string;
   type: DocumentType;
@@ -151,6 +161,7 @@ function addMissingApplicationEntityFields<T extends object>(application: T) {
   return {
     ...application,
     ...missingApplicationEntityFields,
+    ...missingApplicationQuoteFields,
   };
 }
 
@@ -170,13 +181,6 @@ const applicationBaseSelect = {
   ocrConfidence: true,
   supplierUrgency: true,
   submittedAt: true,
-  quotedAt: true,
-  quoteApprovedAt: true,
-  quoteVersion: true,
-  popDueAt: true,
-  lastPopReminderAt: true,
-  popReminderCount: true,
-  autoCancelOnNoPop: true,
   approvedAt: true,
   completedAt: true,
   cancelledAt: true,

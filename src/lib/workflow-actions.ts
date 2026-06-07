@@ -36,6 +36,58 @@ export type PublicIntakeSubmissionState = {
   message: string;
 };
 
+type MandatePdfApplication = {
+  id: string;
+  publicToken: string;
+  entityDisplayName: string | null;
+  registrationNumber: string | null;
+  vin: string | null;
+  vehicleMake: string | null;
+  vehicleModel: string | null;
+  vehicleColour: string | null;
+  client: {
+    firstName: string;
+    surname: string;
+    southAfricanIdEncrypted: string;
+    entityType: ClientEntityType;
+  };
+};
+
+const mandatePdfApplicationSelect = {
+  id: true,
+  publicToken: true,
+  registrationNumber: true,
+  vin: true,
+  vehicleMake: true,
+  vehicleModel: true,
+  vehicleColour: true,
+  client: {
+    select: {
+      firstName: true,
+      surname: true,
+      southAfricanIdEncrypted: true,
+      entityType: true,
+    },
+  },
+};
+
+let applicationColumnNamesPromise: Promise<Set<string>> | null = null;
+
+async function applicationColumnNames() {
+  applicationColumnNamesPromise ??= prisma.$queryRaw<Array<{ column_name: string }>>`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'Application'
+  `.then((columns) => new Set(columns.map((column) => column.column_name)));
+
+  return applicationColumnNamesPromise;
+}
+
+function filterApplicationColumnData(columns: Set<string>, data: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(data).filter(([key]) => columns.has(key)));
+}
+
 async function actorIdFor(role: UserRole) {
   const user = await prisma.user.findFirst({
     where: { role },
@@ -371,14 +423,7 @@ function storageKeyPath(storageKey: string) {
 }
 
 async function writeMandatePdf(
-  application: Awaited<ReturnType<typeof prisma.application.findUniqueOrThrow>> & {
-    client: {
-      firstName: string;
-      surname: string;
-      southAfricanIdEncrypted: string;
-      entityType: ClientEntityType;
-    };
-  },
+  application: MandatePdfApplication,
   signatureDataUrl: string,
   idPhotoBytes?: Buffer,
   idPhotoMimeType?: string,
@@ -450,13 +495,19 @@ async function transitionApplication(
     where: { id: applicationId },
     select: { currentStatus: true },
   });
+  const applicationColumns = await applicationColumnNames();
+  const transitionData = filterApplicationColumnData(applicationColumns, options.data ?? {});
 
   const updated = await prisma.application.update({
     where: { id: applicationId },
     data: {
       currentStatus: toStatus,
       previousStatus: application.currentStatus,
-      ...options.data,
+      ...transitionData,
+    },
+    select: {
+      id: true,
+      currentStatus: true,
     },
   });
 
@@ -1046,6 +1097,7 @@ export async function createClientApplicationLink(formData: FormData) {
       vehicleYear: Number(getOptionalString(formData, "vehicleYear")) || null,
       vehicleColour: getOptionalString(formData, "vehicleColour"),
     },
+    select: { id: true },
   });
 
   await prisma.statusHistory.create({
@@ -1156,7 +1208,7 @@ export async function createPublicApplicationIntake(
       console.error("Service load for intake failed:", error);
       throw new Error("The selected service could not be loaded right now. Please try again.");
     });
-    const applicationEntityColumnsAvailable = await applicationHasEntityColumns();
+    const applicationColumns = await applicationColumnNames();
     const baseAmount = Number(service.basePrice);
     const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
     const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
@@ -1229,49 +1281,45 @@ export async function createPublicApplicationIntake(
     },
   });
     const application = await prisma.application.create({
-    data: {
-      id: applicationId,
-      publicToken,
-      clientId: client.id,
-      serviceId: service.id,
-      currentStatus: initialStatus,
-      registrationNumber,
-      vin: getOptionalString(formData, "vin"),
-      vehicleMake: getOptionalString(formData, "vehicleMake"),
-      vehicleModel: getOptionalString(formData, "vehicleModel"),
-      ...(applicationEntityColumnsAvailable
-        ? {
-            entityDisplayName,
-            entityRegistrationNumber,
-            representativeFullName,
-            representativeCapacity,
-          }
-        : {}),
-      ...(startAwaitingPayment
-        ? {
-            quoteVersion: 1,
-            quotedAt: new Date(),
-            quoteApprovedAt: new Date(),
-            popDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            lastPopReminderAt: null,
-            popReminderCount: 0,
-            autoCancelOnNoPop: true,
-          }
-        : {}),
-      statusHistory: {
-        create: {
-          fromStatus: null,
-          toStatus: initialStatus,
-          note: startAwaitingPayment
-            ? `Client started application from the public website and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
-            : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
+      data: {
+        id: applicationId,
+        publicToken,
+        clientId: client.id,
+        serviceId: service.id,
+        currentStatus: initialStatus,
+        registrationNumber,
+        vin: getOptionalString(formData, "vin"),
+        vehicleMake: getOptionalString(formData, "vehicleMake"),
+        vehicleModel: getOptionalString(formData, "vehicleModel"),
+        ...filterApplicationColumnData(applicationColumns, {
+          entityDisplayName,
+          entityRegistrationNumber,
+          representativeFullName,
+          representativeCapacity,
+        }),
+        ...(startAwaitingPayment
+          ? filterApplicationColumnData(applicationColumns, {
+              quoteVersion: 1,
+              quotedAt: new Date(),
+              quoteApprovedAt: new Date(),
+              popDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              lastPopReminderAt: null,
+              popReminderCount: 0,
+              autoCancelOnNoPop: true,
+            })
+          : {}),
+        statusHistory: {
+          create: {
+            fromStatus: null,
+            toStatus: initialStatus,
+            note: startAwaitingPayment
+              ? `Client started application from the public website and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
+              : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
+          },
         },
       },
-    },
-    include: {
-      client: true,
-    },
-  });
+      select: mandatePdfApplicationSelect,
+    });
     const adminId = await actorIdFor(UserRole.ADMIN);
     if (startAwaitingPayment) {
       await prisma.charge.create({
@@ -1352,7 +1400,10 @@ export async function createPublicApplicationIntake(
       ),
     });
     await writeMandatePdf(
-      application,
+      {
+        ...application,
+        entityDisplayName,
+      },
       signatureDataUrl,
       identityPhotoForMandate ? Buffer.from(await identityPhotoForMandate.arrayBuffer()) : undefined,
       identityPhotoForMandate?.type,
@@ -1414,17 +1465,6 @@ function paymentUploadLink(applicationId: string) {
   return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
 }
 
-async function applicationHasEntityColumns() {
-  const columns = await prisma.$queryRaw<Array<{ column_name: string }>>`
-    SELECT column_name
-    FROM information_schema.columns
-    WHERE table_schema = current_schema()
-      AND table_name = 'Application'
-  `;
-
-  return columns.some((column) => column.column_name === "entityDisplayName");
-}
-
 function paymentMethodForLaunch() {
   return isPaystackConfigured() ? PaymentMethod.PAYSTACK : PaymentMethod.EFT;
 }
@@ -1484,7 +1524,21 @@ export async function publishAdminQuote(formData: FormData) {
 
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: { client: true },
+    select: {
+      currentStatus: true,
+      client: {
+        select: {
+          firstName: true,
+          surname: true,
+          cellphone: true,
+        },
+      },
+      charges: {
+        select: {
+          id: true,
+        },
+      },
+    },
   });
 
   if (
@@ -1494,7 +1548,7 @@ export async function publishAdminQuote(formData: FormData) {
     throw new Error("Cannot publish a quote for a closed application.");
   }
 
-  const quoteVersion = (application.quoteVersion ?? 0) + 1;
+  const quoteVersion = application.charges.length + 1;
 
   await prisma.charge.create({
     data: {
@@ -1539,7 +1593,9 @@ export async function approveClientQuote(formData: FormData) {
 
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
+    select: {
+      publicToken: true,
+      currentStatus: true,
       client: {
         select: {
           email: true,
@@ -1550,6 +1606,11 @@ export async function approveClientQuote(formData: FormData) {
       },
       charges: {
         where: { status: "PENDING" },
+        select: {
+          id: true,
+          status: true,
+          amount: true,
+        },
       },
     },
   });
@@ -1569,7 +1630,7 @@ export async function approveClientQuote(formData: FormData) {
   }
 
   const total = pendingCharges.reduce((sum, charge) => sum + Number(charge.amount.toString()), 0);
-  const paymentReference = `PAY-${applicationId}-Q${application.quoteVersion || 1}`;
+  const paymentReference = `PAY-${applicationId}-Q1`;
   const paymentMethod = paymentMethodForLaunch();
   const paymentRequest = await buildPaymentRequest({
     applicationId,
@@ -1605,7 +1666,15 @@ export async function approveClientQuote(formData: FormData) {
 
   const applicationWithClient = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: { client: true },
+    select: {
+      client: {
+        select: {
+          firstName: true,
+          surname: true,
+          cellphone: true,
+        },
+      },
+    },
   });
   await prisma.communication.create({
     data: {
@@ -1634,11 +1703,15 @@ export async function confirmEftPayment(formData: FormData) {
   const adminId = await actorIdFor(UserRole.ADMIN);
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
+    select: {
+      currentStatus: true,
       payments: {
         where: {
           method: "EFT",
           status: PaymentStatus.PENDING,
+        },
+        select: {
+          id: true,
         },
       },
     },
@@ -1729,8 +1802,14 @@ export async function requestResubmission(formData: FormData) {
 
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
-      client: true,
+    select: {
+      client: {
+        select: {
+          firstName: true,
+          surname: true,
+          cellphone: true,
+        },
+      },
     },
   });
 
@@ -1871,6 +1950,7 @@ export async function updateSupplierHandoff(formData: FormData) {
   await prisma.application.update({
     where: { id: applicationId },
     data: { supplierUrgency },
+    select: { id: true },
   });
   await createOrderComment(applicationId, OrderCommentSource.ADMIN, adminName, comment);
 
@@ -1891,7 +1971,7 @@ export async function approveToSupplier(formData: FormData) {
   const adminId = await actorIdFor(UserRole.ADMIN);
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
+    select: {
       client: {
         select: {
           entityType: true,
@@ -1899,8 +1979,17 @@ export async function approveToSupplier(formData: FormData) {
       },
       documents: {
         orderBy: [{ type: "asc" }, { version: "desc" }],
+        select: {
+          type: true,
+          status: true,
+          version: true,
+        },
       },
-      mandateFormSubmission: true,
+      mandateFormSubmission: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
   const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
@@ -2038,8 +2127,14 @@ export async function sendClientMessage(formData: FormData) {
 
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
-      client: true,
+    select: {
+      client: {
+        select: {
+          firstName: true,
+          surname: true,
+          cellphone: true,
+        },
+      },
     },
   });
 
@@ -2076,9 +2171,7 @@ export async function submitMandateFormCapture(formData: FormData) {
   const proofDocumentDate = getProofDocumentDate(formData);
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
-      client: true,
-    },
+    select: mandatePdfApplicationSelect,
   });
 
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
@@ -2091,7 +2184,15 @@ export async function submitMandateFormCapture(formData: FormData) {
     proofDocumentDate,
   );
 
-  await writeMandatePdf(application, signatureDataUrl, savedIdPhoto.idPhotoBytes, idPhoto.type);
+  await writeMandatePdf(
+    {
+      ...application,
+      entityDisplayName: null,
+    },
+    signatureDataUrl,
+    savedIdPhoto.idPhotoBytes,
+    idPhoto.type,
+  );
 
   await prisma.mandateFormSubmission.upsert({
     where: { applicationId },
@@ -2132,9 +2233,13 @@ export async function resubmitSupportingDocuments(formData: FormData) {
   const proofDocumentDate = getProofDocumentDate(formData);
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
-      client: true,
-      mandateFormSubmission: true,
+    select: {
+      ...mandatePdfApplicationSelect,
+      mandateFormSubmission: {
+        select: {
+          signatureDataUrl: true,
+        },
+      },
     },
   });
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
@@ -2163,7 +2268,10 @@ export async function resubmitSupportingDocuments(formData: FormData) {
     },
   });
   await writeMandatePdf(
-    application,
+    {
+      ...application,
+      entityDisplayName: null,
+    },
     application.mandateFormSubmission.signatureDataUrl,
     savedIdPhoto.idPhotoBytes,
     idPhoto.type,
@@ -2178,9 +2286,15 @@ export async function resubmitMandateSignature(formData: FormData) {
   const signatureDataUrl = getSignatureDataUrl(formData);
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
-    include: {
-      client: true,
-      mandateFormSubmission: true,
+    select: {
+      ...mandatePdfApplicationSelect,
+      mandateFormSubmission: {
+        select: {
+          signatureDataUrl: true,
+          idPhotoMimeType: true,
+          idPhotoStorageKey: true,
+        },
+      },
     },
   });
 
@@ -2190,7 +2304,10 @@ export async function resubmitMandateSignature(formData: FormData) {
 
   const idPhotoBytes = await readFile(storageKeyPath(application.mandateFormSubmission.idPhotoStorageKey));
   await writeMandatePdf(
-    application,
+    {
+      ...application,
+      entityDisplayName: null,
+    },
     signatureDataUrl,
     idPhotoBytes,
     application.mandateFormSubmission.idPhotoMimeType,
