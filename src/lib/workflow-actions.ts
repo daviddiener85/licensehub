@@ -53,6 +53,20 @@ type MandatePdfApplication = {
   };
 };
 
+type ApplicationBaseRowInput = {
+  id: string;
+  publicToken: string;
+  clientId: string;
+  serviceId: string;
+  currentStatus: ApplicationStatus;
+  registrationNumber: string | null;
+  vehicleMake: string | null;
+  vehicleModel: string | null;
+  vehicleYear?: number | null;
+  vehicleColour?: string | null;
+  vin: string | null;
+};
+
 const mandatePdfApplicationSelect = {
   id: true,
   publicToken: true,
@@ -86,6 +100,43 @@ async function applicationColumnNames() {
 
 function filterApplicationColumnData(columns: Set<string>, data: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(data).filter(([key]) => columns.has(key)));
+}
+
+async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
+  const now = new Date();
+
+  await prisma.$executeRaw`
+    INSERT INTO "Application" (
+      "id",
+      "publicToken",
+      "clientId",
+      "serviceId",
+      "currentStatus",
+      "registrationNumber",
+      "vehicleMake",
+      "vehicleModel",
+      "vehicleYear",
+      "vehicleColour",
+      "vin",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${input.id},
+      ${input.publicToken},
+      ${input.clientId},
+      ${input.serviceId},
+      CAST(${input.currentStatus}::text AS "ApplicationStatus"),
+      ${input.registrationNumber},
+      ${input.vehicleMake},
+      ${input.vehicleModel},
+      ${input.vehicleYear ?? null},
+      ${input.vehicleColour ?? null},
+      ${input.vin},
+      ${now},
+      ${now}
+    )
+  `;
 }
 
 async function actorIdFor(role: UserRole) {
@@ -1044,6 +1095,11 @@ export async function createClientApplicationLink(formData: FormData) {
   const deliveryCity = getRequiredString(formData, "deliveryCity", "City");
   const deliveryPostalCode = getRequiredString(formData, "deliveryPostalCode", "Postal code");
   const registrationNumber = getRequiredString(formData, "registrationNumber", "Registration number");
+  const vin = getOptionalString(formData, "vin");
+  const vehicleMake = getOptionalString(formData, "vehicleMake");
+  const vehicleModel = getOptionalString(formData, "vehicleModel");
+  const vehicleYear = Number(getOptionalString(formData, "vehicleYear")) || null;
+  const vehicleColour = getOptionalString(formData, "vehicleColour");
   const applicationId = await nextApplicationId();
   const publicToken = randomUUID();
   const service = await findActiveServiceBySlug("duplicate-certificate");
@@ -1083,21 +1139,18 @@ export async function createClientApplicationLink(formData: FormData) {
     },
   });
 
-  await prisma.application.create({
-    data: {
-      id: applicationId,
-      publicToken,
-      clientId: client.id,
-      serviceId: service.id,
-      currentStatus: ApplicationStatus.DRAFT,
-      registrationNumber,
-      vin: getOptionalString(formData, "vin"),
-      vehicleMake: getOptionalString(formData, "vehicleMake"),
-      vehicleModel: getOptionalString(formData, "vehicleModel"),
-      vehicleYear: Number(getOptionalString(formData, "vehicleYear")) || null,
-      vehicleColour: getOptionalString(formData, "vehicleColour"),
-    },
-    select: { id: true },
+  await createApplicationBaseRow({
+    id: applicationId,
+    publicToken,
+    clientId: client.id,
+    serviceId: service.id,
+    currentStatus: ApplicationStatus.DRAFT,
+    registrationNumber,
+    vin,
+    vehicleMake,
+    vehicleModel,
+    vehicleYear,
+    vehicleColour,
   });
 
   await prisma.statusHistory.create({
@@ -1140,8 +1193,6 @@ export async function createPublicApplicationIntake(
     const deliveryRequired = getDeliveryRequired(formData);
     const entityDisplayName = getOptionalString(formData, "entityDisplayName");
     const entityRegistrationNumber = getOptionalString(formData, "entityRegistrationNumber");
-    const representativeFullName = getOptionalString(formData, "representativeFullName");
-    const representativeCapacity = getOptionalString(formData, "representativeCapacity");
     const paymentDeliveryAddressLine1 = deliveryRequired
       ? getRequiredString(formData, "paymentDeliveryAddressLine1", "Payment delivery address line 1")
       : deliveryAddressLine1;
@@ -1152,6 +1203,9 @@ export async function createPublicApplicationIntake(
       ? getRequiredString(formData, "paymentDeliveryPostalCode", "Payment delivery postal code")
       : deliveryPostalCode;
     const registrationNumber = getRequiredString(formData, "registrationNumber", "Registration number");
+    const vin = getOptionalString(formData, "vin");
+    const vehicleMake = getOptionalString(formData, "vehicleMake");
+    const vehicleModel = getOptionalString(formData, "vehicleModel");
     const signatureDataUrl = getSignatureDataUrl(formData);
     const idPhoto = getOptionalIdPhoto(formData);
     const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [
@@ -1208,7 +1262,6 @@ export async function createPublicApplicationIntake(
       console.error("Service load for intake failed:", error);
       throw new Error("The selected service could not be loaded right now. Please try again.");
     });
-    const applicationColumns = await applicationColumnNames();
     const baseAmount = Number(service.basePrice);
     const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
     const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
@@ -1280,46 +1333,43 @@ export async function createPublicApplicationIntake(
       popiaConsentAcceptedAt: new Date(),
     },
   });
-    const application = await prisma.application.create({
-      data: {
-        id: applicationId,
-        publicToken,
-        clientId: client.id,
-        serviceId: service.id,
-        currentStatus: initialStatus,
-        registrationNumber,
-        vin: getOptionalString(formData, "vin"),
-        vehicleMake: getOptionalString(formData, "vehicleMake"),
-        vehicleModel: getOptionalString(formData, "vehicleModel"),
-        ...filterApplicationColumnData(applicationColumns, {
-          entityDisplayName,
-          entityRegistrationNumber,
-          representativeFullName,
-          representativeCapacity,
-        }),
-        ...(startAwaitingPayment
-          ? filterApplicationColumnData(applicationColumns, {
-              quoteVersion: 1,
-              quotedAt: new Date(),
-              quoteApprovedAt: new Date(),
-              popDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-              lastPopReminderAt: null,
-              popReminderCount: 0,
-              autoCancelOnNoPop: true,
-            })
-          : {}),
-        statusHistory: {
-          create: {
-            fromStatus: null,
-            toStatus: initialStatus,
-            note: startAwaitingPayment
-              ? `Client started application from the public website and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
-              : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
-          },
-        },
-      },
-      select: mandatePdfApplicationSelect,
+    await createApplicationBaseRow({
+      id: applicationId,
+      publicToken,
+      clientId: client.id,
+      serviceId: service.id,
+      currentStatus: initialStatus,
+      registrationNumber,
+      vin,
+      vehicleMake,
+      vehicleModel,
     });
+    await prisma.statusHistory.create({
+      data: {
+        applicationId,
+        fromStatus: null,
+        toStatus: initialStatus,
+        note: startAwaitingPayment
+          ? `Client started application from the public website and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
+          : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
+      },
+    });
+    const application: MandatePdfApplication = {
+      id: applicationId,
+      publicToken,
+      entityDisplayName,
+      registrationNumber,
+      vin,
+      vehicleMake,
+      vehicleModel,
+      vehicleColour: null,
+      client: {
+        firstName,
+        surname,
+        southAfricanIdEncrypted: identityNumber,
+        entityType,
+      },
+    };
     const adminId = await actorIdFor(UserRole.ADMIN);
     if (startAwaitingPayment) {
       await prisma.charge.create({
