@@ -44,6 +44,7 @@ export async function POST(request: Request) {
       data: {
         status: PaymentStatus.CONFIRMED,
         confirmedAt: new Date(),
+        checkoutUrl: null,
         providerReference: (() => {
           const rawData = item.raw as Record<string, unknown>;
           return "id" in rawData && rawData.id !== null ? String(rawData.id) : payment.providerReference;

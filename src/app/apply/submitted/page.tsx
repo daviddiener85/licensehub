@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ApplicationStatus, DocumentType, PaymentMethod } from "@/generated/prisma/client";
+import { ApplicationStatus, DocumentType, PaymentMethod, PaymentStatus } from "@/generated/prisma/client";
 import { EftProofUploadForm } from "@/components/eft-proof-upload-form";
 import { formatMoney } from "@/lib/applications";
 import { prisma } from "@/lib/prisma";
@@ -11,9 +11,15 @@ export const dynamic = "force-dynamic";
 export default async function ApplicationSubmittedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ application?: string; eftUploaded?: string; showUpload?: string }>;
+  searchParams: Promise<{
+    application?: string;
+    eftUploaded?: string;
+    showUpload?: string;
+    reference?: string;
+    trxref?: string;
+  }>;
 }) {
-  const { application, eftUploaded, showUpload } = await searchParams;
+  const { application, eftUploaded, showUpload, reference, trxref } = await searchParams;
   const applicationRecord = application
     ? await prisma.application.findUnique({
         where: { id: application },
@@ -40,6 +46,7 @@ export default async function ApplicationSubmittedPage({
             take: 1,
             select: {
               method: true,
+              status: true,
               amount: true,
               reference: true,
               checkoutUrl: true,
@@ -79,6 +86,14 @@ export default async function ApplicationSubmittedPage({
   const quotePendingClientApproval = applicationRecord?.currentStatus === ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL;
   const quoteApprovedAwaitingPayment =
     applicationRecord?.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT;
+  const paystackReturnReference = reference ?? trxref;
+  const returnedFromPaystack =
+    payment?.method === PaymentMethod.PAYSTACK &&
+    typeof paystackReturnReference === "string" &&
+    paystackReturnReference === payment.reference;
+  const paymentConfirmed = payment?.status === PaymentStatus.CONFIRMED;
+  const applicationProcessing =
+    applicationRecord?.currentStatus === ApplicationStatus.PENDING_REVIEW || paymentConfirmed || returnedFromPaystack;
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f2724] sm:px-6 lg:px-8">
@@ -135,7 +150,23 @@ export default async function ApplicationSubmittedPage({
           </div>
         ) : null}
 
-        {payment && amountLabel && quoteApprovedAwaitingPayment ? (
+        {applicationProcessing ? (
+          <div className="mt-6 border border-[#1f7a4d] bg-[#f4fbf7] p-4">
+            <p className="text-xs font-semibold uppercase text-[#1f7a4d]">Payment received</p>
+            <h2 className="mt-2 text-xl font-semibold">License Hub is processing your order</h2>
+            <p className="mt-2 text-sm leading-6 text-[#52615b]">
+              Your application is now with License Hub for processing. Please keep an eye on WhatsApp for progress
+              updates and any requests from our team.
+            </p>
+            {returnedFromPaystack && !paymentConfirmed ? (
+              <p className="mt-3 border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
+                Paystack has returned you after payment. Confirmation can take a short moment to finish in our system.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {payment && amountLabel && quoteApprovedAwaitingPayment && !applicationProcessing ? (
           <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4">
             <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Payment instruction</p>
             <p className="mt-2 text-lg font-semibold">{amountLabel}</p>
