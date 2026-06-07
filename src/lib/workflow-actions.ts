@@ -86,6 +86,7 @@ const mandatePdfApplicationSelect = {
 };
 
 let applicationColumnNamesPromise: Promise<Set<string>> | null = null;
+let applicationStatusValuesPromise: Promise<void> | null = null;
 
 async function applicationColumnNames() {
   applicationColumnNamesPromise ??= prisma.$queryRaw<Array<{ column_name: string }>>`
@@ -102,8 +103,25 @@ function filterApplicationColumnData(columns: Set<string>, data: Record<string, 
   return Object.fromEntries(Object.entries(data).filter(([key]) => columns.has(key)));
 }
 
+async function ensureApplicationStatusValues() {
+  applicationStatusValuesPromise ??= (async () => {
+    await prisma.$executeRawUnsafe(
+      `ALTER TYPE "ApplicationStatus" ADD VALUE IF NOT EXISTS 'AWAITING_ADMIN_QUOTE'`,
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TYPE "ApplicationStatus" ADD VALUE IF NOT EXISTS 'QUOTE_PENDING_CLIENT_APPROVAL'`,
+    );
+    await prisma.$executeRawUnsafe(
+      `ALTER TYPE "ApplicationStatus" ADD VALUE IF NOT EXISTS 'QUOTE_APPROVED_AWAITING_PAYMENT'`,
+    );
+  })();
+
+  return applicationStatusValuesPromise;
+}
+
 async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
   const now = new Date();
+  await ensureApplicationStatusValues();
 
   await prisma.$executeRaw`
     INSERT INTO "Application" (
@@ -542,6 +560,7 @@ async function transitionApplication(
     data?: Record<string, unknown>;
   } = {},
 ) {
+  await ensureApplicationStatusValues();
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: { currentStatus: true },
