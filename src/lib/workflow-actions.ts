@@ -1561,8 +1561,8 @@ function withClientStatusLink(body: string, publicToken: string) {
   return `${body.trim()}\n\nTrack your application here: ${link}`;
 }
 
-function paymentMethodForLaunch() {
-  return isPaystackConfigured() ? PaymentMethod.PAYSTACK : PaymentMethod.EFT;
+function paymentMethodForLaunch(): PaymentMethod {
+  return PaymentMethod.EFT;
 }
 
 function requestedPaymentMethod(formData: FormData) {
