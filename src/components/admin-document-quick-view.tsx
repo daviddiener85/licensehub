@@ -261,11 +261,30 @@ export function AdminDocumentQuickView({ href, fileName }: AdminDocumentQuickVie
                       cursor: scale > 1 ? (isInteracting ? "grabbing" : "grab") : "default",
                     }}
                   >
-                    <Image src={href} alt={fileName} width={1600} height={1200} className="h-auto max-h-[72vh] w-auto max-w-full object-contain" />
+                    <Image
+                      src={href}
+                      alt={fileName}
+                      unoptimized
+                      className="h-auto max-h-[72vh] w-auto max-w-full object-contain"
+                    />
                   </div>
                 </div>
               ) : (
-                <iframe src={href} title={fileName} className="h-[75vh] w-full border border-[#d8d1c3] bg-white" />
+                <object
+                  data={href}
+                  type="application/pdf"
+                  aria-label={fileName}
+                  className="h-[75vh] w-full border border-[#d8d1c3] bg-white"
+                >
+                  <div className="flex h-[75vh] items-center justify-center border border-[#d8d1c3] bg-white px-6 text-center text-sm text-[#52615b]">
+                    <div className="max-w-md">
+                      <p className="font-semibold text-[#1f2724]">This file can’t be previewed here.</p>
+                      <p className="mt-2">
+                        Use Open original to view or download the document in a separate tab.
+                      </p>
+                    </div>
+                  </div>
+                </object>
               )}
             </div>
           </div>
