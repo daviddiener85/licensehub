@@ -284,7 +284,6 @@ export function MandateCaptureForm({
                   name="idPhoto"
                   type="file"
                   accept="image/jpeg,image/png"
-                  capture="environment"
                   required
                   className="sr-only"
                   onChange={(event) => updateIdPhoto(event.currentTarget.files?.[0])}
@@ -323,7 +322,6 @@ export function MandateCaptureForm({
                   name="licenceDiskPhoto"
                   type="file"
                   accept="image/jpeg,image/png"
-                  capture="environment"
                   required
                   className="sr-only"
                   onChange={(event) => updateLicencePhoto(event.currentTarget.files?.[0])}
@@ -517,7 +515,6 @@ export function MandateCaptureForm({
             name="idPhoto"
             type="file"
             accept="image/jpeg,image/png"
-            capture="environment"
             required
             className="sr-only"
             onChange={(event) => updateIdPhoto(event.currentTarget.files?.[0])}
@@ -558,7 +555,6 @@ export function MandateCaptureForm({
             name="licenceDiskPhoto"
             type="file"
             accept="image/jpeg,image/png"
-            capture="environment"
             required
             className="sr-only"
             onChange={(event) => updateLicencePhoto(event.currentTarget.files?.[0])}

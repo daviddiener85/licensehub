@@ -883,7 +883,6 @@ export function ClientIntakeFlow({
                       type="file"
                       name="licenceDiskPhoto"
                       accept="image/jpeg,image/png"
-                      capture="environment"
                       className="sr-only"
                       onChange={(event) => {
                         const selectedFile = event.currentTarget.files?.[0] ?? null;
@@ -1056,7 +1055,6 @@ export function ClientIntakeFlow({
                                 ? "image/jpeg,image/png,application/pdf"
                                 : "image/jpeg,image/png"
                             }
-                            capture={uploadInputName(document.label) === "proofOfAddress" ? undefined : "environment"}
                             required={
                               stepIndex === 6 &&
                               ["idPhoto", "licenceDiskPhoto", "proofOfAddress", "trafficRegisterDocument", "passportDocument"].includes(
