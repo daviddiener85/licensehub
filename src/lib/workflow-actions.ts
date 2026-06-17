@@ -181,6 +181,9 @@ function safeFileName(fileName: string) {
   return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").replace(/-+/g, "-");
 }
 
+const imageUploadTypes = ["image/jpeg", "image/png", "image/heic", "image/heif"] as const;
+const documentUploadTypes = [...imageUploadTypes, "application/pdf"] as const;
+
 function getSignatureDataUrl(formData: FormData) {
   const signatureDataUrl = formData.get("signatureDataUrl");
 
@@ -198,8 +201,8 @@ function getIdPhoto(formData: FormData) {
     throw new Error("An ID photo is required before submitting the mandate form.");
   }
 
-  if (!["image/jpeg", "image/png"].includes(idPhoto.type)) {
-    throw new Error("The ID photo must be a JPG or PNG image.");
+  if (!imageUploadTypes.includes(idPhoto.type as (typeof imageUploadTypes)[number])) {
+    throw new Error("The ID photo must be an image file.");
   }
 
   return idPhoto;
@@ -212,15 +215,15 @@ function getOptionalIdPhoto(formData: FormData) {
     return null;
   }
 
-  if (!["image/jpeg", "image/png"].includes(idPhoto.type)) {
-    throw new Error("The ID photo must be a JPG or PNG image.");
+  if (!imageUploadTypes.includes(idPhoto.type as (typeof imageUploadTypes)[number])) {
+    throw new Error("The ID photo must be an image file.");
   }
 
   return idPhoto;
 }
 
 function isImageFile(file: File | null) {
-  return Boolean(file && (file.type === "image/jpeg" || file.type === "image/png"));
+  return Boolean(file && imageUploadTypes.includes(file.type as (typeof imageUploadTypes)[number]));
 }
 
 function getRequiredFile(formData: FormData, fieldName: string, label: string, allowedTypes: string[]) {
@@ -1243,29 +1246,20 @@ export async function createPublicApplicationIntake(
     const vehicleModel = getOptionalString(formData, "vehicleModel");
     const signatureDataUrl = getSignatureDataUrl(formData);
     const idPhoto = getOptionalIdPhoto(formData);
-    const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [
-      "image/jpeg",
-      "image/png",
-    ]);
+    const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [...imageUploadTypes]);
     const proofOfAddress = getRequiredFile(formData, "proofOfAddress", "Proof of address", [
-      "image/jpeg",
-      "image/png",
-      "application/pdf",
+      ...documentUploadTypes,
     ]);
     const trafficRegisterDocument =
       entityType === ClientEntityType.NON_SA_CITIZEN
         ? getRequiredFile(formData, "trafficRegisterDocument", "Traffic register document (TRN)", [
-            "image/jpeg",
-            "image/png",
-            "application/pdf",
+            ...documentUploadTypes,
           ])
         : null;
     const passportDocument =
       entityType === ClientEntityType.NON_SA_CITIZEN
         ? getRequiredFile(formData, "passportDocument", "Passport document", [
-            "image/jpeg",
-            "image/png",
-            "application/pdf",
+            ...documentUploadTypes,
           ])
         : null;
     const identityPhotoForMandate =
@@ -1967,9 +1961,7 @@ export async function confirmEftPayment(formData: FormData) {
 export async function uploadEftProof(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const eftProof = getRequiredFile(formData, "eftProof", "Proof of EFT payment", [
-    "image/jpeg",
-    "image/png",
-    "application/pdf",
+    ...documentUploadTypes,
   ]);
 
   await saveUploadedDocument(applicationId, eftProof, DocumentType.PROOF_OF_EFT_PAYMENT, "client-documents");
@@ -2447,14 +2439,9 @@ export async function submitMandateFormCapture(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const signatureDataUrl = getSignatureDataUrl(formData);
   const idPhoto = getIdPhoto(formData);
-  const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [
-    "image/jpeg",
-    "image/png",
-  ]);
+  const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [...imageUploadTypes]);
   const proofOfAddress = getRequiredFile(formData, "proofOfAddress", "Proof of address", [
-    "image/jpeg",
-    "image/png",
-    "application/pdf",
+    ...documentUploadTypes,
   ]);
   const proofDocumentDate = getProofDocumentDate(formData);
   const application = await prisma.application.findUniqueOrThrow({
@@ -2509,14 +2496,9 @@ export async function submitMandateFormCapture(formData: FormData) {
 export async function resubmitSupportingDocuments(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const idPhoto = getIdPhoto(formData);
-  const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [
-    "image/jpeg",
-    "image/png",
-  ]);
+  const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [...imageUploadTypes]);
   const proofOfAddress = getRequiredFile(formData, "proofOfAddress", "Proof of address", [
-    "image/jpeg",
-    "image/png",
-    "application/pdf",
+    ...documentUploadTypes,
   ]);
   const proofDocumentDate = getProofDocumentDate(formData);
   const application = await prisma.application.findUniqueOrThrow({

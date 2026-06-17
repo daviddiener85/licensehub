@@ -279,13 +279,13 @@ export function MandateCaptureForm({
                     </span>
                   )}
                 </label>
-                <input
-                  id="idPhotoResubmit"
-                  name="idPhoto"
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  required
-                  className="sr-only"
+                  <input
+                    id="idPhotoResubmit"
+                    name="idPhoto"
+                    type="file"
+                    accept="image/jpeg,image/png,image/heic,image/heif"
+                    required
+                    className="sr-only"
                   onChange={(event) => updateIdPhoto(event.currentTarget.files?.[0])}
                 />
               </div>
@@ -317,13 +317,13 @@ export function MandateCaptureForm({
                     </>
                   )}
                 </label>
-                <input
-                  id="licenceDiskPhotoResubmit"
-                  name="licenceDiskPhoto"
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  required
-                  className="sr-only"
+                  <input
+                    id="licenceDiskPhotoResubmit"
+                    name="licenceDiskPhoto"
+                    type="file"
+                    accept="image/jpeg,image/png,image/heic,image/heif"
+                    required
+                    className="sr-only"
                   onChange={(event) => updateLicencePhoto(event.currentTarget.files?.[0])}
                 />
               </div>
@@ -355,13 +355,13 @@ export function MandateCaptureForm({
                     </>
                   )}
                 </label>
-                <input
-                  id="proofOfAddressResubmit"
-                  name="proofOfAddress"
-                  type="file"
-                  accept="image/jpeg,image/png,application/pdf"
-                  required
-                  className="sr-only"
+                  <input
+                    id="proofOfAddressResubmit"
+                    name="proofOfAddress"
+                    type="file"
+                    accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
+                    required
+                    className="sr-only"
                   onChange={(event) => updateProofOfAddress(event.currentTarget.files?.[0])}
                 />
                 <label
@@ -514,7 +514,7 @@ export function MandateCaptureForm({
             id="idPhoto"
             name="idPhoto"
             type="file"
-            accept="image/jpeg,image/png"
+            accept="image/jpeg,image/png,image/heic,image/heif"
             required
             className="sr-only"
             onChange={(event) => updateIdPhoto(event.currentTarget.files?.[0])}
@@ -554,7 +554,7 @@ export function MandateCaptureForm({
             id="licenceDiskPhoto"
             name="licenceDiskPhoto"
             type="file"
-            accept="image/jpeg,image/png"
+            accept="image/jpeg,image/png,image/heic,image/heif"
             required
             className="sr-only"
             onChange={(event) => updateLicencePhoto(event.currentTarget.files?.[0])}
@@ -594,7 +594,7 @@ export function MandateCaptureForm({
             id="proofOfAddress"
             name="proofOfAddress"
             type="file"
-            accept="image/jpeg,image/png,application/pdf"
+            accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
             required
             className="sr-only"
             onChange={(event) => updateProofOfAddress(event.currentTarget.files?.[0])}

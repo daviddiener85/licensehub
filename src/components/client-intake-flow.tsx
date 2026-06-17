@@ -882,7 +882,7 @@ export function ClientIntakeFlow({
                     <input
                       type="file"
                       name="licenceDiskPhoto"
-                      accept="image/jpeg,image/png"
+                      accept="image/jpeg,image/png,image/heic,image/heif"
                       className="sr-only"
                       onChange={(event) => {
                         const selectedFile = event.currentTarget.files?.[0] ?? null;
@@ -1052,8 +1052,8 @@ export function ClientIntakeFlow({
                             name={uploadInputName(document.label)}
                             accept={
                               uploadInputName(document.label) === "proofOfAddress"
-                                ? "image/jpeg,image/png,application/pdf"
-                                : "image/jpeg,image/png"
+                                ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
+                                : "image/jpeg,image/png,image/heic,image/heif"
                             }
                             required={
                               stepIndex === 6 &&

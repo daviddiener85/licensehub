@@ -41,7 +41,7 @@ export function EftProofUploadForm({ applicationId, action }: EftProofUploadForm
             type="file"
             name="eftProof"
             required
-            accept="image/jpeg,image/png,application/pdf"
+            accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
             className="sr-only"
             onChange={(event) => {
               setSelectedFileName(event.currentTarget.files?.[0]?.name ?? "");
