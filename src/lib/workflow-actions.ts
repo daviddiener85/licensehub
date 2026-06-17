@@ -486,6 +486,42 @@ async function saveMandateIdPhoto(applicationId: string, idPhoto: File) {
   };
 }
 
+async function saveMandateIdPhotoDocument(
+  applicationId: string,
+  idPhoto: File,
+  savedIdPhoto: Awaited<ReturnType<typeof saveMandateIdPhoto>>,
+) {
+  await prisma.document.upsert({
+    where: {
+      applicationId_type_version: {
+        applicationId,
+        type: DocumentType.ID_PHOTO,
+        version: 1,
+      },
+    },
+    update: {
+      status: DocumentStatus.PENDING,
+      fileName: idPhoto.name || savedIdPhoto.fileName,
+      mimeType: idPhoto.type || "application/octet-stream",
+      fileSizeBytes: idPhoto.size,
+      storageKey: savedIdPhoto.storageKey,
+      rejectionReason: null,
+      reviewedById: null,
+      reviewedAt: null,
+    },
+    create: {
+      applicationId,
+      type: DocumentType.ID_PHOTO,
+      status: DocumentStatus.PENDING,
+      version: 1,
+      fileName: idPhoto.name || savedIdPhoto.fileName,
+      mimeType: idPhoto.type || "application/octet-stream",
+      fileSizeBytes: idPhoto.size,
+      storageKey: savedIdPhoto.storageKey,
+    },
+  });
+}
+
 function storageKeyPath(storageKey: string) {
   const relativePath = storageKey.replace(/^\/+/, "");
 
@@ -1466,6 +1502,7 @@ export async function createPublicApplicationIntake(
       },
     });
     const savedIdPhoto = await saveMandateIdPhoto(applicationId, identityDocumentForStorage);
+    await saveMandateIdPhotoDocument(applicationId, identityDocumentForStorage, savedIdPhoto);
 
     await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
     await saveUploadedDocument(applicationId, proofOfAddress, DocumentType.PROOF_OF_ADDRESS, "client-documents");
@@ -2242,10 +2279,6 @@ export async function approveToSupplier(formData: FormData) {
   const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
-      if (requirement.key === "id-photo") {
-        return !application.mandateFormSubmission;
-      }
-
       if (!requirement.documentType) {
         const supportingDocuments = application.documents
           .filter((document) => document.type === DocumentType.OTHER)
@@ -2452,6 +2485,7 @@ export async function submitMandateFormCapture(formData: FormData) {
   });
 
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
+  await saveMandateIdPhotoDocument(applicationId, idPhoto, savedIdPhoto);
   await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
   await saveUploadedDocument(
     applicationId,
@@ -2515,6 +2549,7 @@ export async function resubmitSupportingDocuments(formData: FormData) {
     },
   });
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
+  await saveMandateIdPhotoDocument(applicationId, idPhoto, savedIdPhoto);
 
   await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
   await saveUploadedDocument(

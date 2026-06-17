@@ -1,6 +1,7 @@
 import { DocumentType } from "@/generated/prisma/client";
 
 export const documentTypeLabels: Record<DocumentType, string> = {
+  [DocumentType.ID_PHOTO]: "ID photo",
   [DocumentType.LICENCE_DISK_PHOTO]: "Licence disk photo",
   [DocumentType.PROOF_OF_ADDRESS]: "Proof of address",
   [DocumentType.MANDATE_LETTER]: "Legacy mandate letter",
@@ -10,6 +11,7 @@ export const documentTypeLabels: Record<DocumentType, string> = {
 };
 
 export const documentTypeDescriptions: Partial<Record<DocumentType, string>> = {
+  [DocumentType.ID_PHOTO]: "Captured with the mandate form and embedded in the traffic-department PDF.",
   [DocumentType.MANDATE_FORM]: "Auto-populated signed PDF with client signature and ID photo embedded.",
   [DocumentType.MANDATE_LETTER]: "Legacy handwritten mandate letter retained for historical records only.",
 };

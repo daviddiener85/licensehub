@@ -223,10 +223,6 @@ function documentRequirementStatus(
   requirement: ReturnType<typeof documentRequirementsForEntityType>[number],
   application: Awaited<ReturnType<typeof listAdminApplications>>[number],
 ) {
-  if (requirement.key === "id-photo") {
-    return application.mandateFormSubmission ? "PENDING" : "MISSING";
-  }
-
   if (!requirement.documentType) {
     const supportingDocuments = application.documents
       .filter((document: ApplicationDocumentRecord) => document.type === "OTHER")

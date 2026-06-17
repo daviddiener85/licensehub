@@ -20,6 +20,7 @@ const baseRequirements: EntityDocumentRequirement[] = [
     key: "id-photo",
     label: "ID photo",
     description: "Captured with the mandate form and embedded in the traffic-department PDF.",
+    documentType: DocumentType.ID_PHOTO,
     confirmedForUpload: true,
   },
   {

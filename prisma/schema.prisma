@@ -35,6 +35,7 @@ enum ApplicationStatus {
 }
 
 enum DocumentType {
+  ID_PHOTO
   LICENCE_DISK_PHOTO
   PROOF_OF_ADDRESS
   MANDATE_LETTER

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import Image from "next/image";
 
 type AdminDocumentQuickViewProps = {
   href: string;
@@ -261,10 +260,10 @@ export function AdminDocumentQuickView({ href, fileName }: AdminDocumentQuickVie
                       cursor: scale > 1 ? (isInteracting ? "grabbing" : "grab") : "default",
                     }}
                   >
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Admin previews need raw uploaded files, not optimizer URLs. */}
+                    <img
                       src={href}
                       alt={fileName}
-                      unoptimized
                       className="h-auto max-h-[72vh] w-auto max-w-full object-contain"
                     />
                   </div>
