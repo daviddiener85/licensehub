@@ -1,13 +1,15 @@
 import Link from "next/link";
 
+import { AddChargeActionForm } from "@/components/add-charge-action-form";
 import { AdminApplicationCell } from "@/components/admin-application-cell";
+import { AdminWhatsappComposer } from "@/components/admin-whatsapp-composer";
 import { AdminRefreshController } from "@/components/admin-refresh-controller";
 import { AdminSeenOrders } from "@/components/admin-seen-orders";
 import { AdminDocumentQuickView } from "@/components/admin-document-quick-view";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
-import { DocumentType, PaymentMethod, PaymentStatus, SupplierUrgency } from "@/generated/prisma/client";
+import { DocumentType, PaymentMethod, PaymentStatus, PaymentType, SupplierUrgency } from "@/generated/prisma/client";
 import type { ApplicationChargeRecord, ApplicationDocumentRecord } from "@/lib/applications";
 import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
@@ -27,6 +29,8 @@ import {
   markDocumentReturned,
   rejectDocument,
   requestResubmission,
+  raiseAdditionalCharge,
+  resendClientStatusLink,
   sendClientMessage,
   publishAdminQuote,
   updateSupplierHandoff,
@@ -70,6 +74,10 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
     return latestPayment.status.toLowerCase();
   }
 
+  if (latestPayment.type === PaymentType.ADDITIONAL_CHARGE) {
+    return "Additional charge pending";
+  }
+
   if (latestPayment.method === PaymentMethod.PAYSTACK) {
     return "Paystack pending";
   }
@@ -79,7 +87,9 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
 
 function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
   const isDuplicateCertificate = application.service.slug === "duplicate-certificate";
-  const isAwaitingEftVerification = application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT";
+  const isAwaitingEftVerification =
+    application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT" ||
+    application.currentStatus === "ADDITIONAL_CHARGE_RAISED";
   const latestPayment = application.payments[0];
 
   if (isDuplicateCertificate && isAwaitingEftVerification) {
@@ -90,7 +100,14 @@ function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminA
     const hasEftProof = application.documents.some(
       (document: ApplicationDocumentRecord) => document.type === DocumentType.PROOF_OF_EFT_PAYMENT,
     );
+    if (application.currentStatus === "ADDITIONAL_CHARGE_RAISED") {
+      return hasEftProof ? "Verify additional charge" : "Additional charge pending";
+    }
     return hasEftProof ? "Verify payment" : "Pending payment";
+  }
+
+  if (application.currentStatus === "ADDITIONAL_CHARGE_RAISED") {
+    return latestPayment?.status === PaymentStatus.CONFIRMED ? "Additional charge confirmed" : "Additional charge pending";
   }
 
   return statusLabel(application.currentStatus);
@@ -277,9 +294,16 @@ function ageSummary(createdAt: Date) {
   return days === 1 ? "1 day" : `${days} days`;
 }
 
+type AdminChecklistItem = {
+  label: string;
+  pass: boolean;
+  detail: string;
+  scope: "Required" | "Conditional";
+};
+
 function adminChecklist(
   application: Awaited<ReturnType<typeof listAdminApplications>>[number],
-) {
+) : AdminChecklistItem[] {
   const latestPayment = application.payments[0] ?? null;
   const requiredRequirements = documentRequirementsForEntityType(application.client.entityType).filter(
     (requirement) => requirement.confirmedForUpload,
@@ -299,18 +323,25 @@ function adminChecklist(
       )
     : true;
 
-  const paymentItems =
+  const paymentItems: AdminChecklistItem[] =
     latestPayment?.method === PaymentMethod.PAYSTACK
       ? [
           {
-            label: "Paystack payment confirmed",
+            label: latestPayment?.type === PaymentType.ADDITIONAL_CHARGE ? "Additional charge confirmed" : "Paystack payment confirmed",
             pass: paymentConfirmed,
-            detail: paymentConfirmed ? "Paystack payment confirmed automatically." : "Awaiting Paystack confirmation.",
+            detail: paymentConfirmed
+              ? latestPayment?.type === PaymentType.ADDITIONAL_CHARGE
+                ? "Additional charge payment confirmed automatically."
+                : "Paystack payment confirmed automatically."
+              : latestPayment?.type === PaymentType.ADDITIONAL_CHARGE
+                ? "Awaiting additional charge confirmation."
+                : "Awaiting Paystack confirmation.",
+            scope: "Required",
           },
         ]
       : [
           {
-            label: "EFT proof uploaded",
+            label: latestPayment?.type === PaymentType.ADDITIONAL_CHARGE ? "Additional charge proof uploaded" : "EFT proof uploaded",
             pass: application.documents.some(
               (document: ApplicationDocumentRecord) => document.type === "PROOF_OF_EFT_PAYMENT",
             ),
@@ -319,11 +350,19 @@ function adminChecklist(
             )
               ? "Proof of EFT document found."
               : "No proof of EFT payment uploaded yet.",
+            scope: "Required",
           },
           {
-            label: "EFT payment confirmed",
+            label: latestPayment?.type === PaymentType.ADDITIONAL_CHARGE ? "Additional charge payment confirmed" : "EFT payment confirmed",
             pass: paymentConfirmed,
-            detail: paymentConfirmed ? "Payment confirmed by admin." : "Awaiting admin EFT confirmation.",
+            detail: paymentConfirmed
+              ? latestPayment?.type === PaymentType.ADDITIONAL_CHARGE
+                ? "Additional charge confirmed by admin."
+                : "Payment confirmed by admin."
+              : latestPayment?.type === PaymentType.ADDITIONAL_CHARGE
+                ? "Awaiting admin additional charge confirmation."
+                : "Awaiting admin EFT confirmation.",
+            scope: "Required",
           },
         ];
 
@@ -333,6 +372,7 @@ function adminChecklist(
       label: "Required documents accepted",
       pass: allRequiredDocsAccepted,
       detail: allRequiredDocsAccepted ? "All required documents are accepted." : "One or more required documents are missing, pending, or rejected.",
+      scope: "Required",
     },
     {
       label: "Entity details complete",
@@ -340,6 +380,7 @@ function adminChecklist(
       detail: entityFieldsPresent
         ? "Entity/representative details are complete for this flow."
         : "Entity/representative details are incomplete.",
+      scope: entityFieldsRequired ? "Required" : "Conditional",
     },
   ];
 }
@@ -379,7 +420,7 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
   }[] = [];
 
   if (
-    application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT" &&
+    (application.currentStatus === "QUOTE_APPROVED_AWAITING_PAYMENT" || application.currentStatus === "ADDITIONAL_CHARGE_RAISED") &&
     application.payments.some((payment) => payment.method === "EFT" && payment.status === PaymentStatus.PENDING)
   ) {
     actions.push({
@@ -551,9 +592,6 @@ export default async function AdminPage({
 
   const selectedApplication =
     applications.find((application) => application.id === selectedApplicationId) ?? filteredApplications[0] ?? applications[0];
-  const selectedWhatsappTemplate = whatsappTemplates[0].body
-    .replace("{{firstName}}", selectedApplication.client.firstName)
-    .replace("{{applicationId}}", selectedApplication.id);
   const selectedApprovalBlockReason = approvalBlockReason(selectedApplication);
   const selectedPendingDocumentCount = selectedApplication.documents.filter(
     (document: ApplicationDocumentRecord) => document.status === "PENDING",
@@ -794,10 +832,16 @@ export default async function AdminPage({
               </div>
               <div>
                 <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Client link</dt>
-                <dd className="mt-1 font-medium">
+                <dd className="mt-1 flex flex-wrap items-center gap-2 font-medium">
                   <Link href={`/client/${selectedApplication.publicToken}`} className="text-[#07315f]">
                     Open client page
                   </Link>
+                  <form action={resendClientStatusLink}>
+                    <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                    <button className="border border-[#d8d1c3] px-2 py-1 text-xs font-semibold text-[#52615b]">
+                      Resend status link
+                    </button>
+                  </form>
                 </dd>
               </div>
               <div>
@@ -984,18 +1028,26 @@ export default async function AdminPage({
                   )}.`
                 : "Awaiting client signature and ID photo."}
             </div>
-            <textarea
-              className="mt-4 h-28 w-full border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm outline-none"
-              defaultValue={
-                selectedApplication.documents
-                  .filter((document: ApplicationDocumentRecord) => document.rejectionReason)
-                  .map(
-                    (document: ApplicationDocumentRecord) =>
-                      `${supportingDocumentLabel(document, selectedApplication)}: ${document.rejectionReason}`,
-                  )
-                  .join("\n") || "No rejection notes captured yet."
-              }
-            />
+            <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold">Rejection notes</h3>
+                <span className="text-xs text-[#6b5e4f]">Read only</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {selectedApplication.documents.filter((document: ApplicationDocumentRecord) => document.rejectionReason).length > 0 ? (
+                  selectedApplication.documents
+                    .filter((document: ApplicationDocumentRecord) => document.rejectionReason)
+                    .map((document: ApplicationDocumentRecord) => (
+                      <div key={document.id} className="border border-[#eee8dc] bg-white p-3 text-sm">
+                        <p className="font-semibold text-[#1f2724]">{supportingDocumentLabel(document, selectedApplication)}</p>
+                        <p className="mt-1 text-[#b3261e]">{document.rejectionReason}</p>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-[#52615b]">No rejection notes captured yet.</p>
+                )}
+              </div>
+            </div>
             <details className="mt-4 border border-[#e4ded2] bg-[#fffdf8]">
               <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Review Audit Trail</summary>
               <div className="border-t border-[#eee8dc] p-3">
@@ -1049,14 +1101,19 @@ export default async function AdminPage({
                   <div key={item.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold">{item.label}</span>
-                      <span
-                        className={[
-                          "text-xs font-semibold",
-                          item.pass ? "text-[#1f7a4d]" : "text-[#b3261e]",
-                        ].join(" ")}
-                      >
-                        {item.pass ? "PASS" : "FAIL"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="border border-[#d8d1c3] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f]">
+                          {item.scope}
+                        </span>
+                        <span
+                          className={[
+                            "text-xs font-semibold",
+                            item.pass ? "text-[#1f7a4d]" : "text-[#b3261e]",
+                          ].join(" ")}
+                        >
+                          {item.pass ? "PASS" : "FAIL"}
+                        </span>
+                      </div>
                     </div>
                     <p className="mt-1 text-xs text-[#6b5e4f]">{item.detail}</p>
                   </div>
@@ -1077,9 +1134,11 @@ export default async function AdminPage({
                 </p>
               ))}
             </div>
-            <button className="mt-5 w-full border border-[#1f2724] px-4 py-2 text-sm font-semibold">
-              Add Charge
-            </button>
+            <AddChargeActionForm
+              action={raiseAdditionalCharge}
+              applicationId={selectedApplication.id}
+              className="mt-5 w-full border border-[#1f2724] px-4 py-2 text-sm font-semibold"
+            />
             {["AWAITING_ADMIN_QUOTE", "QUOTE_PENDING_CLIENT_APPROVAL"].includes(selectedApplication.currentStatus) ? (
               <form action={publishAdminQuote} className="mt-4 space-y-2 border border-[#eee8dc] bg-[#fffdf8] p-3">
                 <input type="hidden" name="applicationId" value={selectedApplication.id} />
@@ -1136,33 +1195,13 @@ export default async function AdminPage({
               </span>
             </div>
 
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {whatsappTemplates.map((template) => (
-                <button
-                  key={template.key}
-                  className="border border-[#d8d1c3] px-3 py-2 text-left text-sm font-medium"
-                >
-                  {template.label}
-                </button>
-              ))}
-            </div>
-
-            <form key={selectedApplication.id} action={sendClientMessage}>
-              <input type="hidden" name="applicationId" value={selectedApplication.id} />
-              <textarea
-                key={`${selectedApplication.id}-whatsapp-message`}
-                className="mt-4 h-24 w-full border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm outline-none"
-                defaultValue={selectedWhatsappTemplate}
-                name="body"
-                required
-              />
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-[#6b5e4f]">Messages are stored against the application audit record.</p>
-                <button className="border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
-                  Send WhatsApp
-                </button>
-              </div>
-            </form>
+            <AdminWhatsappComposer
+              key={selectedApplication.id}
+              action={sendClientMessage}
+              applicationId={selectedApplication.id}
+              clientFirstName={selectedApplication.client.firstName}
+              templates={whatsappTemplates}
+            />
 
             <div className="mt-5 space-y-3 border-t border-[#d8d1c3] pt-5">
               {selectedApplication.communications.map((message) => (

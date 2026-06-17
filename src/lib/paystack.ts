@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { appBaseUrl } from "@/lib/app-url";
+
 const PAYSTACK_API_BASE = "https://api.paystack.co";
 
 function envValue(name: string) {
@@ -21,8 +23,7 @@ export function isPaystackConfigured() {
 }
 
 export function paystackCallbackUrl(applicationId: string) {
-  const baseUrl = envValue("APP_BASE_URL") || "http://localhost:3000";
-  return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
+  return `${appBaseUrl()}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
 }
 
 export async function initializePaystackTransaction(options: {

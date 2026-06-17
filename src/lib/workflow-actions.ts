@@ -25,6 +25,7 @@ import {
 import { clientIdMandatePdfLabel } from "@/lib/client-identity";
 import { createMandatePdf } from "@/lib/mandate-pdf";
 import { initializePaystackTransaction, isPaystackConfigured, paystackCallbackUrl } from "@/lib/paystack";
+import { appBaseUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
@@ -592,6 +593,21 @@ async function transitionApplication(
   });
 
   return updated;
+}
+
+function nextStatusAfterPaymentConfirmation(application: {
+  currentStatus: ApplicationStatus;
+  previousStatus: ApplicationStatus | null;
+}) {
+  if (application.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT) {
+    return ApplicationStatus.PENDING_REVIEW;
+  }
+
+  if (application.currentStatus === ApplicationStatus.ADDITIONAL_CHARGE_RAISED) {
+    return application.previousStatus ?? ApplicationStatus.PENDING_REVIEW;
+  }
+
+  return null;
 }
 
 function refreshWorkflowPages() {
@@ -1428,6 +1444,8 @@ export async function createPublicApplicationIntake(
             ? `Pay now here: ${paymentUploadLink(applicationId)}`
             : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
           "Use the payment reference shown on your application page.",
+          "",
+          `Track your application here: ${clientStatusLink(publicToken)}.`,
         ].join("\n")
       : [
       `Hi ${firstName},`,
@@ -1436,6 +1454,8 @@ export async function createPublicApplicationIntake(
       `Reference number: ${applicationId}.`,
       "",
       "Our admin team will now prepare your quote and we'll keep you updated on your application status.",
+      "",
+      `Track your application here: ${clientStatusLink(publicToken)}.`,
     ].join("\n");
     await prisma.communication.create({
       data: {
@@ -1530,8 +1550,21 @@ function getRequiredMoneyAmount(formData: FormData, fieldName: string, label: st
 }
 
 function paymentUploadLink(applicationId: string) {
-  const baseUrl = process.env.APP_BASE_URL?.trim() || "http://localhost:3000";
-  return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
+  return `${appBaseUrl()}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
+}
+
+function clientStatusLink(publicToken: string) {
+  return `${appBaseUrl()}/client/${encodeURIComponent(publicToken)}`;
+}
+
+function withClientStatusLink(body: string, publicToken: string) {
+  const link = clientStatusLink(publicToken);
+
+  if (body.includes(link)) {
+    return body;
+  }
+
+  return `${body.trim()}\n\nTrack your application here: ${link}`;
 }
 
 function paymentMethodForLaunch() {
@@ -1595,6 +1628,7 @@ export async function publishAdminQuote(formData: FormData) {
     where: { id: applicationId },
     select: {
       currentStatus: true,
+      publicToken: true,
       client: {
         select: {
           firstName: true,
@@ -1648,12 +1682,115 @@ export async function publishAdminQuote(formData: FormData) {
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
       templateKey: "quote-ready-for-approval",
-      body: `Hi ${application.client.firstName}, your quote is ready for application ${applicationId}. Please review and approve so we can proceed.`,
+      body: withClientStatusLink(
+        `Hi ${application.client.firstName}, your quote is ready for application ${applicationId}. Please review and approve so we can proceed.`,
+        application.publicToken,
+      ),
     },
   });
 
   refreshWorkflowPages();
   revalidatePath("/admin");
+}
+
+export async function raiseAdditionalCharge(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const amount = getRequiredMoneyAmount(formData, "chargeAmount", "Charge amount");
+  const description = getRequiredString(formData, "chargeDescription", "Charge description");
+  const adminId = await actorIdFor(UserRole.ADMIN);
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: {
+      currentStatus: true,
+      previousStatus: true,
+      publicToken: true,
+      charges: {
+        select: {
+          id: true,
+        },
+      },
+      client: {
+        select: {
+          firstName: true,
+          surname: true,
+          cellphone: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (application.currentStatus === ApplicationStatus.CANCELLED || application.currentStatus === ApplicationStatus.DISPATCHED) {
+    throw new Error("Cannot add a charge to a closed application.");
+  }
+
+  const chargeVersion = application.charges.length + 1;
+  const paymentReference = `PAY-${applicationId}-A${chargeVersion}-${Date.now()}`;
+  const paymentMethod = paymentMethodForLaunch();
+  const paymentRequest = await buildPaymentRequest({
+    applicationId,
+    email: application.client.email,
+    amount,
+    reference: paymentReference,
+    paymentMethod,
+  });
+
+  const charge = await prisma.charge.create({
+    data: {
+      applicationId,
+      description,
+      reason: `ADDITIONAL_CHARGE_V${chargeVersion}`,
+      amount,
+    },
+  });
+
+  await prisma.payment.create({
+    data: {
+      applicationId,
+      chargeId: charge.id,
+      type: PaymentType.ADDITIONAL_CHARGE,
+      method: paymentMethod,
+      status: PaymentStatus.PENDING,
+      amount,
+      reference: paymentReference,
+      checkoutUrl: paymentRequest.checkoutUrl,
+      providerReference: paymentRequest.providerReference,
+    },
+  });
+
+  await transitionApplication(applicationId, ApplicationStatus.ADDITIONAL_CHARGE_RAISED, {
+    actorId: adminId,
+    note: `Admin raised additional charge version ${chargeVersion}: ${description}.`,
+    data: {
+      popDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      lastPopReminderAt: null,
+      popReminderCount: 0,
+      autoCancelOnNoPop: true,
+    },
+  });
+
+  await prisma.communication.create({
+    data: {
+      applicationId,
+      channel: CommunicationChannel.WHATSAPP,
+      direction: CommunicationDirection.OUTBOUND,
+      status: CommunicationStatus.QUEUED,
+      senderId: adminId,
+      recipientName: `${application.client.firstName} ${application.client.surname}`,
+      recipientAddress: application.client.cellphone,
+      templateKey: "additional-charge-ready",
+      body: withClientStatusLink(
+        paymentMethod === PaymentMethod.PAYSTACK
+          ? `Hi ${application.client.firstName}, an additional charge has been added for application ${applicationId}. Please review and pay here: ${paymentUploadLink(applicationId)}.`
+          : `Hi ${application.client.firstName}, an additional charge has been added for application ${applicationId}. Please review and upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
+        application.publicToken,
+      ),
+    },
+  });
+
+  refreshWorkflowPages();
+  revalidatePath("/admin");
+  revalidatePath(`/apply/submitted?application=${applicationId}`);
 }
 
 export async function approveClientQuote(formData: FormData) {
@@ -1736,6 +1873,7 @@ export async function approveClientQuote(formData: FormData) {
   const applicationWithClient = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      publicToken: true,
       client: {
         select: {
           firstName: true,
@@ -1755,10 +1893,12 @@ export async function approveClientQuote(formData: FormData) {
       recipientName: `${applicationWithClient.client.firstName} ${applicationWithClient.client.surname}`,
       recipientAddress: applicationWithClient.client.cellphone,
       templateKey: "payment-pop-upload-link",
-      body:
+      body: withClientStatusLink(
         paymentMethod === PaymentMethod.PAYSTACK
           ? `Hi ${applicationWithClient.client.firstName}, your Paystack payment request is ready here: ${paymentUploadLink(applicationId)}.`
           : `Hi ${applicationWithClient.client.firstName}, please upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
+        application.publicToken,
+      ),
     },
   });
 
@@ -1774,6 +1914,7 @@ export async function confirmEftPayment(formData: FormData) {
     where: { id: applicationId },
     select: {
       currentStatus: true,
+      previousStatus: true,
       payments: {
         where: {
           method: "EFT",
@@ -1794,6 +1935,12 @@ export async function confirmEftPayment(formData: FormData) {
     throw new Error("No pending EFT payment was found for this application.");
   }
 
+  const nextStatus = nextStatusAfterPaymentConfirmation(application);
+
+  if (!nextStatus) {
+    throw new Error("This payment cannot be confirmed in the current application state.");
+  }
+
   await prisma.payment.updateMany({
     where: {
       applicationId,
@@ -1806,9 +1953,12 @@ export async function confirmEftPayment(formData: FormData) {
     },
   });
 
-  await transitionApplication(applicationId, ApplicationStatus.PENDING_REVIEW, {
+  await transitionApplication(applicationId, nextStatus, {
     actorId: adminId,
-    note: "Admin confirmed EFT payment.",
+    note:
+      nextStatus === ApplicationStatus.PENDING_REVIEW
+        ? "Admin confirmed EFT payment."
+        : "Admin confirmed additional charge payment.",
   });
 
   refreshWorkflowPages();
@@ -1835,6 +1985,7 @@ export async function requestResubmission(formData: FormData) {
   const adminId = await actorIdFor(UserRole.ADMIN);
   const documentIds = formData.getAll("documentId").filter((value): value is string => typeof value === "string");
   const whatsappMessage = formData.get("whatsappMessage");
+  const adminComment = formData.get("adminComment");
 
   if (documentIds.length === 0) {
     throw new Error("At least one document must be selected for resubmission.");
@@ -1864,14 +2015,47 @@ export async function requestResubmission(formData: FormData) {
     }),
   );
 
+  const selectedDocuments = await prisma.document.findMany({
+    where: { id: { in: documentIds } },
+    select: {
+      id: true,
+      type: true,
+      fileName: true,
+    },
+  });
+
+  const selectedDocumentLabels = documentIds
+    .map((documentId) => {
+      const document = selectedDocuments.find((item) => item.id === documentId);
+      return document ? documentLabel(document.type, document.fileName) : null;
+    })
+    .filter((label): label is string => typeof label === "string");
+
+  const commentText = typeof adminComment === "string" ? adminComment.trim() : "";
+  const resubmissionNote = [
+    `Admin requested resubmission for ${selectedDocumentLabels.length} document(s): ${selectedDocumentLabels.join(", ")}.`,
+    ...documentIds.map((documentId) => {
+      const reason = formData.get(`reason:${documentId}`);
+      const document = selectedDocuments.find((item) => item.id === documentId);
+      const label = document ? documentLabel(document.type, document.fileName) : "Document";
+      const reasonText = typeof reason === "string" ? reason.trim() : "";
+
+      return reasonText ? `${label}: ${reasonText}` : label;
+    }),
+    commentText ? `Comment: ${commentText}` : null,
+  ]
+    .filter((line): line is string => typeof line === "string" && line.length > 0)
+    .join(" ");
+
   await transitionApplication(applicationId, ApplicationStatus.DOCUMENTS_RESUBMIT_REQUIRED, {
     actorId: adminId,
-    note: `Admin requested resubmission for ${documentIds.length} document(s).`,
+    note: resubmissionNote,
   });
 
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      publicToken: true,
       client: {
         select: {
           firstName: true,
@@ -1892,7 +2076,7 @@ export async function requestResubmission(formData: FormData) {
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
       templateKey: "documents-resubmission-request",
-      body: whatsappMessage.trim(),
+      body: withClientStatusLink(whatsappMessage.trim(), application.publicToken),
     },
   });
 
@@ -2197,6 +2381,7 @@ export async function sendClientMessage(formData: FormData) {
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      publicToken: true,
       client: {
         select: {
           firstName: true,
@@ -2217,7 +2402,41 @@ export async function sendClientMessage(formData: FormData) {
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
       templateKey: "manual-admin-message",
-      body: body.trim(),
+      body: withClientStatusLink(body.trim(), application.publicToken),
+    },
+  });
+
+  refreshWorkflowPages();
+}
+
+export async function resendClientStatusLink(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const adminId = await actorIdFor(UserRole.ADMIN);
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: {
+      publicToken: true,
+      client: {
+        select: {
+          firstName: true,
+          surname: true,
+          cellphone: true,
+        },
+      },
+    },
+  });
+
+  await prisma.communication.create({
+    data: {
+      applicationId,
+      channel: CommunicationChannel.WHATSAPP,
+      direction: CommunicationDirection.OUTBOUND,
+      status: CommunicationStatus.QUEUED,
+      senderId: adminId,
+      recipientName: `${application.client.firstName} ${application.client.surname}`,
+      recipientAddress: application.client.cellphone,
+      templateKey: "client-status-link-resend",
+      body: `Hi ${application.client.firstName}, here is your License Hub status link for application ${applicationId}: ${clientStatusLink(application.publicToken)}`,
     },
   });
 

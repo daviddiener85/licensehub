@@ -1,6 +1,13 @@
+import Link from "next/link";
+
+import { MandateCaptureForm } from "@/components/mandate-capture-form";
+import { ApplicationStatus, ChargeStatus, DocumentStatus, PaymentStatus } from "@/generated/prisma/client";
+import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
+import { documentLabel } from "@/lib/documents";
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
 import { isPaystackConfigured } from "@/lib/paystack";
 import { listActiveServices } from "@/lib/services";
+import { applicationPipeline } from "@/lib/workflow";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +17,205 @@ export default async function ClientApplicationPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const application = await getClientApplicationByToken(token);
   const services = await listActiveServices().catch((error) => {
     console.error("Failed to load services for /client/[token]:", error);
     return [];
   });
   const paystackEnabled = isPaystackConfigured();
+
+  if (application) {
+    const currentStage =
+      applicationPipeline.find((stage) => stage.status === application.currentStatus) ?? null;
+    const currentStageIndex = applicationPipeline.findIndex((stage) => stage.status === application.currentStatus);
+    const latestPayment = application.payments[0] ?? null;
+    const pendingCharges = application.charges.filter((charge) => charge.status === ChargeStatus.PENDING);
+    const latestHistory = application.statusHistory.slice(0, 5);
+    const rejectedDocuments = application.documents.filter((document) => document.status === DocumentStatus.REJECTED);
+    const pendingDocuments = application.documents.filter((document) => document.status === DocumentStatus.PENDING);
+    const nextAction = clientNextAction(application.currentStatus, application.id);
+
+    return (
+      <main className="min-h-screen bg-[#f7f5ef] px-4 py-8 text-[#1f2724] sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-5xl">
+          <div className="border border-[#d8d1c3] bg-white p-5 sm:p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub status</p>
+                <h1 className="mt-3 text-3xl font-semibold">Application {application.id}</h1>
+                <p className="mt-2 text-sm leading-6 text-[#52615b]">
+                  {application.client.firstName} {application.client.surname} · {application.service.name}
+                </p>
+              </div>
+              <div className="border border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Current status</p>
+                <p className="mt-1 text-lg font-semibold">{statusLabel(application.currentStatus)}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Stage</p>
+                <p className="mt-1 font-semibold">{currentStage?.label ?? "In progress"}</p>
+              </div>
+              <div className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Documents</p>
+                <p className="mt-1 font-semibold">
+                  {rejectedDocuments.length > 0
+                    ? `${rejectedDocuments.length} need attention`
+                    : pendingDocuments.length > 0
+                      ? `${pendingDocuments.length} under review`
+                      : "Up to date"}
+                </p>
+              </div>
+              <div className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Payment</p>
+                <p className="mt-1 font-semibold">
+                  {latestPayment ? latestPayment.status.toLowerCase() : "No active payment"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 border border-[#eee8dc] bg-[#fffdf8] p-4">
+              <p className="text-sm leading-6 text-[#52615b]">
+                {currentStage?.clientDescription ?? "Your application status has been updated."}
+              </p>
+              {nextAction ? (
+                <Link
+                  href={nextAction.href}
+                  className="mt-4 inline-flex border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
+                >
+                  {nextAction.label}
+                </Link>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_0.85fr]">
+            <section className="border border-[#d8d1c3] bg-white p-5">
+              <h2 className="text-lg font-semibold">Progress</h2>
+              <div className="mt-4 grid gap-2">
+                {applicationPipeline.map((stage, index) => {
+                  const isCurrent = stage.status === application.currentStatus;
+                  const isComplete = currentStageIndex >= 0 && index < currentStageIndex;
+
+                  return (
+                    <div
+                      key={stage.status}
+                      className={[
+                        "flex items-center justify-between gap-3 border px-3 py-2 text-sm",
+                        isCurrent
+                          ? "border-[#1f2724] bg-[#fff8df]"
+                          : isComplete
+                            ? "border-[#c7dfd4] bg-[#f4fbf7]"
+                            : "border-[#eee8dc] bg-white",
+                      ].join(" ")}
+                    >
+                      <span className="font-semibold">{stage.label}</span>
+                      <span className="text-xs font-semibold uppercase text-[#6b5e4f]">
+                        {isCurrent ? "Now" : isComplete ? "Done" : stage.owner}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <aside className="space-y-5">
+              <section className="border border-[#d8d1c3] bg-white p-5">
+                <h2 className="text-lg font-semibold">Payment</h2>
+                {latestPayment ? (
+                  <div className="mt-3 text-sm leading-6 text-[#52615b]">
+                    <p>
+                      <span className="font-semibold text-[#1f2724]">{formatMoney(latestPayment.amount)}</span> ·{" "}
+                      {latestPayment.method} · {latestPayment.status.toLowerCase()}
+                    </p>
+                    <p>Reference: {latestPayment.reference}</p>
+                    {latestPayment.status === PaymentStatus.PENDING ? (
+                      <Link
+                        href={`/apply/submitted?application=${encodeURIComponent(application.id)}`}
+                        className="mt-3 inline-flex border border-[#1f2724] bg-[#1f2724] px-3 py-2 text-sm font-semibold text-white"
+                      >
+                        Continue payment
+                      </Link>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-[#52615b]">No payment request is active right now.</p>
+                )}
+                {pendingCharges.length > 0 ? (
+                  <div className="mt-4 border-t border-[#eee8dc] pt-3">
+                    <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Open charges</p>
+                    <div className="mt-2 space-y-1 text-sm text-[#52615b]">
+                      {pendingCharges.map((charge) => (
+                        <p key={charge.id}>
+                          {charge.description} · <span className="font-semibold">{formatMoney(charge.amount)}</span>
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="border border-[#d8d1c3] bg-white p-5">
+                <h2 className="text-lg font-semibold">Documents</h2>
+                <div className="mt-3 space-y-2 text-sm">
+                  {application.documents.slice(0, 6).map((document) => (
+                    <div key={document.id} className="flex items-start justify-between gap-3 border border-[#eee8dc] p-2">
+                      <span>{documentLabel(document.type, document.fileName)}</span>
+                      <span className={documentStatusClass(document.status)}>{document.status.toLowerCase()}</span>
+                    </div>
+                  ))}
+                </div>
+                {rejectedDocuments.length > 0 || pendingDocuments.length > 0 ? (
+                  <p className="mt-3 text-xs leading-5 text-[#6b5e4f]">
+                    {rejectedDocuments.length > 0
+                      ? "One or more documents need attention."
+                      : "Uploaded documents are waiting for admin review."}
+                  </p>
+                ) : null}
+              </section>
+            </aside>
+          </div>
+
+          {application.currentStatus === ApplicationStatus.DOCUMENTS_RESUBMIT_REQUIRED ? (
+            <section className="mt-5 border border-[#d8d1c3] bg-white p-5">
+              <h2 className="text-lg font-semibold">Upload requested updates</h2>
+              <p className="mt-2 text-sm leading-6 text-[#52615b]">
+                Use the request details from WhatsApp and upload the corrected files below.
+              </p>
+              <div className="mt-4">
+                <MandateCaptureForm
+                  applicationId={application.id}
+                  clientName={`${application.client.firstName} ${application.client.surname}`}
+                  registrationNumber={application.registrationNumber}
+                  vin={application.vin}
+                  make={application.vehicleMake}
+                  model={application.vehicleModel}
+                  colour={application.vehicleColour}
+                  submittedAt={application.mandateFormSubmission?.submittedAt ?? application.submittedAt}
+                />
+              </div>
+            </section>
+          ) : null}
+
+          {latestHistory.length > 0 ? (
+            <details className="mt-5 border border-[#d8d1c3] bg-white p-5">
+              <summary className="cursor-pointer list-none text-lg font-semibold">Recent updates</summary>
+              <div className="mt-3 space-y-2">
+                {latestHistory.map((item) => (
+                  <div key={item.id} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                    <p className="font-semibold">{item.note ?? "Application status updated."}</p>
+                    <p className="mt-1 text-xs text-[#6b5e4f]">{item.createdAt.toLocaleString("en-ZA")}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
@@ -47,20 +248,23 @@ export default async function ClientApplicationPage({
           </div>
 
           <aside className="border border-[#d8d1c3] bg-[#fffdf8] p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">What will happen here</h2>
-            <div className="mt-5 grid gap-4 text-sm">
+            <h2 className="text-lg font-semibold">What Happens Here</h2>
+            <div className="mt-5 grid gap-3 text-sm">
               {[
-                "Confirm the person completing the application.",
-                "Identify the legal owner of the vehicle.",
-                "Confirm your relationship to that owner or entity.",
-                "Capture the vehicle details needed for the mandate form.",
-                "Show the documents needed for that ownership scenario.",
-              ].map((item, index) => (
-                <div key={item} className="flex gap-3 border-b border-[#eee8dc] pb-4 last:border-b-0 last:pb-0">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#c5b89e] bg-white text-xs font-semibold">
-                    {index + 1}
-                  </span>
-                  <p className="pt-1 leading-5 text-[#52615b]">{item}</p>
+                ["1", "Confirm the request", "We first work out who is applying and who owns the vehicle."],
+                ["2", "See the document list", "You only see the documents that match that ownership setup."],
+                ["3", "Continue when ready", "After that, you can upload files, sign, and move forward."],
+              ].map(([step, title, text]) => (
+                <div key={title} className="border border-[#eee8dc] bg-white p-3">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#c5b89e] bg-[#fff8df] text-xs font-semibold">
+                      {step}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-[#1f2724]">{title}</p>
+                      <p className="mt-1 leading-5 text-[#52615b]">{text}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -81,4 +285,31 @@ export default async function ClientApplicationPage({
       </section>
     </main>
   );
+}
+
+function clientNextAction(status: ApplicationStatus, applicationId: string) {
+  if (
+    status === ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL ||
+    status === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT ||
+    status === ApplicationStatus.ADDITIONAL_CHARGE_RAISED
+  ) {
+    return {
+      label: status === ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL ? "Review quote" : "Continue payment",
+      href: `/apply/submitted?application=${encodeURIComponent(applicationId)}`,
+    };
+  }
+
+  return null;
+}
+
+function documentStatusClass(status: DocumentStatus) {
+  if (status === DocumentStatus.ACCEPTED) {
+    return "text-xs font-semibold text-[#1f7a4d]";
+  }
+
+  if (status === DocumentStatus.REJECTED) {
+    return "text-xs font-semibold text-[#b3261e]";
+  }
+
+  return "text-xs font-semibold text-[#8a6a2a]";
 }

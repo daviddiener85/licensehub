@@ -43,8 +43,13 @@ export function ResubmissionActionForm({
     .filter((line) => line !== null)
     .join("\n");
 
+  async function handleSubmit(formData: FormData) {
+    await action(formData);
+    setIsOpen(false);
+  }
+
   return (
-    <form action={action}>
+    <form action={handleSubmit}>
       <input type="hidden" name="applicationId" value={applicationId} />
       <input type="hidden" name="whatsappMessage" value={whatsappMessage} />
       <button type="button" className={className} onClick={() => setIsOpen(true)}>

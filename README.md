@@ -24,7 +24,7 @@ Create environment variables:
 cp .env.example .env
 ```
 
-Update `DATABASE_URL` in `.env`, then generate the Prisma client:
+Update `DATABASE_URL` in `.env`. If you are running the app locally, also change `APP_BASE_URL` from `https://www.lichub.co.za` to your local URL. Then generate the Prisma client:
 
 ```bash
 npm run prisma:generate
@@ -48,6 +48,20 @@ Run the app:
 npm run dev
 ```
 
+## Verification
+
+Before shipping or handing off a change, run:
+
+```bash
+npm run lint
+npm run build
+npm run test:regression
+```
+
+`npm run test:regression` covers the current UI regressions around admin WhatsApp templates, additional charge submission, and supplier pack printing. It expects the local app and database to be available.
+
+The same validation path now runs in GitHub Actions on push, pull request, and manual dispatch via [`.github/workflows/ci.yml`](</Users/daviddiener/Documents/License Hub/App/.github/workflows/ci.yml>).
+
 ## Paystack Setup
 
 Paystack is currently awaiting provider review, so the active launch path still uses EFT. When we do wire Paystack in, the relevant environment variables are:
@@ -57,6 +71,8 @@ Paystack is currently awaiting provider review, so the active launch path still 
 - `PAYSTACK_WEBHOOK_SECRET` for verifying webhook signatures if you want a separate override; the code falls back to the secret key.
 
 Use Paystack test keys while developing and testing. Swap to live keys only after the integration is approved for production use.
+
+`APP_BASE_URL` should point at the live public domain, currently `https://www.lichub.co.za`, because it is used for client status links and Paystack callback URLs.
 
 Callback and webhook URLs are configured in the Paystack dashboard, not in `.env`.
 

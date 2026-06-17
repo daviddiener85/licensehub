@@ -1,10 +1,11 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowLeft, Clock3, FileText, PackageCheck, Printer, Truck } from "lucide-react";
+import { ArrowLeft, Clock3, FileText, PackageCheck, Truck } from "lucide-react";
 
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
-import { ApplicationStatus, SupplierUrgency } from "@/generated/prisma/client";
+import { SupplierPrintButton } from "@/components/supplier-print-button";
+import { ApplicationStatus, DocumentStatus, SupplierUrgency } from "@/generated/prisma/client";
 import { listSupplierApplications, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { clientEntityTypeLabels } from "@/lib/entity-requirements";
@@ -116,6 +117,7 @@ export default async function SupplierPage({
 
   const { order: selectedOrderId } = await searchParams;
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? orders[0];
+  const approvedDocuments = selectedOrder?.documents.filter((document) => document.status === DocumentStatus.ACCEPTED) ?? [];
   const atSupplierCount = orders.filter((order) => order.currentStatus === ApplicationStatus.AT_SUPPLIER).length;
   const producedCount = orders.filter((order) => order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED).length;
   const returningCount = orders.filter((order) => order.currentStatus === ApplicationStatus.RETURNING_TO_LICENSE_HUB).length;
@@ -236,10 +238,7 @@ export default async function SupplierPage({
                         {selectedOrder.client.firstName} {selectedOrder.client.surname} · {selectedOrder.client.cellphone}
                       </p>
                     </div>
-                    <button className="inline-flex items-center justify-center gap-2 border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
-                      <Printer className="h-4 w-4" />
-                      Print Pack
-                    </button>
+                    <SupplierPrintButton className="inline-flex items-center justify-center gap-2 border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white" />
                   </div>
                 </div>
 
@@ -282,11 +281,11 @@ export default async function SupplierPage({
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="font-semibold">Print Pack Documents</h3>
                       <span className="text-xs font-semibold text-[#6b5e4f]">
-                        {selectedOrder.documents.length} {selectedOrder.documents.length === 1 ? "file" : "files"}
-                      </span>
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      {selectedOrder.documents.map((document) => {
+                      {approvedDocuments.length} {approvedDocuments.length === 1 ? "approved file" : "approved files"}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      {approvedDocuments.map((document) => {
                         const href = document.storageKey ? documentHref(document.storageKey) : null;
                         const content = (
                           <>
@@ -329,6 +328,11 @@ export default async function SupplierPage({
                         </span>
                       </div>
                     </div>
+                    {approvedDocuments.length === 0 ? (
+                      <p className="mt-3 text-sm text-[#52615b]">
+                        No approved uploaded documents are available yet. Approved files will appear here after admin acceptance.
+                      </p>
+                    ) : null}
                   </section>
 
                   <section className="mt-6 border-t border-[#d6d0c1] pt-5">

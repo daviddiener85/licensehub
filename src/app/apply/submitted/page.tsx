@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ApplicationStatus, DocumentType, PaymentMethod, PaymentStatus } from "@/generated/prisma/client";
+import { ApplicationStatus, DocumentType, PaymentMethod, PaymentStatus, PaymentType } from "@/generated/prisma/client";
 import { EftProofUploadForm } from "@/components/eft-proof-upload-form";
 import { formatMoney } from "@/lib/applications";
 import { prisma } from "@/lib/prisma";
@@ -45,6 +45,7 @@ export default async function ApplicationSubmittedPage({
             orderBy: { createdAt: "desc" },
             take: 1,
             select: {
+              type: true,
               method: true,
               status: true,
               amount: true,
@@ -86,6 +87,7 @@ export default async function ApplicationSubmittedPage({
   const quotePendingClientApproval = applicationRecord?.currentStatus === ApplicationStatus.QUOTE_PENDING_CLIENT_APPROVAL;
   const quoteApprovedAwaitingPayment =
     applicationRecord?.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT;
+  const additionalChargeRaised = applicationRecord?.currentStatus === ApplicationStatus.ADDITIONAL_CHARGE_RAISED;
   const paystackReturnReference = reference ?? trxref;
   const returnedFromPaystack =
     payment?.method === PaymentMethod.PAYSTACK &&
@@ -94,10 +96,16 @@ export default async function ApplicationSubmittedPage({
   const paymentConfirmed = payment?.status === PaymentStatus.CONFIRMED;
   const applicationProcessing =
     applicationRecord?.currentStatus === ApplicationStatus.PENDING_REVIEW || paymentConfirmed || returnedFromPaystack;
-  const pageTitle = applicationProcessing ? "Payment received" : "Application received";
+  const paymentRequested = quoteApprovedAwaitingPayment || additionalChargeRaised;
+  const pageTitle = applicationProcessing ? "Payment received" : additionalChargeRaised ? "Additional charge required" : "Application received";
   const pageSummary = applicationProcessing
     ? "License Hub is processing your order. Please watch WhatsApp for progress updates from our team."
+    : additionalChargeRaised
+      ? "An additional charge has been added to your application. Please complete payment so we can continue."
     : "The application, supporting documents, and mandate form were saved successfully.";
+  const eftUploadAcknowledged = eftUploaded === "1";
+  const chargeLabel =
+    payment?.type === PaymentType.ADDITIONAL_CHARGE ? "Additional charge" : "Payment instruction";
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f2724] sm:px-6 lg:px-8">
@@ -168,29 +176,44 @@ export default async function ApplicationSubmittedPage({
           </div>
         ) : null}
 
-        {payment && amountLabel && quoteApprovedAwaitingPayment && !applicationProcessing ? (
+        {payment && amountLabel && paymentRequested && !applicationProcessing ? (
           <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4">
-            <p className="text-xs font-semibold uppercase text-[#6b5e4f]">Payment instruction</p>
+            <p className="text-xs font-semibold uppercase text-[#6b5e4f]">{chargeLabel}</p>
             <p className="mt-2 text-lg font-semibold">{amountLabel}</p>
             <p className="mt-1 text-sm text-[#52615b]">{applicationRecord?.service.name}</p>
-            <div className="mt-3 space-y-3">
-              {payment.method === PaymentMethod.PAYSTACK ? (
-                <>
-                  <p className="text-sm leading-6 text-[#52615b]">
-                    Complete your Paystack payment using reference{" "}
-                    <span className="font-semibold">{payment.reference}</span>.
-                  </p>
-                  <div className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
-                    <p className="text-xs font-semibold uppercase text-[#6b5e4f]">What happens next</p>
-                    <ol className="mt-2 list-decimal space-y-1 pl-5">
-                      <li>Open the Paystack checkout link below.</li>
-                      <li>Pay with the test card or payment method provided by Paystack.</li>
-                      <li>After payment succeeds, your application moves to document review automatically.</li>
-                    </ol>
+            {quoteLines.length > 0 ? (
+              <div className="mt-3 space-y-2 border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
+                {quoteLines.map((charge) => (
+                  <div key={charge.id} className="flex items-center justify-between gap-3">
+                    <span>{charge.description}</span>
+                    <span className="font-semibold">{formatMoney(charge.amount)}</span>
                   </div>
-                  {payment.checkoutUrl ? (
-                    <a
-                      href={payment.checkoutUrl}
+                ))}
+                <div className="border-t border-[#d8d1c3] pt-2 text-sm font-semibold text-[#1f2724]">
+                  Total: {formatMoney({ toString: () => quoteTotal.toFixed(2) })}
+                </div>
+              </div>
+            ) : null}
+            <div className="mt-3 space-y-3">
+                  {payment.method === PaymentMethod.PAYSTACK ? (
+                    <>
+                      <p className="text-sm leading-6 text-[#52615b]">
+                        Complete your Paystack payment using reference{" "}
+                        <span className="font-semibold">{payment.reference}</span>.
+                      </p>
+                      <details className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
+                        <summary className="cursor-pointer list-none text-xs font-semibold uppercase text-[#6b5e4f]">
+                          What happens next
+                        </summary>
+                        <ol className="mt-2 list-decimal space-y-1 pl-5">
+                          <li>Open the Paystack checkout link below.</li>
+                          <li>Pay with the test card or payment method provided by Paystack.</li>
+                          <li>After payment succeeds, your application moves to document review automatically.</li>
+                        </ol>
+                      </details>
+                      {payment.checkoutUrl ? (
+                        <a
+                          href={payment.checkoutUrl}
                       className="inline-flex border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
                     >
                       Continue to Paystack
@@ -201,13 +224,13 @@ export default async function ApplicationSubmittedPage({
                     </p>
                   )}
                 </>
-              ) : (
-                <>
-                  <p className="text-sm leading-6 text-[#52615b]">
-                    Please complete EFT payment and use reference{" "}
-                    <span className="font-semibold">{payment.reference}</span>.
-                    Admin will confirm payment before review continues.
-                  </p>
+                  ) : (
+                    <>
+                      <p className="text-sm leading-6 text-[#52615b]">
+                        Please complete EFT payment and use reference{" "}
+                        <span className="font-semibold">{payment.reference}</span>.
+                        Admin will confirm payment before review continues.
+                      </p>
                   {retentionSetting?.eftBankName &&
                   retentionSetting?.eftAccountNumber &&
                   retentionSetting?.eftAccountHolder ? (
@@ -248,8 +271,10 @@ export default async function ApplicationSubmittedPage({
                       EFT banking details are not configured yet. Please contact License Hub support before paying.
                     </p>
                   )}
-                  <div className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
-                    <p className="text-xs font-semibold uppercase text-[#6b5e4f]">What happens next</p>
+                  <details className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
+                    <summary className="cursor-pointer list-none text-xs font-semibold uppercase text-[#6b5e4f]">
+                      What happens next
+                    </summary>
                     <ol className="mt-2 list-decimal space-y-1 pl-5">
                       <li>Use the EFT banking details and reference shown above.</li>
                       <li>
@@ -259,11 +284,16 @@ export default async function ApplicationSubmittedPage({
                       </li>
                       <li>Admin confirms payment, then your application moves to document review.</li>
                     </ol>
-                  </div>
-                  {eftUploaded === "1" ? (
-                    <p className="border border-[#1f7a4d] bg-[#f4fbf7] p-3 text-sm font-semibold text-[#1f7a4d]">
-                      EFT proof uploaded successfully.
-                    </p>
+                  </details>
+                  {eftUploadAcknowledged ? (
+                    <div className="border border-[#1f7a4d] bg-[#f4fbf7] p-4">
+                      <p className="text-xs font-semibold uppercase text-[#1f7a4d]">Upload received</p>
+                      <p className="mt-2 text-sm font-semibold text-[#1f2724]">Your EFT proof has been uploaded.</p>
+                      <p className="mt-1 text-sm leading-6 text-[#52615b]">
+                        We’ve saved the file and Admin can now verify payment. If you need to replace it, use the button
+                        below.
+                      </p>
+                    </div>
                   ) : null}
                   {latestEftProof ? (
                     <p className="border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm text-[#52615b]">

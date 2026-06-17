@@ -5,6 +5,21 @@ import {
   verifyPaystackWebhookSignature,
 } from "@/lib/paystack";
 
+function nextStatusAfterPaymentConfirmation(application: {
+  currentStatus: ApplicationStatus;
+  previousStatus: ApplicationStatus | null;
+}) {
+  if (application.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT) {
+    return ApplicationStatus.PENDING_REVIEW;
+  }
+
+  if (application.currentStatus === ApplicationStatus.ADDITIONAL_CHARGE_RAISED) {
+    return application.previousStatus ?? ApplicationStatus.PENDING_REVIEW;
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signatureHeader = request.headers.get("x-paystack-signature");
@@ -30,6 +45,7 @@ export async function POST(request: Request) {
           select: {
             id: true,
             currentStatus: true,
+            previousStatus: true,
           },
         },
       },
@@ -52,11 +68,13 @@ export async function POST(request: Request) {
       },
     });
 
-    if (payment.application.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT) {
+    const nextStatus = nextStatusAfterPaymentConfirmation(payment.application);
+
+    if (nextStatus) {
       await prisma.application.update({
         where: { id: payment.application.id },
         data: {
-          currentStatus: ApplicationStatus.PENDING_REVIEW,
+          currentStatus: nextStatus,
           previousStatus: payment.application.currentStatus,
         },
         select: { id: true },
@@ -66,8 +84,11 @@ export async function POST(request: Request) {
         data: {
           applicationId: payment.application.id,
           fromStatus: payment.application.currentStatus,
-          toStatus: ApplicationStatus.PENDING_REVIEW,
-          note: "Paystack payment confirmed automatically.",
+          toStatus: nextStatus,
+          note:
+            nextStatus === ApplicationStatus.PENDING_REVIEW
+              ? "Paystack payment confirmed automatically."
+              : "Paystack additional charge confirmed automatically.",
         },
       });
     }

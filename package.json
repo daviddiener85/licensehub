@@ -13,6 +13,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "test:regression": "tsx --tsconfig tsconfig.json scripts/regression/ui-regressions.ts",
     "test:entities": "tsx --tsconfig tsconfig.json scripts/entity-flow-simulation.ts",
     "check:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-config-smoke-check.ts",
     "dry-run:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-checkout-dry-run.ts",
@@ -31,6 +32,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",

@@ -155,6 +155,17 @@ const steps = [
   "Payment",
 ] as const;
 
+const stepSummaries = [
+  "Choose the service you want to complete.",
+  "Confirm the request before you add details.",
+  "Tell us who legally owns the vehicle.",
+  "Share the contact and ID details for the person completing this.",
+  "Confirm the vehicle details from the licence disk.",
+  "See the documents needed for this request.",
+  "Upload files and sign the mandate.",
+  "Choose how you want to pay and submit.",
+] as const;
+
 function canvasPoint(canvas: HTMLCanvasElement, clientX: number, clientY: number): Point {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -487,22 +498,20 @@ export function ClientIntakeFlow({
   return (
     <section className="border border-[#d8d1c3] bg-white">
       <div className="border-b border-[#eee8dc] bg-[#fffdf8] px-4 py-4 sm:px-5">
-        <div className="flex flex-wrap items-center gap-2">
-          {steps.map((step, index) => (
-            <span
-              key={step}
-              className={[
-                "border px-3 py-1.5 text-xs font-semibold",
-                index === stepIndex
-                  ? "border-[#1f2724] bg-[#1f2724] text-white"
-                  : index < stepIndex
-                    ? "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]"
-                    : "border-[#d8d1c3] text-[#6b5e4f]",
-              ].join(" ")}
-            >
-              {step}
-            </span>
-          ))}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6b5e4f]">
+              Step {stepIndex + 1} of {steps.length}
+            </p>
+            <span className="text-xs font-semibold text-[#52615b]">{steps[stepIndex]}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden bg-[#eee8dc]">
+            <div
+              className="h-full bg-[#1f2724]"
+              style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
+            />
+          </div>
+          <p className="max-w-2xl text-sm leading-6 text-[#52615b]">{stepSummaries[stepIndex]}</p>
         </div>
       </div>
 
@@ -512,10 +521,7 @@ export function ClientIntakeFlow({
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
               <h2 className="text-2xl font-semibold">Choose a service</h2>
-              <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                Select the product or service you need. Duplicate certificate is selected by default so the current
-                application flow stays focused while the service catalogue grows.
-              </p>
+              <p className="mt-3 text-sm leading-6 text-[#52615b]">Duplicate certificate is selected by default.</p>
             </div>
             <div className="grid gap-3">
               {availableServices.map((service) => {
@@ -561,12 +567,7 @@ export function ClientIntakeFlow({
             <div>
               <h2 className="text-2xl font-semibold">Before we ask for documents</h2>
               <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                License Hub first needs to understand who is making the request and how the vehicle is legally owned.
-                That determines the exact document list and who must sign the mandate form.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                You will not upload anything on this first screen. We will guide you through a few short questions, then
-                show the document checklist that applies to your situation.
+                We first confirm who is making the request and how the vehicle is owned.
               </p>
             </div>
             <aside className="border border-[#eee8dc] bg-[#fffdf8] p-4 text-sm">
@@ -579,10 +580,9 @@ export function ClientIntakeFlow({
 
         {stepIndex === 3 ? (
           <div>
-            <h2 className="text-2xl font-semibold">Tell us who you are</h2>
+            <h2 className="text-2xl font-semibold">Your details</h2>
             <p className="mt-2 text-sm leading-6 text-[#52615b]">
-              These details identify the person completing the application. The registered owner may be you, another
-              person, an estate, or an entity.
+              Enter the contact and ID details for the person completing this request.
             </p>
             <label className="mt-5 block text-sm font-semibold">
               Citizenship status
@@ -641,46 +641,43 @@ export function ClientIntakeFlow({
 
             {citizenshipStatus.length > 0 ? (
               <div className="mt-6 border-t border-[#eee8dc] pt-5">
-              <h3 className="text-base font-semibold">Client address</h3>
-              <p className="mt-1 text-sm leading-6 text-[#52615b]">
-                Capture the client&apos;s current address for the application record. Delivery will be confirmed at the
-                payment step if the client chooses that option.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {[
-                  ["deliveryAddressLine1", "Address line 1"],
-                  ["deliveryAddressLine2", "Address line 2"],
-                  ["deliverySuburb", "Suburb"],
-                  ["deliveryCity", "City"],
-                  ["deliveryProvince", "Province"],
-                  ["deliveryPostalCode", "Postal code"],
-                ].map(([field, label]) => (
-                  <label key={field} className="text-sm font-semibold">
-                    {label}
-                    <input
-                      className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
-                      value={clientDetails[field as keyof typeof clientDetails]}
-                      onChange={(event) => {
-                        const value = event.currentTarget.value;
+                <h3 className="text-base font-semibold">Client address</h3>
+                <p className="mt-1 text-sm leading-6 text-[#52615b]">We only use this if delivery is needed later.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["deliveryAddressLine1", "Address line 1"],
+                    ["deliveryAddressLine2", "Address line 2"],
+                    ["deliverySuburb", "Suburb"],
+                    ["deliveryCity", "City"],
+                    ["deliveryProvince", "Province"],
+                    ["deliveryPostalCode", "Postal code"],
+                  ].map(([field, label]) => (
+                    <label key={field} className="text-sm font-semibold">
+                      {label}
+                      <input
+                        className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                        value={clientDetails[field as keyof typeof clientDetails]}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
 
-                        setClientDetails((current) => ({
-                          ...current,
-                          [field]: value,
-                        }));
-                      }}
-                    />
-                  </label>
-                ))}
-              </div>
-              <label className="mt-4 flex gap-3 border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm font-semibold">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={popiaConsent}
-                  onChange={(event) => setPopiaConsent(event.currentTarget.checked)}
-                />
-                <span>I agree that License Hub may use these details to process this application.</span>
-              </label>
+                          setClientDetails((current) => ({
+                            ...current,
+                            [field]: value,
+                          }));
+                        }}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <label className="mt-4 flex gap-3 border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={popiaConsent}
+                    onChange={(event) => setPopiaConsent(event.currentTarget.checked)}
+                  />
+                  <span>I agree that License Hub may use these details to process this application.</span>
+                </label>
               </div>
             ) : null}
           </div>
@@ -688,10 +685,8 @@ export function ClientIntakeFlow({
 
         {stepIndex === 2 ? (
           <div>
-            <h2 className="text-2xl font-semibold">Who legally owns the vehicle?</h2>
-            <p className="mt-2 text-sm leading-6 text-[#52615b]">
-              Choose the option that best matches the registration document or the legal owner.
-            </p>
+            <h2 className="text-2xl font-semibold">Who owns the vehicle?</h2>
+            <p className="mt-2 text-sm leading-6 text-[#52615b]">Choose the closest match.</p>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {ownershipOptions.map((option) => {
                 const Icon = option.icon;
@@ -862,14 +857,9 @@ export function ClientIntakeFlow({
         {stepIndex === 4 ? (
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <h2 className="text-2xl font-semibold">Confirm vehicle details</h2>
+              <h2 className="text-2xl font-semibold">Vehicle details</h2>
               <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                Upload the licence disk photo first, then enter the vehicle details from the disk. These confirmed
-                values are used on the mandate form.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                The AI scan is available as an optional assist, but it may not read licence disks reliably. Confirmed manual
-                values remain the source of truth.
+                Upload the licence disk photo, then confirm the details below.
               </p>
               <div className="mt-4 border border-[#d8b267] bg-[#fff8df] p-3 text-sm leading-6 text-[#6b5e4f]">
                 {licenceDiskScanMessage}
@@ -987,12 +977,9 @@ export function ClientIntakeFlow({
         {stepIndex === 5 ? (
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <h2 className="text-2xl font-semibold">Documents you will need</h2>
+              <h2 className="text-2xl font-semibold">Required documents</h2>
               <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                Based on the legal ownership type selected: <span className="font-semibold">{selectedOwnership.label}</span>.
-              </p>
-              <p className="mt-3 text-sm leading-6 text-[#52615b]">
-                Once you continue, you will upload these documents and complete the digital mandate signature.
+                Based on: <span className="font-semibold">{selectedOwnership.label}</span>.
               </p>
             </div>
             <div className="grid gap-2">
@@ -1046,10 +1033,9 @@ export function ClientIntakeFlow({
                 }
               >
                 <div>
-                  <h2 className="text-2xl font-semibold">Review and sign mandate form</h2>
+                  <h2 className="text-2xl font-semibold">Review and sign</h2>
                   <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                    Upload the supporting documents, then read the mandate form in full before signing. Your signature is
-                    only captured after the populated form is visible.
+                    Upload the files, then sign the populated mandate form.
                   </p>
                 </div>
                 <div className="grid gap-3">
@@ -1222,11 +1208,11 @@ export function ClientIntakeFlow({
             {stepIndex === 7 ? (
               <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
                 <div>
-                  <h2 className="text-2xl font-semibold">Quote and payment</h2>
+                  <h2 className="text-2xl font-semibold">Payment</h2>
                   <p className="mt-2 text-sm leading-6 text-[#52615b]">
                     {isQuoteFlowService
-                      ? "Confirm delivery details. Admin will prepare the quote first, and payment instructions are created after the client approves that quote."
-                      : "Confirm delivery details before submitting the application."}
+                      ? "Admin will prepare the quote first, then payment opens after approval."
+                      : "Confirm delivery details before you submit."}
                   </p>
                   <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                     <p className="font-semibold">Payment method</p>

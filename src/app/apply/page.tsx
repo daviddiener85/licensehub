@@ -29,21 +29,23 @@ export default async function ApplyPage() {
           </div>
 
           <aside className="border border-[#d8d1c3] bg-[#fffdf8] p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">Application Flow</h2>
-            <div className="mt-5 grid gap-4 text-sm">
+            <h2 className="text-lg font-semibold">What To Expect</h2>
+            <div className="mt-5 grid gap-3 text-sm">
               {[
-                "Select the product or service you need.",
-                "Explain what the selected application requires.",
-                "Identify the client and vehicle ownership scenario.",
-                "Capture the vehicle details needed for the mandate form.",
-                "Show the required documents for that scenario.",
-                "Upload documents, review and sign the mandate form, then request payment.",
-              ].map((item, index) => (
-                <div key={item} className="flex gap-3 border-b border-[#eee8dc] pb-4 last:border-b-0 last:pb-0">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#c5b89e] bg-white text-xs font-semibold">
-                    {index + 1}
-                  </span>
-                  <p className="pt-1 leading-5 text-[#52615b]">{item}</p>
+                ["1", "Tell us what you need", "Choose the service and confirm who the vehicle belongs to."],
+                ["2", "Confirm the paperwork", "We show only the documents that apply to that ownership scenario."],
+                ["3", "Sign and pay", "Upload the files, sign the mandate, then move to payment."],
+              ].map(([step, title, text]) => (
+                <div key={title} className="border border-[#eee8dc] bg-white p-3">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#c5b89e] bg-[#fff8df] text-xs font-semibold">
+                      {step}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-[#1f2724]">{title}</p>
+                      <p className="mt-1 leading-5 text-[#52615b]">{text}</p>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

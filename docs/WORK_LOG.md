@@ -2,6 +2,32 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-06-17
+
+### Client status link formalized
+
+- Made existing `/client/[token]` application tokens resolve to a client status portal with current status, next action, payment state, document state, recent updates, and resubmission upload access when required.
+- Added an admin action to resend the secure status link to the client via WhatsApp.
+- Updated outbound client messages so automated and manual WhatsApp messages include the secure status link.
+
+### Regression gate added
+
+- Added `npm run test:regression` as a repeatable browser-backed regression check for admin WhatsApp templates, additional charge submission, and supplier print behavior.
+- Added the regression command to the main README and UAT README so it becomes part of the normal pre-release verification path.
+- Added a GitHub Actions CI workflow to run lint, production build, and the seeded regression suite automatically on push, pull request, and manual dispatch.
+- Hardened additional-charge payment reference generation so repeated local/UAT testing does not fail on duplicate Paystack transaction references.
+
+## 2026-06-16
+
+### UAT polish pass
+
+- Strengthened the `/apply/submitted` EFT proof confirmation state so uploads are acknowledged with a clearer success banner and next-step guidance.
+- Added required/conditional scope markers to admin checklist rows so operations can see at a glance which checks are blocking approval and which only apply to certain entity flows.
+
+### Supplier pack visibility tightened
+
+- Restricted the supplier desk document list to approved uploads only so supplier can work from the accepted pack without seeing pending or rejected files.
+
 ## 2026-06-07
 
 ### Launch payment rule confirmed
