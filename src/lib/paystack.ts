@@ -22,8 +22,8 @@ export function isPaystackConfigured() {
   return Boolean(envValue("PAYSTACK_PUBLIC_KEY") && envValue("PAYSTACK_SECRET_KEY"));
 }
 
-export function paystackCallbackUrl(applicationId: string) {
-  return `${appBaseUrl()}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
+export function paystackCallbackUrl(applicationId: string, baseUrl = appBaseUrl()) {
+  return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
 }
 
 export async function initializePaystackTransaction(options: {

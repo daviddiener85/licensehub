@@ -25,7 +25,7 @@ import {
 import { clientIdMandatePdfLabel } from "@/lib/client-identity";
 import { createMandatePdf } from "@/lib/mandate-pdf";
 import { initializePaystackTransaction, isPaystackConfigured, paystackCallbackUrl } from "@/lib/paystack";
-import { appBaseUrl } from "@/lib/app-url";
+import { appBaseUrl, requestBaseUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
@@ -1561,8 +1561,8 @@ function withClientStatusLink(body: string, publicToken: string) {
   return `${body.trim()}\n\nTrack your application here: ${link}`;
 }
 
-function paymentMethodForLaunch(): PaymentMethod {
-  return PaymentMethod.EFT;
+function paymentMethodForLaunch() {
+  return isPaystackConfigured() ? PaymentMethod.PAYSTACK : PaymentMethod.EFT;
 }
 
 function requestedPaymentMethod(formData: FormData) {
@@ -1592,11 +1592,12 @@ async function buildPaymentRequest(options: {
     };
   }
 
+  const baseUrl = await requestBaseUrl();
   const initialized = await initializePaystackTransaction({
     amount: options.amount,
     email: options.email,
     reference: options.reference,
-    callbackUrl: paystackCallbackUrl(options.applicationId),
+    callbackUrl: paystackCallbackUrl(options.applicationId, baseUrl),
     metadata: {
       applicationId: options.applicationId,
       paymentReference: options.reference,
