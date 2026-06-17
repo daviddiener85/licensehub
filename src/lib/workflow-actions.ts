@@ -1561,10 +1561,6 @@ function withClientStatusLink(body: string, publicToken: string) {
   return `${body.trim()}\n\nTrack your application here: ${link}`;
 }
 
-function paymentMethodForLaunch() {
-  return isPaystackConfigured() ? PaymentMethod.PAYSTACK : PaymentMethod.EFT;
-}
-
 function requestedPaymentMethod(formData: FormData) {
   const value = getOptionalString(formData, "paymentMethod");
 
@@ -1582,7 +1578,7 @@ async function buildPaymentRequest(options: {
   reference: string;
   paymentMethod?: PaymentMethod;
 }) {
-  const method = options.paymentMethod ?? paymentMethodForLaunch();
+  const method = options.paymentMethod ?? PaymentMethod.EFT;
 
   if (method !== PaymentMethod.PAYSTACK || !isPaystackConfigured()) {
     return {
@@ -1721,7 +1717,7 @@ export async function raiseAdditionalCharge(formData: FormData) {
 
   const chargeVersion = application.charges.length + 1;
   const paymentReference = `PAY-${applicationId}-A${chargeVersion}-${Date.now()}`;
-  const paymentMethod = paymentMethodForLaunch();
+  const paymentMethod = requestedPaymentMethod(formData);
   const paymentRequest = await buildPaymentRequest({
     applicationId,
     email: application.client.email,
@@ -1832,7 +1828,7 @@ export async function approveClientQuote(formData: FormData) {
 
   const total = pendingCharges.reduce((sum, charge) => sum + Number(charge.amount.toString()), 0);
   const paymentReference = `PAY-${applicationId}-Q1`;
-  const paymentMethod = paymentMethodForLaunch();
+  const paymentMethod = requestedPaymentMethod(formData);
   const paymentRequest = await buildPaymentRequest({
     applicationId,
     email: application.client.email,

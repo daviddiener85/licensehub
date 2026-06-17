@@ -36,6 +36,7 @@ import {
   updateSupplierHandoff,
 } from "@/lib/workflow-actions";
 import { prisma } from "@/lib/prisma";
+import { isPaystackConfigured } from "@/lib/paystack";
 import { logout } from "@/lib/auth-actions";
 
 const dayInMs = 1000 * 60 * 60 * 24;
@@ -496,6 +497,7 @@ export default async function AdminPage({
       })
       .catch(() => null),
   ]);
+  const paystackEnabled = isPaystackConfigured();
 
   if (!applications) {
     return <DatabaseSetup message="Admin applications could not be loaded from PostgreSQL." />;
@@ -1137,12 +1139,24 @@ export default async function AdminPage({
             <AddChargeActionForm
               action={raiseAdditionalCharge}
               applicationId={selectedApplication.id}
+              paystackEnabled={paystackEnabled}
               className="mt-5 w-full border border-[#1f2724] px-4 py-2 text-sm font-semibold"
             />
             {["AWAITING_ADMIN_QUOTE", "QUOTE_PENDING_CLIENT_APPROVAL"].includes(selectedApplication.currentStatus) ? (
               <form action={publishAdminQuote} className="mt-4 space-y-2 border border-[#eee8dc] bg-[#fffdf8] p-3">
                 <input type="hidden" name="applicationId" value={selectedApplication.id} />
                 <h4 className="text-sm font-semibold">Publish Quote</h4>
+                <label className="block text-xs font-semibold text-[#6b5e4f]">
+                  Payment method
+                  <select
+                    name="paymentMethod"
+                    defaultValue="EFT"
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 text-sm font-normal"
+                  >
+                    <option value="EFT">EFT transfer</option>
+                    {paystackEnabled ? <option value="PAYSTACK">Paystack</option> : null}
+                  </select>
+                </label>
                 <label className="block text-xs font-semibold text-[#6b5e4f]">
                   Amount (ZAR)
                   <input
