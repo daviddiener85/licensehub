@@ -84,6 +84,7 @@ const initialLicenceDiskScanState = {
 const initialPublicIntakeSubmitState = {
   status: "idle" as const,
   message: "",
+  redirectTo: undefined,
 };
 
 const ownershipOptions: {
@@ -385,6 +386,14 @@ export function ClientIntakeFlow({
       });
     });
   }, [stepIndex]);
+
+  useEffect(() => {
+    if (publicIntakeSubmitState.status !== "success" || !publicIntakeSubmitState.redirectTo) {
+      return;
+    }
+
+    window.location.assign(publicIntakeSubmitState.redirectTo);
+  }, [publicIntakeSubmitState]);
 
   useEffect(() => {
     if (stepIndex !== 3) {

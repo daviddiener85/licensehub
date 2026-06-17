@@ -33,8 +33,9 @@ import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
 
 export type PublicIntakeSubmissionState = {
-  status: "idle" | "error";
+  status: "idle" | "success" | "error";
   message: string;
+  redirectTo?: string;
 };
 
 type MandatePdfApplication = {
@@ -1504,7 +1505,11 @@ export async function createPublicApplicationIntake(
 
     refreshWorkflowPages();
     revalidatePath("/apply");
-    redirect(`/apply/submitted?application=${encodeURIComponent(applicationId)}`);
+    return {
+      status: "success",
+      message: "",
+      redirectTo: `/apply/submitted?application=${encodeURIComponent(applicationId)}`,
+    };
   } catch (error) {
     if (isNextRedirectError(error)) {
       throw error;
