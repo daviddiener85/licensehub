@@ -89,6 +89,23 @@ async function cleanupApplication(db: Client, applicationId: string) {
   );
 }
 
+async function verifyDefaultServiceBootstrap(db: Client) {
+  const snapshot = await db.query<{ isActive: boolean }>(
+    `select "isActive" from "Service" where slug = 'duplicate-certificate'`,
+  );
+
+  if (snapshot.rowCount === 1) {
+    await db.query(`update "Service" set "isActive" = false where slug = 'duplicate-certificate'`);
+  }
+
+  const { findActiveServiceBySlug } = await import("@/lib/services");
+  const service = await findActiveServiceBySlug("duplicate-certificate");
+
+  if (service.slug !== "duplicate-certificate" || !service.isActive) {
+    throw new Error("Default duplicate-certificate service was not bootstrapped as active.");
+  }
+}
+
 async function clickProceed(page: Page) {
   await page.getByRole("button", { name: "Proceed" }).click();
 }
@@ -98,6 +115,8 @@ async function main() {
 
   console.log("Connecting to regression database...");
   const db = await createDbClient();
+  console.log("Checking default service bootstrap...");
+  await verifyDefaultServiceBootstrap(db);
   const tmpDir = await mkdtemp(join(tmpdir(), "license-hub-intake-"));
   const idPhotoPath = join(tmpDir, "owner-id.png");
   const licenceDiskPath = join(tmpDir, "licence-disk.png");
@@ -194,6 +213,8 @@ async function main() {
     }
 
     await db.end();
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.$disconnect();
     await rm(tmpDir, { recursive: true, force: true });
   }
 }

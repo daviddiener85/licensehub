@@ -14,8 +14,13 @@ export type ServiceDetail = ServiceSummary & {
   isActive: boolean;
 };
 
-const fallbackServicePricing: Record<string, { basePrice: string; deliveryFee: string }> = {
+const fallbackServices: Record<
+  string,
+  { name: string; description: string; basePrice: string; deliveryFee: string }
+> = {
   "duplicate-certificate": {
+    name: "Duplicate Certificate",
+    description: "Replacement of lost vehicle certificates.",
     basePrice: "499.00",
     deliveryFee: "150.00",
   },
@@ -24,7 +29,7 @@ const fallbackServicePricing: Record<string, { basePrice: string; deliveryFee: s
 function normalizeServicePricing<T extends { slug: string; basePrice: Prisma.Decimal; deliveryFee: Prisma.Decimal }>(
   service: T,
 ) {
-  const fallback = fallbackServicePricing[service.slug];
+  const fallback = fallbackServices[service.slug];
 
   if (!fallback) {
     return service;
@@ -90,7 +95,13 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
     `;
 
     if (rows.length === 0) {
-      throw new Error("Service not found.");
+      const fallbackService = await upsertFallbackService(slug);
+
+      if (!fallbackService) {
+        throw new Error(`Service not found for slug "${slug}".`);
+      }
+
+      return fallbackService;
     }
 
     return normalizeServicePricing(rows[0]);
@@ -104,10 +115,46 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
   `;
 
   if (rows.length === 0) {
-    throw new Error("Service not found.");
+    const fallbackService = await upsertFallbackService(slug);
+
+    if (!fallbackService) {
+      throw new Error(`Service not found for slug "${slug}".`);
+    }
+
+    return fallbackService;
   }
 
   return normalizeServicePricing(rows[0]);
+}
+
+async function upsertFallbackService(slug: string): Promise<ServiceDetail | null> {
+  const fallback = fallbackServices[slug];
+
+  if (!fallback) {
+    return null;
+  }
+
+  const service = await prisma.service.upsert({
+    where: { slug },
+    update: {
+      name: fallback.name,
+      description: fallback.description,
+      basePrice: fallback.basePrice,
+      deliveryFee: fallback.deliveryFee,
+      isActive: true,
+    },
+    create: {
+      id: slug,
+      slug,
+      name: fallback.name,
+      description: fallback.description,
+      basePrice: fallback.basePrice,
+      deliveryFee: fallback.deliveryFee,
+      isActive: true,
+    },
+  });
+
+  return normalizeServicePricing(service);
 }
 
 export async function listServiceDetails(): Promise<ServiceDetail[]> {

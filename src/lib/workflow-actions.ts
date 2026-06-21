@@ -1324,9 +1324,10 @@ export async function createPublicApplicationIntake(
     const applicationId = await nextApplicationId();
     const publicToken = randomUUID();
     const identifierHash = clientIdHash(identityNumber);
-    const service = await findActiveServiceBySlug(getSelectedServiceSlug(formData)).catch((error) => {
-      console.error("Service load for intake failed:", error);
-      throw new Error("The selected service could not be loaded right now. Please try again.");
+    const selectedServiceSlug = getSelectedServiceSlug(formData);
+    const service = await findActiveServiceBySlug(selectedServiceSlug).catch((error) => {
+      console.error(`Service load for intake failed for slug "${selectedServiceSlug}":`, error);
+      throw new Error("The selected service is not available right now. Please refresh the page and try again.");
     });
     const baseAmount = Number(service.basePrice);
     const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
