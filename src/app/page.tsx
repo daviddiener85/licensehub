@@ -18,19 +18,19 @@ const services = [
   {
     title: "Duplicate Certificate",
     description: "Replace a lost or missing vehicle registration certificate with guided document capture.",
-    href: "/apply",
+    href: "/apply?service=duplicate-certificate",
     available: "Available now",
   },
   {
     title: "Change of Ownership",
     description: "Prepare the ownership-transfer documents and mandate details for Gauteng vehicle transfers.",
-    href: "/apply",
+    href: "/apply?service=change-of-ownership",
     available: "Gauteng only",
   },
   {
     title: "Licence Renewal",
     description: "Start a guided renewal request with vehicle details, address confirmation and payment follow-up.",
-    href: "/apply",
+    href: "/apply?service=licence-renewal",
     available: "Gauteng only",
   },
 ];

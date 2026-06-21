@@ -33,6 +33,7 @@ type IntakeService = {
 type ClientIntakeFlowProps = {
   reference?: string;
   services?: IntakeService[];
+  initialServiceSlug?: string;
   paystackEnabled?: boolean;
 };
 
@@ -232,6 +233,7 @@ function isMandateStepUpload(documentLabel: string) {
 export function ClientIntakeFlow({
   reference,
   services = fallbackServices,
+  initialServiceSlug,
   paystackEnabled = false,
 }: ClientIntakeFlowProps) {
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -251,7 +253,9 @@ export function ClientIntakeFlow({
   });
   const [stepIndex, setStepIndex] = useState(0);
   const [selectedServiceSlug, setSelectedServiceSlug] = useState(
-    availableServices.some((service) => service.slug === "duplicate-certificate")
+    initialServiceSlug && availableServices.some((service) => service.slug === initialServiceSlug)
+      ? initialServiceSlug
+      : availableServices.some((service) => service.slug === "duplicate-certificate")
       ? "duplicate-certificate"
       : availableServices[0].slug,
   );
@@ -304,7 +308,10 @@ export function ClientIntakeFlow({
   const [paymentMethod, setPaymentMethod] = useState<PaymentChoice>("EFT");
   const selectedService =
     availableServices.find((service) => service.slug === selectedServiceSlug) ?? availableServices[0];
-  const isQuoteFlowService = selectedService.slug === "license-fees" || selectedService.slug === "licence-fees";
+  const isQuoteFlowService =
+    selectedService.slug === "license-fees" ||
+    selectedService.slug === "licence-fees" ||
+    Number(selectedService.basePrice) <= 0;
   const effectiveOwnershipType: OwnershipType =
     ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];

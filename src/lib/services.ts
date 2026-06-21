@@ -24,6 +24,18 @@ const fallbackServices: Record<
     basePrice: "499.00",
     deliveryFee: "150.00",
   },
+  "change-of-ownership": {
+    name: "Change of Ownership",
+    description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
+    basePrice: "0.00",
+    deliveryFee: "150.00",
+  },
+  "licence-renewal": {
+    name: "Licence Renewal",
+    description: "Vehicle licence renewal assistance. Available in Gauteng only.",
+    basePrice: "0.00",
+    deliveryFee: "150.00",
+  },
 };
 
 function normalizeServicePricing<T extends { slug: string; basePrice: Prisma.Decimal; deliveryFee: Prisma.Decimal }>(
@@ -60,6 +72,8 @@ async function hasDeliveryFeeColumn() {
 }
 
 export async function listActiveServices(): Promise<ServiceSummary[]> {
+  await ensureFallbackServices();
+
   const columnExists = await hasDeliveryFeeColumn();
 
   if (columnExists) {
@@ -81,6 +95,10 @@ export async function listActiveServices(): Promise<ServiceSummary[]> {
   `;
 
   return rows.map((row) => normalizeServicePricing(row));
+}
+
+async function ensureFallbackServices() {
+  await Promise.all(Object.keys(fallbackServices).map((slug) => upsertFallbackService(slug)));
 }
 
 export async function findActiveServiceBySlug(slug: string): Promise<ServiceDetail> {

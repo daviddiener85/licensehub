@@ -4,7 +4,13 @@ import { listActiveServices } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
-export default async function ApplyPage() {
+export default async function ApplyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ service?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const selectedServiceSlug = Array.isArray(params.service) ? params.service[0] : params.service;
   const services = await listActiveServices().catch((error) => {
     console.error("Failed to load services for /apply:", error);
     return [];
@@ -55,6 +61,7 @@ export default async function ApplyPage() {
 
       <section id="intake" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <ClientIntakeFlow
+          initialServiceSlug={selectedServiceSlug}
           paystackEnabled={paystackEnabled}
           services={services.map((service) => ({
             ...service,

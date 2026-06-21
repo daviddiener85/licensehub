@@ -110,6 +110,14 @@ async function clickProceed(page: Page) {
   await page.getByRole("button", { name: "Proceed" }).click();
 }
 
+async function verifyServicePreselection(page: Page) {
+  console.log("Checking public service preselection...");
+  await page.goto("/apply?service=change-of-ownership", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("button", { name: /Duplicate Certificate/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Change of Ownership/ }).getByText("Selected")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Licence Renewal/ })).toBeVisible();
+}
+
 async function main() {
   await waitForServer();
 
@@ -137,6 +145,7 @@ async function main() {
   try {
     const page = await browser.newPage({ baseURL: baseUrl });
     page.setDefaultTimeout(10000);
+    await verifyServicePreselection(page);
     console.log("Opening /apply...");
     await page.goto("/apply", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("button", { name: "Proceed" })).toBeVisible();
