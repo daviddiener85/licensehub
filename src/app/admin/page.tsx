@@ -51,7 +51,11 @@ type AdminSearchParams = {
   documents?: string;
   urgency?: string;
   service?: string;
+  view?: string;
 };
+
+const adminDetailViews = ["overview", "documents", "payment", "supplier", "messages", "audit"] as const;
+type AdminDetailView = (typeof adminDetailViews)[number];
 
 function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
   const latestPayment = application.payments[0];
@@ -386,6 +390,23 @@ function textParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
+function adminHref(params: Record<string, string>, updates: Record<string, string | undefined>) {
+  const next = new URLSearchParams();
+
+  Object.entries({ ...params, ...updates }).forEach(([key, value]) => {
+    if (value) {
+      next.set(key, value);
+    }
+  });
+
+  const query = next.toString();
+  return query ? `/admin?${query}` : "/admin";
+}
+
+function adminViewParam(value: string): AdminDetailView {
+  return adminDetailViews.includes(value as AdminDetailView) ? (value as AdminDetailView) : "overview";
+}
+
 function matchesSearch(application: Awaited<ReturnType<typeof listAdminApplications>>[number], query: string) {
   if (!query) {
     return true;
@@ -499,12 +520,6 @@ export default async function AdminPage({
     return <DatabaseSetup message="Admin applications could not be loaded from PostgreSQL." />;
   }
 
-  const unconfirmedPaymentCount = applications.filter((application) =>
-    application.payments.some((payment) => payment.status !== PaymentStatus.CONFIRMED),
-  ).length;
-  const atSupplierCount = applications.filter((application) =>
-    ["AT_SUPPLIER", "SUPPLIER_PRODUCED", "RETURNING_TO_LICENSE_HUB"].includes(application.currentStatus),
-  ).length;
   const resolvedSearchParams = await searchParams;
   const selectedApplicationId = textParam(resolvedSearchParams.application);
   const query = textParam(resolvedSearchParams.q).trim();
@@ -513,6 +528,7 @@ export default async function AdminPage({
   const documentsFilter = textParam(resolvedSearchParams.documents);
   const urgencyFilter = textParam(resolvedSearchParams.urgency);
   const serviceFilter = textParam(resolvedSearchParams.service);
+  const selectedView = adminViewParam(textParam(resolvedSearchParams.view));
   const serviceOptions = Array.from(new Set(applications.map((application) => application.service.name))).sort();
   const filteredApplications = applications.filter((application) => {
     if (!matchesSearch(application, query)) {
@@ -523,8 +539,20 @@ export default async function AdminPage({
       return false;
     }
 
-    if (paymentFilter && paymentSummary(application).toLowerCase().replace(/\s+/g, "-") !== paymentFilter) {
-      return false;
+    if (paymentFilter) {
+      const paymentBucket = paymentSummary(application);
+      const paymentFilterValue = paymentBucket.toLowerCase().replace(/\s+/g, "-");
+
+      if (
+        paymentFilter === "payment-follow-up" &&
+        !["EFT pending", "Paystack pending", "Additional charge pending"].includes(paymentBucket)
+      ) {
+        return false;
+      }
+
+      if (paymentFilter !== "payment-follow-up" && paymentFilterValue !== paymentFilter) {
+        return false;
+      }
     }
 
     if (documentsFilter && documentFilterValue(application) !== documentsFilter) {
@@ -590,6 +618,57 @@ export default async function AdminPage({
 
   const selectedApplication =
     applications.find((application) => application.id === selectedApplicationId) ?? filteredApplications[0] ?? applications[0];
+  const baseAdminParams = {
+    q: query,
+    status: statusFilter,
+    payment: paymentFilter,
+    documents: documentsFilter,
+    urgency: urgencyFilter,
+    service: serviceFilter,
+    application: selectedApplication.id,
+    view: selectedView,
+  };
+  const queueCards = [
+    {
+      label: "Needs quote",
+      count: applications.filter((application) => application.currentStatus === "AWAITING_ADMIN_QUOTE").length,
+      href: adminHref(baseAdminParams, { status: "AWAITING_ADMIN_QUOTE", payment: undefined, documents: undefined }),
+    },
+    {
+      label: "Payment follow-up",
+      count: applications.filter((application) =>
+        ["EFT pending", "Paystack pending", "Additional charge pending"].includes(paymentSummary(application)),
+      ).length,
+      href: adminHref(baseAdminParams, { payment: "payment-follow-up", status: undefined, documents: undefined }),
+    },
+    {
+      label: "Document review",
+      count: applications.filter((application) => documentFilterValue(application) === "pending").length,
+      href: adminHref(baseAdminParams, { documents: "pending", status: undefined, payment: undefined, view: "documents" }),
+    },
+    {
+      label: "Ready to approve",
+      count: applications.filter(
+        (application) => application.currentStatus === "PENDING_REVIEW" && !approvalBlockReason(application),
+      ).length,
+      href: adminHref(baseAdminParams, { status: "PENDING_REVIEW", documents: "accepted", payment: undefined }),
+    },
+    {
+      label: "At supplier",
+      count: applications.filter((application) => application.currentStatus === "AT_SUPPLIER").length,
+      href: adminHref(baseAdminParams, { status: "AT_SUPPLIER", payment: undefined, documents: undefined, view: "supplier" }),
+    },
+    {
+      label: "Returning",
+      count: applications.filter((application) => application.currentStatus === "RETURNING_TO_LICENSE_HUB").length,
+      href: adminHref(baseAdminParams, {
+        status: "RETURNING_TO_LICENSE_HUB",
+        payment: undefined,
+        documents: undefined,
+        view: "supplier",
+      }),
+    },
+  ];
   const selectedApprovalBlockReason = approvalBlockReason(selectedApplication);
   const selectedPendingDocumentCount = selectedApplication.documents.filter(
     (document: ApplicationDocumentRecord) => document.status === "PENDING",
@@ -640,21 +719,26 @@ export default async function AdminPage({
           </div>
         </header>
 
-        <section className="mt-6 grid gap-3 md:grid-cols-4">
-          {[
-            `Unconfirmed payments: ${unconfirmedPaymentCount}`,
-            "Drafts older than 7 days: 0",
-            "Unpaid charges: 0",
-            `At supplier: ${atSupplierCount}`,
-          ].map((metric) => (
-            <div key={metric} className="border border-[#d8d1c3] bg-white p-4 text-sm font-semibold">
-              {metric}
-            </div>
+        <section className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {queueCards.map((queue) => (
+            <Link
+              key={queue.label}
+              href={queue.href}
+              className="border border-[#d8d1c3] bg-white p-4 transition hover:border-[#8a6a2a] hover:bg-[#fffdf8]"
+            >
+              <span className="block text-2xl font-semibold">{queue.count}</span>
+              <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-[#6b5e4f]">
+                {queue.label}
+              </span>
+            </Link>
           ))}
         </section>
 
         <section className="mt-6 border border-[#d8d1c3] bg-white p-4">
-          <form className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_0.9fr_auto_auto] lg:items-end">
+          <form
+            key={[query, statusFilter, paymentFilter, documentsFilter, urgencyFilter, serviceFilter].join("|")}
+            className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_0.8fr_0.9fr_auto_auto] lg:items-end"
+          >
             <label className="text-sm font-semibold">
               Search
               <input
@@ -686,6 +770,7 @@ export default async function AdminPage({
               <select name="payment" defaultValue={paymentFilter} className="mt-1 w-full border border-[#d8d1c3] bg-white px-3 py-2 font-normal">
                 <option value="">All</option>
                 <option value="confirmed">Confirmed</option>
+                <option value="payment-follow-up">Payment follow-up</option>
                 <option value="eft-pending">EFT pending</option>
                 <option value="paystack-pending">Paystack pending</option>
                 <option value="quote-pending">Quote pending</option>
@@ -734,13 +819,11 @@ export default async function AdminPage({
         </section>
 
         <section className="mt-6 overflow-hidden border border-[#d8d1c3] bg-white">
-          <div className="grid grid-cols-[0.9fr_1fr_1fr_0.8fr_0.9fr_1fr_0.7fr_1.4fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f]">
+          <div className="grid grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f]">
             <span>Application</span>
             <span>Client</span>
             <span>Service</span>
-            <span>Payment</span>
-            <span>Documents</span>
-            <span>Status</span>
+            <span>Next action</span>
             <span>Age</span>
             <span>Actions</span>
           </div>
@@ -751,7 +834,7 @@ export default async function AdminPage({
               data-admin-order-id={application.id}
               data-admin-order-selected={application.id === selectedApplication.id}
               className={[
-                "grid grid-cols-[0.9fr_1fr_1fr_0.8fr_0.9fr_1fr_0.7fr_1.4fr] items-center gap-2 border-b border-[#eee8dc] px-4 py-4 text-sm last:border-b-0",
+                "grid grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] items-center gap-2 border-b border-[#eee8dc] px-4 py-4 text-sm last:border-b-0",
                 application.id === selectedApplication.id ? "bg-[#fff8df]" : "",
               ].join(" ")}
             >
@@ -767,9 +850,12 @@ export default async function AdminPage({
                 {application.client.firstName} {application.client.surname}
               </AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>{application.service.name}</AdminApplicationCell>
-              <AdminApplicationCell applicationId={application.id}>{paymentSummary(application)}</AdminApplicationCell>
-              <AdminApplicationCell applicationId={application.id}>{documentSummary(application)}</AdminApplicationCell>
-              <AdminApplicationCell applicationId={application.id}>{workflowStatusSummary(application)}</AdminApplicationCell>
+              <AdminApplicationCell applicationId={application.id} className="space-y-1">
+                <span className="block font-semibold">{workflowStatusSummary(application)}</span>
+                <span className="block text-xs text-[#6b5e4f]">
+                  {paymentSummary(application)} · {documentSummary(application)}
+                </span>
+              </AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>{ageSummary(application.createdAt)}</AdminApplicationCell>
               <span className="flex flex-wrap gap-2">
                 {adminActions(application).map((item) =>
@@ -819,6 +905,29 @@ export default async function AdminPage({
             <p className="mt-1 text-sm text-[#52615b]">
               {selectedApplication.id} · {selectedApplication.client.firstName} {selectedApplication.client.surname}
             </p>
+            <nav className="mt-4 flex flex-wrap gap-2 border-b border-[#eee8dc] pb-3 text-sm font-semibold">
+              {[
+                ["overview", "Overview"],
+                ["documents", "Documents"],
+                ["payment", "Payment"],
+                ["supplier", "Supplier"],
+                ["messages", "Messages"],
+                ["audit", "Audit"],
+              ].map(([view, label]) => (
+                <Link
+                  key={view}
+                  href={adminHref(baseAdminParams, { view })}
+                  className={[
+                    "border px-3 py-2",
+                    selectedView === view
+                      ? "border-[#1f2724] bg-[#1f2724] text-white"
+                      : "border-[#d8d1c3] text-[#52615b]",
+                  ].join(" ")}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
             <dl className="mt-4 grid gap-3 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm md:grid-cols-3">
               <div>
                 <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Entity type</dt>
@@ -870,6 +979,8 @@ export default async function AdminPage({
                 <dd className="mt-1 font-medium">{selectedApplication.representativeCapacity || "Not captured"}</dd>
               </div>
             </dl>
+            {selectedView === "supplier" ? (
+              <>
             <form
               action={updateSupplierHandoff}
               className="mt-4 grid gap-3 border border-[#d8d1c3] bg-white p-4 md:grid-cols-[0.45fr_1fr_auto] md:items-end"
@@ -916,6 +1027,10 @@ export default async function AdminPage({
                 ) : null}
               </div>
             </div>
+              </>
+            ) : null}
+            {selectedView === "documents" ? (
+              <>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {documentRequirementsForEntityType(selectedApplication.client.entityType).map((requirement) => (
                 <div key={requirement.key} className="border border-[#eee8dc] bg-white p-3 text-sm">
@@ -1046,6 +1161,9 @@ export default async function AdminPage({
                 )}
               </div>
             </div>
+              </>
+            ) : null}
+            {selectedView === "audit" ? (
             <details className="mt-4 border border-[#e4ded2] bg-[#fffdf8]">
               <summary className="cursor-pointer px-3 py-2 text-sm font-semibold">Review Audit Trail</summary>
               <div className="border-t border-[#eee8dc] p-3">
@@ -1065,6 +1183,9 @@ export default async function AdminPage({
                 </div>
               </div>
             </details>
+            ) : null}
+            {selectedView === "overview" ? (
+              <>
             <div className="mt-4 flex flex-wrap gap-3">
               <ResubmissionActionForm
                 action={requestResubmission}
@@ -1118,11 +1239,13 @@ export default async function AdminPage({
                 ))}
               </div>
             </div>
+              </>
+            ) : null}
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
-          <aside className="border border-[#d8d1c3] bg-white p-5">
+        <section className={selectedView === "payment" || selectedView === "messages" ? "mt-6" : "hidden"}>
+          <aside className={selectedView === "payment" ? "border border-[#d8d1c3] bg-white p-5" : "hidden"}>
             <h2 className="text-lg font-semibold">Payment History</h2>
             <div className="mt-4 space-y-2 text-sm text-[#52615b]">
               {selectedApplication.payments.map((payment) => (
@@ -1191,7 +1314,7 @@ export default async function AdminPage({
             </div>
           </aside>
 
-          <aside className="border border-[#d8d1c3] bg-white p-5">
+          <aside className={selectedView === "messages" ? "border border-[#d8d1c3] bg-white p-5" : "hidden"}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold">WhatsApp</h2>

@@ -67,7 +67,7 @@ export default function Home() {
         <div className="absolute right-0 top-0 hidden h-full w-[35%] border-l border-white/10 bg-[#111719]/60 shadow-2xl lg:block">
           <div className="absolute left-0 top-28 h-3 w-full bg-[#ff9f0a]" />
           <div className="absolute left-12 top-40 text-sm font-black uppercase tracking-[0.18em] text-white/80">
-            The <span className="text-[#ff9f0a]">License</span> Hub
+            Vehicle document support
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default function Home() {
             <div className="max-w-3xl py-14">
               <div className="inline-flex items-center gap-2 border border-[#ff9f0a]/60 bg-[#ff9f0a]/12 px-3 py-2 text-sm font-black uppercase tracking-[0.14em] text-[#ffd08a] backdrop-blur">
                 <Sparkles className="h-4 w-4" />
-                Vehicle document services
+                Guided vehicle services
               </div>
               <div className="mt-8">
                 <p className="tlh-brand-mark text-7xl font-black italic sm:text-9xl lg:text-[10.5rem]">
@@ -108,13 +108,13 @@ export default function Home() {
                 <div className="tlh-orange-rule mt-4 h-1 max-w-xl" />
               </div>
               <h1 className="mt-7 max-w-3xl text-4xl font-black uppercase leading-[1.02] tracking-wide sm:text-5xl lg:text-6xl">
-                The License Hub
+                Vehicle paperwork, handled online.
               </h1>
               <p className="mt-4 max-w-xl text-xl font-black uppercase leading-7 text-white">
                 Simple, guided vehicle document help.
               </p>
               <p className="mt-6 max-w-xl text-base leading-8 text-white/76">
-                Start online, upload the documents we need, sign on your phone, and let the team handle the rest.
+                Start online, upload what we need, sign on your phone, and let our team handle the rest.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -152,7 +152,7 @@ export default function Home() {
       <section id="services" className="border-b border-[#3a4349] bg-[#12181c]">
         <div className="mx-auto grid max-w-7xl gap-6 px-5 py-12 sm:px-8 lg:grid-cols-[0.75fr_1.25fr] lg:px-10">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#ff9f0a]">How License Hub helps</p>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#ff9f0a]">How we help</p>
             <h2 className="mt-3 text-3xl font-black uppercase">Choose the request you need and we&apos;ll guide the rest.</h2>
             <p className="mt-4 leading-7 text-white/68">
               The application flow captures your service, ownership details, vehicle information, required documents and

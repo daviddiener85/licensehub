@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DatabaseSetup } from "@/components/database-setup";
+import { SettingsActionButton } from "@/components/settings-action-button";
 import { prisma } from "@/lib/prisma";
 import { listServiceDetails } from "@/lib/services";
 import { formatRetentionSetting } from "@/lib/retention";
@@ -43,7 +44,24 @@ function whatsappHref(cellphone?: string | null) {
   return `https://wa.me/${international}`;
 }
 
-export default async function AdminSettingsPage() {
+const noticeStyles: Record<string, string> = {
+  "Service added.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "Service saved.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "Retention saved.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "Workspace settings saved.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "User added.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "User saved.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "User activated.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+  "User deactivated.": "border-[#1f7a4d] bg-[#f4fbf7] text-[#1f7a4d]",
+};
+
+export default async function AdminSettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ notice?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const notice = Array.isArray(params.notice) ? params.notice[0] : params.notice;
   const data = await getSettingsData().catch((error: unknown) => {
     console.error(error);
     return null;
@@ -67,6 +85,19 @@ export default async function AdminSettingsPage() {
             </p>
           </div>
         </header>
+
+        {notice ? (
+          <div
+            className={[
+              "mt-6 border px-4 py-3 text-sm font-semibold",
+              noticeStyles[notice] ?? "border-[#d8d1c3] bg-[#fffdf8] text-[#52615b]",
+            ].join(" ")}
+            role="status"
+            aria-live="polite"
+          >
+            {notice}
+          </div>
+        ) : null}
 
         <section className="mt-6">
           <div className="border border-[#d8d1c3] bg-white p-5">
@@ -127,9 +158,12 @@ export default async function AdminSettingsPage() {
                       <input defaultChecked={service.isActive} name="isActive" type="checkbox" />
                       Active
                     </label>
-                    <button className="h-11 border border-[#1f2724] bg-[#1f2724] px-5 text-sm font-semibold text-white">
+                    <SettingsActionButton
+                      className="h-11 border border-[#1f2724] bg-[#1f2724] px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+                      pendingLabel="Saving..."
+                    >
                       Save
-                    </button>
+                    </SettingsActionButton>
                   </div>
                 </form>
               ))}
@@ -176,9 +210,12 @@ export default async function AdminSettingsPage() {
                   <input defaultChecked name="isActive" type="checkbox" />
                   Active
                 </label>
-                <button className="h-11 border border-[#1f2724] bg-[#1f2724] px-5 text-sm font-semibold text-white">
+                <SettingsActionButton
+                  className="h-11 border border-[#1f2724] bg-[#1f2724] px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+                  pendingLabel="Adding..."
+                >
                   Add Service
-                </button>
+                </SettingsActionButton>
               </div>
             </form>
           </div>
@@ -201,9 +238,12 @@ export default async function AdminSettingsPage() {
                 />
               </label>
               <input name="updatedByName" type="hidden" value="License Hub Admin" />
-              <button className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white">
+              <SettingsActionButton
+                className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+                pendingLabel="Saving..."
+              >
                 Save Retention
-              </button>
+              </SettingsActionButton>
             </form>
           </aside>
 
@@ -294,9 +334,12 @@ export default async function AdminSettingsPage() {
                 </label>
               </div>
               <input name="updatedByName" type="hidden" value="License Hub Admin" />
-              <button className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white">
+              <SettingsActionButton
+                className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+                pendingLabel="Saving..."
+              >
                 Save Refresh
-              </button>
+              </SettingsActionButton>
             </form>
           </aside>
         </section>
@@ -373,17 +416,23 @@ export default async function AdminSettingsPage() {
                         <option value="INACTIVE">Inactive</option>
                       </select>
                     </label>
-                    <button className="mt-7 h-11 border border-[#1f2724] bg-[#1f2724] px-5 text-sm font-semibold text-white">
+                    <SettingsActionButton
+                      className="mt-7 h-11 border border-[#1f2724] bg-[#1f2724] px-5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+                      pendingLabel="Saving..."
+                    >
                       Save User
-                    </button>
+                    </SettingsActionButton>
                   </div>
                 </form>
                 <form action={updateUserStatus} className="mt-3">
                   <input type="hidden" name="userId" value={user.id} />
                   <input type="hidden" name="status" value={user.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"} />
-                  <button className="border border-[#d8d1c3] px-3 py-2 text-sm font-semibold text-[#6b5e4f]">
+                  <SettingsActionButton
+                    className="border border-[#d8d1c3] px-3 py-2 text-sm font-semibold text-[#6b5e4f] disabled:cursor-wait disabled:opacity-70"
+                    pendingLabel={user.status === "ACTIVE" ? "Deactivating..." : "Activating..."}
+                  >
                     {user.status === "ACTIVE" ? "Deactivate User" : "Activate User"}
-                  </button>
+                  </SettingsActionButton>
                 </form>
               </div>
             ))}
@@ -397,9 +446,12 @@ export default async function AdminSettingsPage() {
               <option value="ADMIN">Admin</option>
               <option value="SUPPLIER">Supplier</option>
             </select>
-            <button className="border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
+            <SettingsActionButton
+              className="border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
+              pendingLabel="Adding..."
+            >
               Add User
-            </button>
+            </SettingsActionButton>
           </form>
         </section>
       </div>

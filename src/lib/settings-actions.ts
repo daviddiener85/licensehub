@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { UserRole, UserStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +16,10 @@ function slugify(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+}
+
+function redirectToSettings(notice: string) {
+  redirect(`/admin/settings?notice=${encodeURIComponent(notice)}`);
 }
 
 export async function createService(formData: FormData) {
@@ -39,6 +44,7 @@ export async function createService(formData: FormData) {
   });
 
   revalidatePath("/admin/settings");
+  redirectToSettings("Service added.");
 }
 
 export async function updateService(formData: FormData) {
@@ -65,6 +71,7 @@ export async function updateService(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin");
+  redirectToSettings("Service saved.");
 }
 
 export async function updateRetentionSetting(formData: FormData) {
@@ -85,6 +92,7 @@ export async function updateRetentionSetting(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin");
+  redirectToSettings("Retention saved.");
 }
 
 export async function updateAdminWorkspaceSetting(formData: FormData) {
@@ -130,6 +138,7 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin");
+  redirectToSettings("Workspace settings saved.");
 }
 
 export async function createUser(formData: FormData) {
@@ -154,6 +163,7 @@ export async function createUser(formData: FormData) {
   });
 
   revalidatePath("/admin/settings");
+  redirectToSettings("User added.");
 }
 
 export async function updateUser(formData: FormData) {
@@ -180,6 +190,7 @@ export async function updateUser(formData: FormData) {
   });
 
   revalidatePath("/admin/settings");
+  redirectToSettings("User saved.");
 }
 
 export async function updateUserStatus(formData: FormData) {
@@ -198,4 +209,5 @@ export async function updateUserStatus(formData: FormData) {
   });
 
   revalidatePath("/admin/settings");
+  redirectToSettings(`User ${status === "ACTIVE" ? "activated" : "deactivated"}.`);
 }

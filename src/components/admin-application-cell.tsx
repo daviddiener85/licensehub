@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type AdminApplicationCellProps = {
   applicationId: string;
@@ -10,12 +10,15 @@ type AdminApplicationCellProps = {
 
 export function AdminApplicationCell({ applicationId, children, className }: AdminApplicationCellProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   return (
     <button
       className={["text-left", className].filter(Boolean).join(" ")}
       onClick={() => {
-        router.replace(`/admin?application=${applicationId}`, { scroll: false });
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.set("application", applicationId);
+        router.replace(`/admin?${nextParams.toString()}`, { scroll: false });
       }}
       type="button"
     >
