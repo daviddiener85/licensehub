@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { MandateCaptureForm } from "@/components/mandate-capture-form";
+import { PublicFooter } from "@/components/public-footer";
 import { ApplicationStatus, ChargeStatus, DocumentStatus, PaymentStatus } from "@/generated/prisma/client";
 import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
 import { documentLabel } from "@/lib/documents";
@@ -213,6 +214,7 @@ export default async function ClientApplicationPage({
             </details>
           ) : null}
         </section>
+        <PublicFooter />
       </main>
     );
   }
@@ -283,6 +285,7 @@ export default async function ClientApplicationPage({
           }))}
         />
       </section>
+      <PublicFooter />
     </main>
   );
 }

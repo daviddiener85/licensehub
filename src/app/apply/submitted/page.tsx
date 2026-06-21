@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ApplicationStatus, DocumentType, PaymentMethod, PaymentStatus, PaymentType } from "@/generated/prisma/client";
 import { EftProofUploadForm } from "@/components/eft-proof-upload-form";
+import { PublicFooter } from "@/components/public-footer";
 import { formatMoney } from "@/lib/applications";
 import { prisma } from "@/lib/prisma";
 import { approveClientQuote, uploadEftProof } from "@/lib/workflow-actions";
@@ -326,6 +327,7 @@ export default async function ApplicationSubmittedPage({
           </Link>
         </div>
       </section>
+      <PublicFooter />
     </main>
   );
 }

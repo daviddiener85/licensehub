@@ -189,10 +189,10 @@ function SubmitApplicationButton({ quoteFlow, disabled }: { quoteFlow: boolean; 
       type="submit"
       disabled={isDisabled}
       className={[
-        "mt-5 w-full border px-4 py-3 text-sm font-semibold",
+        "mt-5 w-full border px-4 py-3 text-sm font-black uppercase tracking-wide",
         isDisabled
           ? "cursor-wait border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
-          : "border-[#1f2724] bg-[#1f2724] text-white",
+          : "tlh-button-primary",
       ].join(" ")}
     >
       {pending ? "Saving application..." : quoteFlow ? "Submit For Quote" : "Submit Application"}
@@ -529,22 +529,22 @@ export function ClientIntakeFlow({
   }
 
   return (
-    <section className="border border-[#d8d1c3] bg-white">
-      <div className="border-b border-[#eee8dc] bg-[#fffdf8] px-4 py-4 sm:px-5">
+    <section className="tlh-panel overflow-hidden">
+      <div className="border-b border-[#ff9f0a]/30 bg-[#111719] px-4 py-4 text-white sm:px-5">
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6b5e4f]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#ffb84d]">
               Step {stepIndex + 1} of {steps.length}
             </p>
-            <span className="text-xs font-semibold text-[#52615b]">{steps[stepIndex]}</span>
+            <span className="text-xs font-black uppercase tracking-[0.12em] text-white/76">{steps[stepIndex]}</span>
           </div>
-          <div className="h-1.5 overflow-hidden bg-[#eee8dc]">
+          <div className="h-2 overflow-hidden bg-white/12">
             <div
-              className="h-full bg-[#1f2724]"
+              className="h-full bg-[#ff9f0a]"
               style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
             />
           </div>
-          <p className="max-w-2xl text-sm leading-6 text-[#52615b]">{stepSummaries[stepIndex]}</p>
+          <p className="max-w-2xl text-sm leading-6 text-white/68">{stepSummaries[stepIndex]}</p>
         </div>
       </div>
 
@@ -553,7 +553,7 @@ export function ClientIntakeFlow({
         {stepIndex === 0 ? (
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <h2 className="text-2xl font-semibold">Choose a service</h2>
+              <h2 className="text-2xl font-black uppercase">Choose a service</h2>
               <p className="mt-3 text-sm leading-6 text-[#52615b]">Duplicate certificate is selected by default.</p>
             </div>
             <div className="grid gap-3">
@@ -567,25 +567,29 @@ export function ClientIntakeFlow({
                     type="button"
                     onClick={() => setSelectedServiceSlug(service.slug)}
                     className={[
-                      "border p-4 text-left",
-                      isSelected ? "border-[#1f2724] bg-[#fff8df]" : "border-[#d8d1c3] bg-white",
+                      "border p-4 text-left transition",
+                      isSelected
+                        ? "border-[#ff9f0a] bg-[#111719] text-white shadow-xl"
+                        : "border-[#d8d1c3] bg-white hover:border-[#ff9f0a]",
                     ].join(" ")}
                   >
                     <span className="flex items-center justify-between gap-3">
-                      <span className="font-semibold">{service.name}</span>
+                      <span className="font-black uppercase">{service.name}</span>
                       <span className="flex flex-wrap justify-end gap-2">
                         {isGautengOnly ? (
-                          <span className="border border-[#d8b267] bg-white px-2 py-1 text-xs font-semibold uppercase text-[#6b5e4f]">
+                          <span className="border border-[#ff9f0a]/45 bg-[#ff9f0a]/12 px-2 py-1 text-xs font-black uppercase text-[#ffb84d]">
                             Gauteng only
                           </span>
                         ) : null}
                         {isSelected ? (
-                          <span className="px-2 py-1 text-xs font-semibold uppercase text-[#1f7a4d]">Selected</span>
+                          <span className="px-2 py-1 text-xs font-black uppercase text-[#ff9f0a]">Selected</span>
                         ) : null}
                       </span>
                     </span>
-                    <span className="mt-2 block text-sm leading-6 text-[#52615b]">{service.description}</span>
-                    <span className="mt-3 block text-xs font-semibold text-[#6b5e4f]">
+                    <span className={["mt-2 block text-sm leading-6", isSelected ? "text-white/70" : "text-[#52615b]"].join(" ")}>
+                      {service.description}
+                    </span>
+                    <span className={["mt-3 block text-xs font-black uppercase", isSelected ? "text-[#ffb84d]" : "text-[#6b5e4f]"].join(" ")}>
                       {Number(service.basePrice) > 0 ? `R${Number(service.basePrice).toFixed(2)}` : "Price to be confirmed"}
                     </span>
                   </button>
@@ -950,9 +954,9 @@ export function ClientIntakeFlow({
                   disabled={!licenceDiskFileName || scanLicenceDiskPending}
                   onClick={() => setLicenceDiskScanResultInvalidated(false)}
                   className={[
-                    "mt-3 border px-3 py-2 text-xs font-semibold",
+                    "mt-3 border px-3 py-2 text-xs font-black uppercase tracking-wide",
                     licenceDiskFileName && !scanLicenceDiskPending
-                      ? "border-[#1f2724] bg-[#1f2724] text-white"
+                      ? "tlh-button-dark"
                       : "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]",
                   ].join(" ")}
                 >
@@ -1407,7 +1411,7 @@ export function ClientIntakeFlow({
             onClick={previousStep}
             disabled={stepIndex === 0}
             className={[
-              "inline-flex items-center gap-2 border px-4 py-2 text-sm font-semibold",
+              "inline-flex items-center gap-2 border px-4 py-2 text-sm font-black uppercase tracking-wide",
               stepIndex === 0
                 ? "cursor-not-allowed border-[#e4ded2] text-[#a39b8f]"
                 : "border-[#d8d1c3] text-[#52615b]",
@@ -1426,13 +1430,13 @@ export function ClientIntakeFlow({
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
             }
             className={[
-              "inline-flex items-center gap-2 border px-4 py-2 text-sm font-semibold",
+              "inline-flex items-center gap-2 border px-4 py-2 text-sm font-black uppercase tracking-wide",
               stepIndex === steps.length - 1 ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
                 ? "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
-                : "border-[#1f2724] bg-[#1f2724] text-white",
+                : "tlh-button-primary",
             ].join(" ")}
           >
             Proceed

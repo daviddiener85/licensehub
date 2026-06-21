@@ -1,4 +1,5 @@
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
+import { PublicFooter } from "@/components/public-footer";
 import { isPaystackConfigured } from "@/lib/paystack";
 import { listActiveServices } from "@/lib/services";
 
@@ -18,38 +19,45 @@ export default async function ApplyPage({
   const paystackEnabled = isPaystackConfigured();
 
   return (
-    <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
-      <section className="border-b border-[#d8d1c3] bg-white">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.9fr] lg:px-8">
-          <div className="flex min-h-[360px] flex-col justify-center">
+    <main className="min-h-screen bg-[#0f1417] text-[#f7f7f2]">
+      <section className="tlh-metal-bg relative overflow-hidden border-b border-[#ff9f0a]/30">
+        <div className="absolute -right-20 top-0 h-full w-1/2 skew-x-[-18deg] bg-[#111719]/60" />
+        <div className="absolute right-0 top-14 h-3 w-1/2 bg-[#ff9f0a]" />
+        <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1fr_0.9fr] lg:px-8">
+          <div className="flex min-h-[330px] flex-col justify-center">
             <div>
-              <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub</p>
-              <h1 className="mt-8 max-w-2xl text-4xl font-semibold leading-tight text-[#111815] sm:text-5xl">
+              <p className="inline-flex border border-[#ff9f0a]/50 bg-[#ff9f0a]/12 px-3 py-2 text-sm font-black uppercase tracking-[0.16em] text-[#ffd08a]">
+                The License Hub
+              </p>
+              <p className="tlh-brand-mark mt-7 text-6xl font-black italic sm:text-8xl">
+                T<span className="tlh-l">L</span>H
+              </p>
+              <h1 className="mt-5 max-w-2xl text-4xl font-black uppercase leading-tight text-white sm:text-5xl">
                 Start your vehicle admin application
               </h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-[#52615b]">
+              <p className="mt-5 max-w-xl text-base leading-7 text-white/72">
                 Choose the product or service you need first. We will then confirm who you are, how the vehicle is
                 legally owned, which documents apply, and what needs to be signed or paid.
               </p>
             </div>
           </div>
 
-          <aside className="border border-[#d8d1c3] bg-[#fffdf8] p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">What To Expect</h2>
+          <aside className="tlh-dark-panel p-4 sm:p-5">
+            <h2 className="text-lg font-black uppercase">What To Expect</h2>
             <div className="mt-5 grid gap-3 text-sm">
               {[
                 ["1", "Tell us what you need", "Choose the service and confirm who the vehicle belongs to."],
                 ["2", "Confirm the paperwork", "We show only the documents that apply to that ownership scenario."],
                 ["3", "Sign and pay", "Upload the files, sign the mandate, then move to payment."],
               ].map(([step, title, text]) => (
-                <div key={title} className="border border-[#eee8dc] bg-white p-3">
+                <div key={title} className="border border-white/12 bg-white/8 p-3">
                   <div className="flex items-start gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#c5b89e] bg-[#fff8df] text-xs font-semibold">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#ff9f0a] bg-[#ff9f0a] text-xs font-black text-[#111719]">
                       {step}
                     </span>
                     <div>
-                      <p className="font-semibold text-[#1f2724]">{title}</p>
-                      <p className="mt-1 leading-5 text-[#52615b]">{text}</p>
+                      <p className="font-black uppercase text-white">{title}</p>
+                      <p className="mt-1 leading-5 text-white/68">{text}</p>
                     </div>
                   </div>
                 </div>
@@ -70,6 +78,7 @@ export default async function ApplyPage({
           }))}
         />
       </section>
+      <PublicFooter dark />
     </main>
   );
 }

@@ -1,8 +1,14 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f5ef;
-  --foreground: #1f2724;
+  --background: #0f1417;
+  --foreground: #f7f7f2;
+  --tlh-orange: #ff9f0a;
+  --tlh-orange-deep: #e87900;
+  --tlh-graphite: #161d21;
+  --tlh-steel: #263038;
+  --tlh-panel: #f7f3ea;
+  --tlh-ink: #182024;
 }
 
 @theme inline {
@@ -16,4 +22,68 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.tlh-metal-bg {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.2), transparent 26%),
+    linear-gradient(135deg, #eef0f0 0%, #6f7a7f 24%, #1c252b 54%, #080b0d 100%);
+}
+
+.tlh-orange-rule {
+  background: linear-gradient(90deg, transparent, var(--tlh-orange), transparent);
+}
+
+.tlh-brand-mark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.04em;
+  letter-spacing: 0.015em;
+  line-height: 0.82;
+  text-shadow:
+    0 4px 0 rgba(0, 0, 0, 0.35),
+    0 18px 32px rgba(0, 0, 0, 0.52);
+  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.2);
+}
+
+.tlh-brand-mark .tlh-l {
+  color: var(--tlh-orange);
+  transform: skewX(-10deg) scaleX(1.16);
+  text-shadow:
+    0 4px 0 rgba(122, 58, 0, 0.5),
+    0 18px 32px rgba(255, 159, 10, 0.28);
+}
+
+.tlh-nav-mark {
+  letter-spacing: 0;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+}
+
+.tlh-panel {
+  border: 1px solid rgba(255, 159, 10, 0.24);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 243, 234, 0.96));
+  color: var(--tlh-ink);
+  box-shadow: 0 20px 60px rgba(7, 10, 12, 0.22);
+}
+
+.tlh-dark-panel {
+  border: 1px solid rgba(255, 159, 10, 0.34);
+  background:
+    linear-gradient(135deg, rgba(255, 159, 10, 0.1), transparent 38%),
+    linear-gradient(180deg, rgba(38, 48, 56, 0.92), rgba(13, 18, 21, 0.96));
+  color: #f7f7f2;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
+}
+
+.tlh-button-primary {
+  border: 1px solid var(--tlh-orange);
+  background: linear-gradient(180deg, #ffb12e, #f28b05);
+  color: #111719;
+  box-shadow: 0 12px 28px rgba(255, 159, 10, 0.26);
+}
+
+.tlh-button-dark {
+  border: 1px solid #0d1113;
+  background: linear-gradient(180deg, #2a343b, #111719);
+  color: #f7f7f2;
 }
