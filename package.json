@@ -14,6 +14,7 @@
     "prisma:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
     "test:regression": "tsx --tsconfig tsconfig.json scripts/regression/ui-regressions.ts",
+    "test:intake-payment": "tsx --tsconfig tsconfig.json scripts/regression/client-intake-payment-submit.ts",
     "test:entities": "tsx --tsconfig tsconfig.json scripts/entity-flow-simulation.ts",
     "check:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-config-smoke-check.ts",
     "dry-run:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-checkout-dry-run.ts",

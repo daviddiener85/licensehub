@@ -37,6 +37,7 @@ type ClientIntakeFlowProps = {
 };
 
 type PaymentChoice = "EFT" | "PAYSTACK";
+type UploadFieldName = "idPhoto" | "licenceDiskPhoto" | "proofOfAddress" | "passportDocument" | "trafficRegisterDocument";
 
 type Point = {
   x: number;
@@ -258,6 +259,7 @@ export function ClientIntakeFlow({
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>("");
   const [relation, setRelation] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<Record<string, string>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Partial<Record<UploadFieldName, File | null>>>({});
   const [clientDetails, setClientDetails] = useState({
     fullName: "",
     cellphone: "",
@@ -286,7 +288,6 @@ export function ClientIntakeFlow({
     model: "",
   });
   const [licenceDiskFileName, setLicenceDiskFileName] = useState("");
-  const [licenceDiskUploadFile, setLicenceDiskUploadFile] = useState<File | null>(null);
   const [licenceDiskScanResultInvalidated, setLicenceDiskScanResultInvalidated] = useState(false);
   const [licenceDiskScanState, scanLicenceDiskAction, scanLicenceDiskPending] = useActionState(
     scanLicenceDiskPhoto,
@@ -355,7 +356,12 @@ export function ClientIntakeFlow({
       return ["idPhoto", "proofOfAddress"].includes(inputName);
     })
     .map((document) => document.label);
-  const requiredUploadsReady = requiredUploadLabels.every((label) => Boolean(selectedFiles[label]));
+  const requiredUploadsReady = requiredUploadLabels.every((label) => {
+    const inputName = uploadInputName(label) as UploadFieldName;
+    const storedFile = uploadedFiles[inputName];
+
+    return storedFile instanceof File && storedFile.size > 0;
+  });
   const nonSaIdentityPreview = [clientDetails.passportNumber, clientDetails.trnNumber]
     .filter((value) => value.trim().length > 0)
     .join(" / ");
@@ -491,14 +497,25 @@ export function ClientIntakeFlow({
     formData.set("passportNumber", clientDetails.passportNumber.trim());
     formData.set("trnNumber", clientDetails.trnNumber.trim());
 
-    const submittedLicenceDisk = formData.get("licenceDiskPhoto");
+    const uploadFieldNames: UploadFieldName[] = [
+      "idPhoto",
+      "licenceDiskPhoto",
+      "proofOfAddress",
+      "trafficRegisterDocument",
+      "passportDocument",
+    ];
 
-    if (
-      (!(submittedLicenceDisk instanceof File) || submittedLicenceDisk.size === 0) &&
-      licenceDiskUploadFile instanceof File &&
-      licenceDiskUploadFile.size > 0
-    ) {
-      formData.set("licenceDiskPhoto", licenceDiskUploadFile, licenceDiskUploadFile.name);
+    for (const fieldName of uploadFieldNames) {
+      const submittedFile = formData.get(fieldName);
+      const storedFile = uploadedFiles[fieldName];
+
+      if (
+        (!(submittedFile instanceof File) || submittedFile.size === 0) &&
+        storedFile instanceof File &&
+        storedFile.size > 0
+      ) {
+        formData.set(fieldName, storedFile, storedFile.name);
+      }
     }
 
     await createPublicApplicationIntakeAction(formData);
@@ -898,9 +915,12 @@ export function ClientIntakeFlow({
                         const fileName = selectedFile?.name ?? "";
 
                         setLicenceDiskFileName(fileName);
-                        setLicenceDiskUploadFile(selectedFile);
                         setLicenceDiskScanResultInvalidated(true);
                         setVehicleDetailsConfirmed(false);
+                        setUploadedFiles((current) => ({
+                          ...current,
+                          licenceDiskPhoto: selectedFile,
+                        }));
                         setSelectedFiles((current) => ({
                           ...current,
                           "Licence disk photo": fileName,
@@ -1077,10 +1097,13 @@ export function ClientIntakeFlow({
                               const fileName = selectedFile?.name;
 
                               if (inputName === "licenceDiskPhoto") {
-                                setLicenceDiskUploadFile(selectedFile);
                                 setLicenceDiskFileName(fileName ?? "");
                               }
 
+                              setUploadedFiles((current) => ({
+                                ...current,
+                                [inputName as UploadFieldName]: selectedFile,
+                              }));
                               setSelectedFiles((current) => ({
                                 ...current,
                                 [document.label]: fileName ?? "",
