@@ -18,19 +18,19 @@ import { PublicFooter } from "@/components/public-footer";
 const services = [
   {
     title: "Duplicate Certificate",
-    description: "Replace a lost or missing vehicle registration certificate with guided document capture.",
+    description: "Recover a lost or missing registration certificate with a guided online submission.",
     href: "/apply?service=duplicate-certificate",
     available: "Available now",
   },
   {
     title: "Change of Ownership",
-    description: "Prepare the ownership-transfer documents and mandate details for Gauteng vehicle transfers.",
+    description: "Handle the transfer paperwork with a streamlined guided flow for Gauteng vehicle transfers.",
     href: "/apply?service=change-of-ownership",
     available: "Gauteng only",
   },
   {
     title: "Licence Renewal",
-    description: "Start a guided renewal request with vehicle details, address confirmation and payment follow-up.",
+    description: "Renew a licence with the documents and payment steps clearly laid out.",
     href: "/apply?service=licence-renewal",
     available: "Gauteng only",
   },
@@ -38,9 +38,9 @@ const services = [
 
 const processSteps = [
   { icon: FileText, label: "Choose your service", text: "Select the vehicle document service you need." },
-  { icon: IdCard, label: "Confirm your details", text: "Capture client, ownership and vehicle information." },
-  { icon: PenLine, label: "Sign digitally", text: "Review the populated mandate form and sign on your phone." },
-  { icon: ClipboardCheck, label: "Submit for review", text: "Upload documents so License Hub can process the request." },
+  { icon: IdCard, label: "Share the details", text: "Tell us who the vehicle belongs to and share the key details." },
+  { icon: PenLine, label: "Sign and continue", text: "Review the populated mandate form and sign on your phone." },
+  { icon: ClipboardCheck, label: "Upload and submit", text: "Add the required documents so we can review your request." },
 ];
 
 const documents = [
@@ -111,11 +111,10 @@ export default function Home() {
                 The License Hub
               </h1>
               <p className="mt-4 max-w-xl text-xl font-black uppercase leading-7 text-white">
-                In a world full of choices, thank you for choosing us.
+                Simple, guided vehicle document help.
               </p>
               <p className="mt-6 max-w-xl text-base leading-8 text-white/76">
-                License Hub helps you start duplicate certificate, ownership and licence admin requests online, with the
-                right documents collected before the team reviews your application.
+                Start online, upload the documents we need, sign on your phone, and let the team handle the rest.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -129,7 +128,7 @@ export default function Home() {
                   href="#services"
                   className="border border-white/45 px-5 py-3 text-sm font-semibold text-white"
                 >
-                  View services
+                  See how it works
                 </a>
               </div>
             </div>
@@ -137,9 +136,9 @@ export default function Home() {
 
           <div className="grid gap-3 pb-4 sm:grid-cols-3">
             {[
-              ["Digital mandate", "Review and sign from your phone."],
-              ["Document guidance", "Know what to upload before submitting."],
-              ["Admin review", "Your request lands in the License Hub workspace."],
+              ["Guided application", "Follow a simple step-by-step flow."],
+              ["Document guidance", "See exactly what to upload before you start."],
+              ["Team review", "We check the submission and keep things moving."],
             ].map(([title, text]) => (
               <div key={title} className="border border-white/14 bg-[#111719]/70 p-4 backdrop-blur">
                 <p className="font-semibold">{title}</p>
@@ -153,11 +152,11 @@ export default function Home() {
       <section id="services" className="border-b border-[#3a4349] bg-[#12181c]">
         <div className="mx-auto grid max-w-7xl gap-6 px-5 py-12 sm:px-8 lg:grid-cols-[0.75fr_1.25fr] lg:px-10">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#ff9f0a]">What License Hub Does</p>
-            <h2 className="mt-3 text-3xl font-black uppercase">Start the right vehicle admin request.</h2>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#ff9f0a]">How License Hub helps</p>
+            <h2 className="mt-3 text-3xl font-black uppercase">Choose the request you need and we&apos;ll guide the rest.</h2>
             <p className="mt-4 leading-7 text-white/68">
-              The application flow captures your service, ownership scenario, vehicle details, required documents and
-              signed mandate so the team can review a complete submission.
+              The application flow captures your service, ownership details, vehicle information, required documents and
+              signed mandate so you can submit everything in one place.
             </p>
           </div>
 
@@ -184,8 +183,8 @@ export default function Home() {
       <section className="tlh-metal-bg text-[#111719]">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-12 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-10">
           <div className="tlh-panel p-6">
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#e87900]">How It Flows</p>
-            <h2 className="mt-3 text-3xl font-black uppercase">From landing page to application in a few clear steps.</h2>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#e87900]">How it works</p>
+            <h2 className="mt-3 text-3xl font-black uppercase">A few clear steps to get your application moving.</h2>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {processSteps.map((step, index) => {
                 const Icon = step.icon;
@@ -207,7 +206,7 @@ export default function Home() {
           <aside className="tlh-dark-panel p-6">
             <div className="flex items-center gap-3">
               <ShieldCheck className="h-7 w-7 text-[#ff9f0a]" />
-              <h2 className="text-2xl font-black uppercase">What to have ready</h2>
+              <h2 className="text-2xl font-black uppercase">What to prepare</h2>
             </div>
             <div className="mt-6 grid gap-4">
               {documents.map((document) => (
@@ -228,7 +227,7 @@ export default function Home() {
             <div>
               <h3 className="font-semibold">Vehicle details captured once</h3>
               <p className="mt-2 text-sm leading-6 text-[#53615c]">
-                Registration, VIN or chassis, make and model flow into the mandate form.
+                Registration, VIN or chassis, make and model flow into the mandate form automatically.
               </p>
             </div>
           </div>
@@ -244,7 +243,7 @@ export default function Home() {
           <div className="flex gap-4">
             <BadgeCheck className="h-7 w-7 shrink-0 text-[#e87900]" />
             <div>
-              <h3 className="font-semibold">Ready for admin follow-up</h3>
+              <h3 className="font-semibold">Ready for our team</h3>
               <p className="mt-2 text-sm leading-6 text-[#53615c]">
                 Submitted applications are saved for review, payment confirmation and processing.
               </p>
@@ -258,7 +257,7 @@ export default function Home() {
           <div>
             <h2 className="text-3xl font-semibold">Ready to start?</h2>
             <p className="mt-2 text-sm leading-6 text-white/72">
-              Choose your service, confirm the details and submit the documents License Hub needs.
+              Choose your service, confirm the details and send the documents we need to get started.
             </p>
           </div>
           <Link

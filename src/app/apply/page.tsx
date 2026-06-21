@@ -33,22 +33,22 @@ export default async function ApplyPage({
                 T<span className="tlh-l">L</span>H
               </p>
               <h1 className="mt-5 max-w-2xl text-4xl font-black uppercase leading-tight text-white sm:text-5xl">
-                Start your vehicle admin application
+                Start your vehicle request
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-white/72">
-                Choose the product or service you need first. We will then confirm who you are, how the vehicle is
-                legally owned, which documents apply, and what needs to be signed or paid.
+                Choose the service you need and we&apos;ll guide you through the details, documents, signature and payment
+                in one smooth flow.
               </p>
             </div>
           </div>
 
           <aside className="tlh-dark-panel p-4 sm:p-5">
-            <h2 className="text-lg font-black uppercase">What To Expect</h2>
+            <h2 className="text-lg font-black uppercase">What to expect</h2>
             <div className="mt-5 grid gap-3 text-sm">
               {[
-                ["1", "Tell us what you need", "Choose the service and confirm who the vehicle belongs to."],
-                ["2", "Confirm the paperwork", "We show only the documents that apply to that ownership scenario."],
-                ["3", "Sign and pay", "Upload the files, sign the mandate, then move to payment."],
+                ["1", "Choose your service", "Pick the request you want to submit."],
+                ["2", "Complete the details", "We show only the documents that match your situation."],
+                ["3", "Sign and pay", "Upload the files, sign the mandate, then continue to payment."],
               ].map(([step, title, text]) => (
                 <div key={title} className="border border-white/12 bg-white/8 p-3">
                   <div className="flex items-start gap-3">

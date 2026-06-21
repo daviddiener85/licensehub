@@ -100,10 +100,10 @@ export default async function ApplicationSubmittedPage({
   const paymentRequested = quoteApprovedAwaitingPayment || additionalChargeRaised;
   const pageTitle = applicationProcessing ? "Payment received" : additionalChargeRaised ? "Additional charge required" : "Application received";
   const pageSummary = applicationProcessing
-    ? "License Hub is processing your order. Please watch WhatsApp for progress updates from our team."
+    ? "Your request is now with License Hub. Please watch WhatsApp for progress updates from our team."
     : additionalChargeRaised
       ? "An additional charge has been added to your application. Please complete payment so we can continue."
-    : "The application, supporting documents, and mandate form were saved successfully.";
+    : "Your application, supporting documents, and mandate form were saved successfully.";
   const eftUploadAcknowledged = eftUploaded === "1";
   const chargeLabel =
     payment?.type === PaymentType.ADDITIONAL_CHARGE ? "Additional charge" : "Payment instruction";
@@ -164,10 +164,10 @@ export default async function ApplicationSubmittedPage({
         {applicationProcessing ? (
           <div className="mt-6 border border-[#1f7a4d] bg-[#f4fbf7] p-4">
             <p className="text-xs font-semibold uppercase text-[#1f7a4d]">Payment received</p>
-            <h2 className="mt-2 text-xl font-semibold">License Hub is processing your order</h2>
+            <h2 className="mt-2 text-xl font-semibold">Your request is being processed</h2>
             <p className="mt-2 text-sm leading-6 text-[#52615b]">
-              Your application is now with License Hub for processing. Please keep an eye on WhatsApp for progress
-              updates and any requests from our team.
+              Your request is now with License Hub for processing. Please keep an eye on WhatsApp for progress updates
+              and any requests from our team.
             </p>
             {returnedFromPaystack && !paymentConfirmed ? (
               <p className="mt-3 border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
@@ -230,7 +230,7 @@ export default async function ApplicationSubmittedPage({
                       <p className="text-sm leading-6 text-[#52615b]">
                         Please complete EFT payment and use reference{" "}
                         <span className="font-semibold">{payment.reference}</span>.
-                        Admin will confirm payment before review continues.
+                        Our team will confirm payment before review continues.
                       </p>
                   {retentionSetting?.eftBankName &&
                   retentionSetting?.eftAccountNumber &&
@@ -283,7 +283,7 @@ export default async function ApplicationSubmittedPage({
                           ? "Your proof of payment is uploaded and waiting for admin confirmation."
                           : "Upload your EFT proof below so admin can verify payment."}
                       </li>
-                      <li>Admin confirms payment, then your application moves to document review.</li>
+                      <li>Our team confirms payment, then your application moves to document review.</li>
                     </ol>
                   </details>
                   {eftUploadAcknowledged ? (
@@ -320,7 +320,7 @@ export default async function ApplicationSubmittedPage({
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/apply" className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]">
-            Start another application
+            Start another request
           </Link>
           <Link href="/" className="border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
             Back to website

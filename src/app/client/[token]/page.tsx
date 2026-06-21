@@ -227,12 +227,12 @@ export default async function ClientApplicationPage({
             <div>
               <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub</p>
               <h1 className="mt-8 max-w-2xl text-4xl font-semibold leading-tight text-[#111815] sm:text-5xl">
-                Let&apos;s work out what this application needs
+                Let&apos;s work out what this request needs
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-[#52615b]">
                 You have been sent this secure link because a duplicate vehicle registration certificate may need to be
                 requested. Before we ask for uploads or signatures, we need to understand who you are and how the vehicle
-                is legally owned.
+                is owned.
               </p>
             </div>
 
@@ -244,17 +244,17 @@ export default async function ClientApplicationPage({
                 Proceed
               </a>
               <span className="border border-[#d8d1c3] px-5 py-3 text-sm font-semibold text-[#52615b]">
-                Secure client link
+                Secure customer link
               </span>
             </div>
           </div>
 
           <aside className="border border-[#d8d1c3] bg-[#fffdf8] p-4 sm:p-5">
-            <h2 className="text-lg font-semibold">What Happens Here</h2>
+            <h2 className="text-lg font-semibold">What happens next</h2>
             <div className="mt-5 grid gap-3 text-sm">
               {[
                 ["1", "Confirm the request", "We first work out who is applying and who owns the vehicle."],
-                ["2", "See the document list", "You only see the documents that match that ownership setup."],
+                ["2", "See the document list", "You only see the documents that match your ownership setup."],
                 ["3", "Continue when ready", "After that, you can upload files, sign, and move forward."],
               ].map(([step, title, text]) => (
                 <div key={title} className="border border-[#eee8dc] bg-white p-3">
