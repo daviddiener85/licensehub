@@ -2,6 +2,51 @@
 
 This repository keeps a dated record of product/specification decisions and implementation work so changes can be traced over time.
 
+## 2026-07-02
+
+### Mandate PDF and upload hardening
+
+- Fixed `entityDisplayName` being dropped on mandate PDF resubmission: `mandatePdfApplicationSelect` never selected the column, so `submitMandateFormCapture`, `resubmitSupportingDocuments`, and `resubmitMandateSignature` were hardcoding it to `null`. Company/trust and deceased-estate mandate PDFs regenerated after any resubmission with generic fallback text ("the company or trust" / "the deceased estate") instead of the real entity name.
+- Added a defensive character cap on the entity name used in the mandate declaration text so an unusually long name can't wrap into enough extra lines to push the fixed-position Vehicle Details/Signature/ID-photo sections off the page.
+- Raised the Server Actions request body limit from the Next.js default (1MB) via `experimental.serverActions.bodySizeLimit`, and added explicit per-file upload size validation with a clear error message. Real phone-camera photos (2-8MB typical) were exceeding the previous default with no app-level handling.
+- Changed `verifyMetaWebhookSignature` to fail closed instead of open when `WHATSAPP_APP_SECRET` is unset, so unsigned WhatsApp delivery-status webhook calls are rejected rather than accepted by default.
+- Removed the unused `WHATSAPP_WEBHOOK_SECRET` env var (dead since introduction; only `WHATSAPP_APP_SECRET` is ever read).
+
+### Work log and UAT gap log caught up
+
+- Backfilled this log for commits from 2026-06-17 through 2026-06-21 that had landed without an entry.
+- Verified two `docs/uat/uat-gap-log.md` candidate improvements (admin checklist required/optional marker, EFT proof success confirmation) against current code and marked them resolved; they were already shipped in the 2026-06-16 UAT polish pass but never marked off.
+
+## 2026-06-21
+
+### Public service catalogue bootstrap and preselection
+
+- Added `change-of-ownership` and `licence-renewal` fallback service definitions alongside the existing Duplicate Certificate fallback, and made `/apply` and `listActiveServices` upsert these fallback services into the database automatically so the public site never hits a missing-service error for the three advertised services.
+- Linked each service card on the public landing page directly to `/apply?service=<slug>`, and made `/apply` read that query param to preselect the matching service in the intake flow instead of always defaulting to Duplicate Certificate.
+- Treated any service with a zero base price as a quote-flow service (in addition to the existing `license-fees`/`licence-fees` slug check).
+
+### Intake submission hardening
+
+- Fixed a bug where a licence disk photo (or other upload) selected earlier in the flow could be lost from the submitted `FormData` on final submit; uploaded files are now tracked in a single `uploadedFiles` map keyed by field name and re-attached to `FormData` for every upload field before submission, not just the licence disk photo.
+- Added `scripts/regression/client-intake-payment-submit.ts` and a `test:intake-payment` npm script as a repeatable end-to-end check of the public intake-to-payment path.
+
+### Legal policy pages added
+
+- Added draft `/terms-and-conditions` and `/cancellations` pages, a shared `LegalPageShell` layout, and a `PublicFooter` component linking to both, surfaced from the landing page, `/apply`, and the client status page. Copy is a first draft and has not had a legal review pass.
+
+### Customer-facing copy tightened
+
+- Rewrote landing-page hero copy, service descriptions, and process-step labels, plus `/apply` and `/apply/submitted` copy, for a more direct tone.
+
+### Admin workspace refined
+
+- Replaced the static admin metrics row with clickable queue cards (Needs quote, Payment follow-up, Document review, Ready to approve, At supplier, Returning) that link straight into the matching filtered view.
+- Added a `view` query param (`overview`/`documents`/`payment`/`supplier`/`messages`/`audit`) to deep-link into a specific panel of the selected application, and a combined "payment follow-up" filter bucket covering EFT/Paystack/additional-charge pending states.
+- Consolidated the admin application list columns (dropped separate Payment/Documents/Status columns in favor of a single "Next action" column).
+- Normalized `appBaseUrl`/`requestBaseUrl` output through a real `URL` parse and canonicalized the bare `lichub.co.za` host to `www.lichub.co.za`.
+- Added a shared `SettingsActionButton` (disables and shows a pending label during submit) and made settings actions (`createService`, `updateService`, `updateRetentionSetting`, `updateAdminWorkspaceSetting`, `createUser`, `updateUser`, `updateUserStatus`) redirect back to `/admin/settings` with a `notice` query param instead of silently completing.
+- Kept existing filter/query params intact when selecting an application from the admin list (`AdminApplicationCell` now merges into the current search params instead of replacing them).
+
 ## 2026-06-17
 
 ### Client status link formalized
@@ -16,6 +61,27 @@ This repository keeps a dated record of product/specification decisions and impl
 - Added the regression command to the main README and UAT README so it becomes part of the normal pre-release verification path.
 - Added a GitHub Actions CI workflow to run lint, production build, and the seeded regression suite automatically on push, pull request, and manual dispatch.
 - Hardened additional-charge payment reference generation so repeated local/UAT testing does not fail on duplicate Paystack transaction references.
+
+### Mobile upload compatibility
+
+- Removed the `capture="environment"` restriction from ID photo, licence disk, and supporting-document file inputs so mobile users can pick an existing gallery photo instead of being forced straight into the camera.
+- Extended accepted upload MIME types to include `image/heic`/`image/heif` alongside JPEG and PNG across the intake flow, mandate capture form, and EFT proof upload form.
+
+### Launch payment routing corrections
+
+- Reverted automatic Paystack selection for quotes and additional charges back to EFT-only by default (`paymentMethodForLaunch` removed), since Paystack is still awaiting provider review. The admin "Add Charge" and "Publish Quote" forms now let admin explicitly choose EFT or Paystack per charge when Paystack is configured.
+- Added `requestBaseUrl()` to derive the live request host from `x-forwarded-host`/`x-forwarded-proto` headers, and used it for Paystack callback URLs so callbacks return to the actual deployed domain instead of a configured fallback that could point at the wrong host.
+- Fixed the public intake success flow: `createPublicApplicationIntake` now returns a `{ status: "success", redirectTo }` state and the client performs the redirect via `window.location.assign`, instead of calling `redirect()` from inside a try/catch, which was being caught and surfaced as a submission error on some EFT submissions.
+
+### Admin document preview fixes
+
+- Switched the PDF preview from an `<iframe>` to an `<object>` element with a fallback message ("This file can't be previewed here... Use Open original") for browsers that can't render embedded PDFs.
+- Marked the image preview `Image` component `unoptimized` (later replaced with a plain `<img>` the same day) so uploaded originals render reliably instead of failing through Next's image optimizer.
+
+### ID photo review workflow
+
+- Added a first-class `DocumentType.ID_PHOTO` document record for mandate ID photos (previously tracked only implicitly via `MandateFormSubmission` presence), so ID photos now go through the same admin accept/reject/pending review pipeline as other required documents.
+- Added the `/uploads/[...path]` route (path-traversal guarded against the upload root) to serve files from local disk storage, since admin previews needed a stable serving path. Note: this route currently has no authentication check of its own — access relies on the URL (a `cuid`-keyed application folder) not being guessed or leaked.
 
 ## 2026-06-16
 

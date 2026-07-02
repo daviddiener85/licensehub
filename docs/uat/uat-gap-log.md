@@ -1,5 +1,13 @@
 # UAT Gap Log
 
+## 2026-07-02 - Candidate Improvement Resolution Check
+
+Verified against current code (not a browser UAT pass) while auditing what remains before launch.
+
+- RESOLVED: "Add 'required vs optional' marker on admin checklist rows" — implemented as the `scope: "Required" | "Conditional"` field rendered per checklist row (`src/app/admin/page.tsx`), shipped in the 2026-06-16 UAT polish pass (see `docs/WORK_LOG.md`).
+- RESOLVED: "Add toast/success message after EFT proof upload" — implemented as an inline success banner ("Your EFT proof has been uploaded.") plus latest-uploaded-proof filename display on `/apply/submitted` (`src/app/apply/submitted/page.tsx`), shipped in the same 2026-06-16 pass.
+- STILL OPEN: "Add explicit labels for `OTHER` supporting docs in admin based on entity type and expected slot" — no matching implementation found.
+
 ## 2026-05-24 - Initial Baseline
 
 Status: Not executed manually yet in browser. Log below captures known or likely gaps to validate during UAT execution.

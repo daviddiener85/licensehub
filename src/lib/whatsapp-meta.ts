@@ -123,7 +123,7 @@ export function verifyMetaWebhookSignature(rawBody: string, signatureHeader: str
   const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
 
   if (!appSecret) {
-    return true;
+    return false;
   }
 
   if (!signatureHeader?.startsWith("sha256=")) {

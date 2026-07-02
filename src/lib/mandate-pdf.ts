@@ -17,8 +17,14 @@ type MandatePdfInput = {
   idPhotoMimeType?: string;
 };
 
+const maxEntityNameLength = 80;
+
 function mandateDeclarationText(input: MandatePdfInput) {
-  const entityName = input.entityDisplayName?.trim();
+  const rawEntityName = input.entityDisplayName?.trim();
+  const entityName =
+    rawEntityName && rawEntityName.length > maxEntityNameLength
+      ? `${rawEntityName.slice(0, maxEntityNameLength - 1)}…`
+      : rawEntityName;
 
   if (input.entityType === ClientEntityType.COMPANY_OR_TRUST) {
     return `I, ${input.clientName}, acting on behalf of ${entityName || "the company or trust"}, hereby request License Hub's assistance in obtaining a duplicate vehicle registration document.`;

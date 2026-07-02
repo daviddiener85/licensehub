@@ -72,6 +72,7 @@ type ApplicationBaseRowInput = {
 const mandatePdfApplicationSelect = {
   id: true,
   publicToken: true,
+  entityDisplayName: true,
   registrationNumber: true,
   vin: true,
   vehicleMake: true,
@@ -184,6 +185,13 @@ function safeFileName(fileName: string) {
 
 const imageUploadTypes = ["image/jpeg", "image/png", "image/heic", "image/heif"] as const;
 const documentUploadTypes = [...imageUploadTypes, "application/pdf"] as const;
+const maxUploadSizeBytes = 12 * 1024 * 1024;
+
+function assertUploadSize(file: File, label: string) {
+  if (file.size > maxUploadSizeBytes) {
+    throw new Error(`${label} must be smaller than 12MB.`);
+  }
+}
 
 function getSignatureDataUrl(formData: FormData) {
   const signatureDataUrl = formData.get("signatureDataUrl");
@@ -206,6 +214,8 @@ function getIdPhoto(formData: FormData) {
     throw new Error("The ID photo must be an image file.");
   }
 
+  assertUploadSize(idPhoto, "The ID photo");
+
   return idPhoto;
 }
 
@@ -219,6 +229,8 @@ function getOptionalIdPhoto(formData: FormData) {
   if (!imageUploadTypes.includes(idPhoto.type as (typeof imageUploadTypes)[number])) {
     throw new Error("The ID photo must be an image file.");
   }
+
+  assertUploadSize(idPhoto, "The ID photo");
 
   return idPhoto;
 }
@@ -237,6 +249,8 @@ function getRequiredFile(formData: FormData, fieldName: string, label: string, a
   if (!allowedTypes.includes(file.type)) {
     throw new Error(`${label} must be one of the accepted file types.`);
   }
+
+  assertUploadSize(file, label);
 
   return file;
 }
@@ -1320,6 +1334,7 @@ export async function createPublicApplicationIntake(
     const supportingDocuments = formData
       .getAll("supportingDocument")
       .filter((value): value is File => value instanceof File && value.size > 0);
+    supportingDocuments.forEach((file) => assertUploadSize(file, "Each supporting document"));
     getRequiredCheckbox(formData, "popiaConsent", "Personal information consent");
     const applicationId = await nextApplicationId();
     const publicToken = randomUUID();
@@ -2497,10 +2512,7 @@ export async function submitMandateFormCapture(formData: FormData) {
   );
 
   await writeMandatePdf(
-    {
-      ...application,
-      entityDisplayName: null,
-    },
+    application,
     signatureDataUrl,
     savedIdPhoto.idPhotoBytes,
     idPhoto.type,
@@ -2576,10 +2588,7 @@ export async function resubmitSupportingDocuments(formData: FormData) {
     },
   });
   await writeMandatePdf(
-    {
-      ...application,
-      entityDisplayName: null,
-    },
+    application,
     application.mandateFormSubmission.signatureDataUrl,
     savedIdPhoto.idPhotoBytes,
     idPhoto.type,
@@ -2612,10 +2621,7 @@ export async function resubmitMandateSignature(formData: FormData) {
 
   const idPhotoBytes = await readFile(storageKeyPath(application.mandateFormSubmission.idPhotoStorageKey));
   await writeMandatePdf(
-    {
-      ...application,
-      entityDisplayName: null,
-    },
+    application,
     signatureDataUrl,
     idPhotoBytes,
     application.mandateFormSubmission.idPhotoMimeType,
