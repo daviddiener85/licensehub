@@ -31,6 +31,7 @@ import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
 import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
+import { isMetaProviderEnabled, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
 
 export type PublicIntakeSubmissionState = {
   status: "idle" | "success" | "error";
@@ -669,6 +670,47 @@ function refreshWorkflowPages() {
   revalidatePath("/admin");
   revalidatePath("/supplier");
   revalidatePath("/client/[token]", "page");
+}
+
+async function dispatchWhatsAppCommunication(communication: {
+  id: string;
+  recipientAddress: string;
+  body: string;
+}) {
+  if (!isMetaProviderEnabled()) {
+    return;
+  }
+
+  try {
+    const result = await sendMetaWhatsAppText({
+      to: communication.recipientAddress,
+      body: communication.body,
+      previewUrl: true,
+    });
+
+    await prisma.communication.update({
+      where: { id: communication.id },
+      data: {
+        status: CommunicationStatus.SENT,
+        sentAt: new Date(),
+        providerMessageId: result.providerMessageId,
+        providerPayload: result.raw,
+        errorMessage: null,
+        failedAt: null,
+      },
+    });
+  } catch (error) {
+    await prisma.communication.update({
+      where: { id: communication.id },
+      data: {
+        status: CommunicationStatus.FAILED,
+        failedAt: new Date(),
+        errorMessage: error instanceof Error ? error.message : "Unknown Meta dispatch error",
+      },
+    });
+
+    throw error;
+  }
 }
 
 
@@ -1504,7 +1546,7 @@ export async function createPublicApplicationIntake(
       "",
       `Track your application here: ${clientStatusLink(publicToken)}.`,
     ].join("\n");
-    await prisma.communication.create({
+    const communication = await prisma.communication.create({
       data: {
         applicationId,
         channel: CommunicationChannel.WHATSAPP,
@@ -1516,7 +1558,13 @@ export async function createPublicApplicationIntake(
         templateKey: "application-received-confirmation",
         body: whatsappConfirmationMessage,
       },
+      select: {
+        id: true,
+        recipientAddress: true,
+        body: true,
+      },
     });
+    await dispatchWhatsAppCommunication(communication);
     const savedIdPhoto = await saveMandateIdPhoto(applicationId, identityDocumentForStorage);
     await saveMandateIdPhotoDocument(applicationId, identityDocumentForStorage, savedIdPhoto);
 
@@ -1721,7 +1769,7 @@ export async function publishAdminQuote(formData: FormData) {
     },
   });
 
-  await prisma.communication.create({
+  const communication = await prisma.communication.create({
     data: {
       applicationId,
       channel: CommunicationChannel.WHATSAPP,
@@ -1736,7 +1784,13 @@ export async function publishAdminQuote(formData: FormData) {
         application.publicToken,
       ),
     },
+    select: {
+      id: true,
+      recipientAddress: true,
+      body: true,
+    },
   });
+  await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
   revalidatePath("/admin");
@@ -1818,7 +1872,7 @@ export async function raiseAdditionalCharge(formData: FormData) {
     },
   });
 
-  await prisma.communication.create({
+  const communication = await prisma.communication.create({
     data: {
       applicationId,
       channel: CommunicationChannel.WHATSAPP,
@@ -1835,7 +1889,13 @@ export async function raiseAdditionalCharge(formData: FormData) {
         application.publicToken,
       ),
     },
+    select: {
+      id: true,
+      recipientAddress: true,
+      body: true,
+    },
   });
+  await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
   revalidatePath("/admin");
@@ -1932,7 +1992,7 @@ export async function approveClientQuote(formData: FormData) {
       },
     },
   });
-  await prisma.communication.create({
+  const communication = await prisma.communication.create({
     data: {
       applicationId,
       channel: CommunicationChannel.WHATSAPP,
@@ -1949,7 +2009,13 @@ export async function approveClientQuote(formData: FormData) {
         application.publicToken,
       ),
     },
+    select: {
+      id: true,
+      recipientAddress: true,
+      body: true,
+    },
   });
+  await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
   revalidatePath(`/apply/submitted?application=${applicationId}`);
@@ -2113,7 +2179,7 @@ export async function requestResubmission(formData: FormData) {
     },
   });
 
-  await prisma.communication.create({
+  const communication = await prisma.communication.create({
     data: {
       applicationId,
       channel: CommunicationChannel.WHATSAPP,
@@ -2125,7 +2191,13 @@ export async function requestResubmission(formData: FormData) {
       templateKey: "documents-resubmission-request",
       body: withClientStatusLink(whatsappMessage.trim(), application.publicToken),
     },
+    select: {
+      id: true,
+      recipientAddress: true,
+      body: true,
+    },
   });
+  await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
 }
@@ -2435,7 +2507,7 @@ export async function sendClientMessage(formData: FormData) {
     },
   });
 
-  await prisma.communication.create({
+  const communication = await prisma.communication.create({
     data: {
       applicationId,
       channel: CommunicationChannel.WHATSAPP,
@@ -2447,7 +2519,13 @@ export async function sendClientMessage(formData: FormData) {
       templateKey: "manual-admin-message",
       body: withClientStatusLink(body.trim(), application.publicToken),
     },
+    select: {
+      id: true,
+      recipientAddress: true,
+      body: true,
+    },
   });
+  await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
 }
@@ -2469,7 +2547,7 @@ export async function resendClientStatusLink(formData: FormData) {
     },
   });
 
-  await prisma.communication.create({
+  const communication = await prisma.communication.create({
     data: {
       applicationId,
       channel: CommunicationChannel.WHATSAPP,
@@ -2481,7 +2559,13 @@ export async function resendClientStatusLink(formData: FormData) {
       templateKey: "client-status-link-resend",
       body: `Hi ${application.client.firstName}, here is your License Hub status link for application ${applicationId}: ${clientStatusLink(application.publicToken)}`,
     },
+    select: {
+      id: true,
+      recipientAddress: true,
+      body: true,
+    },
   });
+  await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
 }
