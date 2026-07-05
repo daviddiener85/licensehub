@@ -917,6 +917,7 @@ export default async function AdminPage({
                 <Link
                   key={view}
                   href={adminHref(baseAdminParams, { view })}
+                  scroll={false}
                   className={[
                     "border px-3 py-2",
                     selectedView === view
@@ -1355,6 +1356,11 @@ export default async function AdminPage({
                     <p className="mt-1 text-xs text-[#6b5e4f]">From {message.recipientAddress}</p>
                   ) : null}
                   <p className="mt-2 text-sm leading-6 text-[#26312d]">{message.body}</p>
+                  {message.status === "FAILED" ? (
+                    <p className="mt-2 border border-[#f1c2c0] bg-[#fff5f4] px-3 py-2 text-xs text-[#b3261e]">
+                      This WhatsApp send failed{message.errorMessage ? `: ${message.errorMessage}` : "."}
+                    </p>
+                  ) : null}
                 </div>
               ))}
               {selectedApplication.communications.length === 0 ? (

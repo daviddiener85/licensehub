@@ -81,6 +81,7 @@ type ApplicationCommunicationRecord = {
   recipientAddress: string;
   body: string;
   status: CommunicationStatus;
+  errorMessage: string | null;
   createdAt: Date;
   receivedAt: Date | null;
   sentAt: Date | null;
@@ -253,6 +254,7 @@ const applicationCommunicationSelect = {
   recipientAddress: true,
   body: true,
   status: true,
+  errorMessage: true,
   createdAt: true,
   receivedAt: true,
   sentAt: true,
