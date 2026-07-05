@@ -65,16 +65,32 @@ async function resolveApplicationForWhatsappNumber(number: string) {
       cellphone: string;
     }>
   >`
+    WITH application_contacts AS (
+      SELECT
+        a."id",
+        a."publicToken",
+        c."firstName",
+        c."surname",
+        c."cellphone",
+        a."createdAt",
+        CASE
+          WHEN regexp_replace(c."cellphone", '\\D', '', 'g') LIKE '0%' AND length(regexp_replace(c."cellphone", '\\D', '', 'g')) = 10
+            THEN '27' || substring(regexp_replace(c."cellphone", '\\D', '', 'g') from 2)
+          ELSE regexp_replace(c."cellphone", '\\D', '', 'g')
+        END AS normalized_cellphone
+      FROM "Application" a
+      INNER JOIN "Client" c ON c."id" = a."clientId"
+    )
     SELECT
-      a."id",
-      a."publicToken",
-      c."firstName",
-      c."surname",
-      c."cellphone"
-    FROM "Application" a
-    INNER JOIN "Client" c ON c."id" = a."clientId"
-    WHERE regexp_replace(c."cellphone", '\\D', '', 'g') = ${normalizedNumber}
-    ORDER BY a."createdAt" DESC
+      "id",
+      "publicToken",
+      "firstName",
+      "surname",
+      "cellphone",
+      "createdAt"
+    FROM application_contacts
+    WHERE normalized_cellphone = ${normalizedNumber}
+    ORDER BY "createdAt" DESC
     LIMIT 1
   `;
 
