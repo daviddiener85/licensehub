@@ -24,13 +24,14 @@ function fillTemplate(body: string, clientFirstName: string, applicationId: stri
   return body.replaceAll("{{firstName}}", clientFirstName).replaceAll("{{applicationId}}", applicationId);
 }
 
-function WhatsAppSubmitButton() {
+function WhatsAppSubmitButton({ disabled }: { disabled?: boolean }) {
   const { pending } = useFormStatus();
+  const isDisabled = Boolean(disabled) || pending;
 
   return (
     <button
       className="inline-flex items-center justify-center gap-2 border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:cursor-wait disabled:opacity-80"
-      disabled={pending}
+      disabled={isDisabled}
       type="submit"
     >
       <span
@@ -52,9 +53,34 @@ export function AdminWhatsappComposer({
   templates,
 }: AdminWhatsappComposerProps) {
   const [sendState, formAction] = useActionState(action, { status: "idle", message: "", sentAt: 0 });
-  const [body, setBody] = useState(() =>
-    sendState.sentAt > 0 ? "" : fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId),
+
+  return (
+    <AdminWhatsappComposerBody
+      key={sendState.sentAt}
+      action={formAction}
+      applicationId={applicationId}
+      clientFirstName={clientFirstName}
+      templates={templates}
+      resetKey={sendState.sentAt}
+    />
   );
+}
+
+function AdminWhatsappComposerBody({
+  action,
+  applicationId,
+  clientFirstName,
+  templates,
+  resetKey,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  applicationId: string;
+  clientFirstName: string;
+  templates: ReadonlyArray<WhatsAppTemplate>;
+  resetKey: number;
+}) {
+  const [body, setBody] = useState(() => (resetKey > 0 ? "" : fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId)));
+  const canSend = body.trim().length > 0;
 
   const templateButtons = useMemo(
     () =>
@@ -66,7 +92,7 @@ export function AdminWhatsappComposer({
   );
 
   return (
-    <form action={formAction} key={sendState.sentAt}>
+    <form action={action}>
       <input type="hidden" name="applicationId" value={applicationId} />
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -91,8 +117,9 @@ export function AdminWhatsappComposer({
       />
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-[#6b5e4f]">Messages are stored against the application audit record.</p>
-        <WhatsAppSubmitButton />
+        <WhatsAppSubmitButton disabled={!canSend} />
       </div>
+      {!canSend ? <p className="mt-2 text-xs text-[#8a6a2a]">Type a message before sending.</p> : null}
     </form>
   );
 }

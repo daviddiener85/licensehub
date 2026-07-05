@@ -4,6 +4,7 @@ import {
   CommunicationStatus,
   Prisma,
 } from "@/generated/prisma/client";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import {
   extractMetaInboundMessages,
@@ -173,7 +174,14 @@ export async function POST(request: Request) {
       },
     });
 
+    revalidatePath("/admin");
+    revalidatePath(`/client/${application.publicToken}`);
+
     inboundProcessed += 1;
+  }
+
+  if (statuses.length > 0) {
+    revalidatePath("/admin");
   }
 
   return Response.json({
