@@ -1348,7 +1348,10 @@ export default async function AdminPage({
                       </span>
                     </span>
                     <span>
-                      {(message.sentAt ?? message.receivedAt ?? message.createdAt).toLocaleString("en-ZA")} ·{" "}
+                      {(message.sentAt ?? message.receivedAt ?? message.createdAt).toLocaleString("en-ZA", {
+                        timeZone: "Africa/Johannesburg",
+                      })}{" "}
+                      ·{" "}
                       {message.status.toLowerCase()}
                     </span>
                   </div>
