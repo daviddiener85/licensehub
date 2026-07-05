@@ -1340,11 +1340,20 @@ export default async function AdminPage({
               {selectedApplication.communications.map((message) => (
                 <div key={message.id} className="border border-[#eee8dc] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#6b5e4f]">
-                    <span>{message.direction === "OUTBOUND" ? "License Hub Admin" : message.recipientName}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span>{message.direction === "OUTBOUND" ? "License Hub Admin" : message.recipientName}</span>
+                      <span className="border border-[#d8d1c3] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[#8a6a2a]">
+                        {message.direction === "OUTBOUND" ? "Sent" : "Received"}
+                      </span>
+                    </span>
                     <span>
-                      {message.createdAt.toLocaleString("en-ZA")} · {message.status.toLowerCase()}
+                      {(message.sentAt ?? message.receivedAt ?? message.createdAt).toLocaleString("en-ZA")} ·{" "}
+                      {message.status.toLowerCase()}
                     </span>
                   </div>
+                  {message.direction === "INBOUND" ? (
+                    <p className="mt-1 text-xs text-[#6b5e4f]">From {message.recipientAddress}</p>
+                  ) : null}
                   <p className="mt-2 text-sm leading-6 text-[#26312d]">{message.body}</p>
                 </div>
               ))}

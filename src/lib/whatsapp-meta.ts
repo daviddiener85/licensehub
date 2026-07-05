@@ -7,6 +7,14 @@ export type MetaSendResult = {
   raw: unknown;
 };
 
+export type MetaWhatsAppInboundMessage = {
+  providerMessageId: string;
+  from: string;
+  senderName: string;
+  body: string;
+  raw: unknown;
+};
+
 function requiredEnv(name: string) {
   const value = process.env[name]?.trim();
 
@@ -22,7 +30,8 @@ export function isMetaProviderEnabled() {
 }
 
 export function normalizeWhatsappNumber(input: string) {
-  const digits = input.replace(/\D/g, "");
+  const trimmed = input.trim();
+  const digits = trimmed.replace(/\D/g, "");
 
   if (!digits) {
     return "";
@@ -32,8 +41,8 @@ export function normalizeWhatsappNumber(input: string) {
     return `27${digits.slice(1)}`;
   }
 
-  if (digits.startsWith("+")) {
-    return digits.slice(1);
+  if (trimmed.startsWith("+")) {
+    return digits;
   }
 
   return digits;
@@ -186,4 +195,99 @@ export function extractMetaStatuses(payload: unknown): Array<{ providerMessageId
   }
 
   return statuses;
+}
+
+function extractTextBody(message: Record<string, unknown>) {
+  if (message.type === "text" && typeof message.text === "object" && message.text !== null) {
+    const text = message.text as Record<string, unknown>;
+
+    if ("body" in text) {
+      return String(text.body ?? "").trim();
+    }
+  }
+
+  if (
+    message.type === "interactive" &&
+    typeof message.interactive === "object" &&
+    message.interactive !== null &&
+    "button_reply" in message.interactive
+  ) {
+    const interactive = message.interactive as Record<string, unknown>;
+    const buttonReply = interactive.button_reply;
+
+    if (typeof buttonReply === "object" && buttonReply !== null) {
+      const reply = buttonReply as Record<string, unknown>;
+
+      if ("title" in reply) {
+        const title = String(reply.title ?? "").trim();
+        return title ? `[Interactive reply] ${title}` : "[Interactive reply]";
+      }
+    }
+  }
+
+  const type = typeof message.type === "string" && message.type.trim().length > 0 ? message.type.trim() : "message";
+  return `[${type}]`;
+}
+
+export function extractMetaInboundMessages(
+  payload: unknown,
+): Array<MetaWhatsAppInboundMessage> {
+  if (typeof payload !== "object" || payload === null || !("entry" in payload) || !Array.isArray(payload.entry)) {
+    return [];
+  }
+
+  const inboundMessages: Array<MetaWhatsAppInboundMessage> = [];
+
+  for (const entry of payload.entry) {
+    if (typeof entry !== "object" || entry === null || !("changes" in entry) || !Array.isArray(entry.changes)) {
+      continue;
+    }
+
+    for (const change of entry.changes) {
+      if (typeof change !== "object" || change === null || !("value" in change)) {
+        continue;
+      }
+
+      const value = change.value;
+      if (typeof value !== "object" || value === null || !("messages" in value) || !Array.isArray(value.messages)) {
+        continue;
+      }
+
+      const contacts = "contacts" in value && Array.isArray(value.contacts) ? value.contacts : [];
+
+      for (const message of value.messages) {
+        if (typeof message !== "object" || message === null) {
+          continue;
+        }
+
+        const record = message as Record<string, unknown>;
+        const providerMessageId = "id" in record ? String(record.id ?? "") : "";
+        const from = "from" in record ? String(record.from ?? "") : "";
+        const firstContact =
+          contacts.length > 0 && typeof contacts[0] === "object" && contacts[0] !== null
+            ? (contacts[0] as Record<string, unknown>)
+            : null;
+        const profile =
+          firstContact && "profile" in firstContact && typeof firstContact.profile === "object" && firstContact.profile !== null
+            ? (firstContact.profile as Record<string, unknown>)
+            : null;
+        const senderName = profile && "name" in profile ? String(profile.name ?? "").trim() : "";
+        const body = extractTextBody(record);
+
+        if (!providerMessageId || !from) {
+          continue;
+        }
+
+        inboundMessages.push({
+          providerMessageId,
+          from,
+          senderName: senderName || from,
+          body,
+          raw: record,
+        });
+      }
+    }
+  }
+
+  return inboundMessages;
 }

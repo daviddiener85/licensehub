@@ -4,6 +4,8 @@ import {
   ClientEntityType,
   DocumentStatus,
   DocumentType,
+  CommunicationDirection,
+  CommunicationStatus,
   PaymentMethod,
   PaymentStatus,
   PaymentType,
@@ -74,11 +76,14 @@ type ApplicationCommentRecord = {
 
 type ApplicationCommunicationRecord = {
   id: string;
-  direction: string;
+  direction: CommunicationDirection;
   recipientName: string;
+  recipientAddress: string;
   body: string;
-  status: string;
+  status: CommunicationStatus;
   createdAt: Date;
+  receivedAt: Date | null;
+  sentAt: Date | null;
 };
 
 type ApplicationStatusHistoryRecord = {
@@ -245,9 +250,12 @@ const applicationCommunicationSelect = {
   id: true,
   direction: true,
   recipientName: true,
+  recipientAddress: true,
   body: true,
   status: true,
   createdAt: true,
+  receivedAt: true,
+  sentAt: true,
 };
 
 const applicationStatusHistorySelect = {

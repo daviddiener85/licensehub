@@ -80,6 +80,22 @@ Run `npm run check:paystack` to verify the local env setup before testing checko
 
 Run `npm run dry-run:paystack -- --application-id LH-DRYRUN-0001 --email test@example.com --amount 499.00` to print a sample Paystack initialize payload without making a network request.
 
+## WhatsApp Setup
+
+WhatsApp is wired to the Meta Cloud API and supports both outbound admin messages and inbound client replies.
+
+- `WHATSAPP_PROVIDER` must be `meta_cloud_api`.
+- `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` are required for sending.
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN` must match the value configured in Meta's webhook subscription.
+- `WHATSAPP_APP_SECRET` is required so webhook signatures can be verified.
+- `APP_BASE_URL` must be the public URL Meta can reach so the webhook URL resolves correctly.
+
+The webhook endpoint is `https://your-domain/api/webhooks/whatsapp`.
+
+Run `npm run check:whatsapp` after setting env vars to confirm the token can read the configured phone number and that the webhook URL is derived correctly.
+
+Inbound WhatsApp messages are matched to the most recent application for the sender's phone number and then shown in the admin application `messages` view alongside outbound staff messages.
+
 ## First Build Targets
 
 1. Client unique-link application flow.

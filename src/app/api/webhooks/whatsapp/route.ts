@@ -1,6 +1,49 @@
-import { CommunicationStatus, Prisma } from "@/generated/prisma/client";
+import {
+  CommunicationChannel,
+  CommunicationDirection,
+  CommunicationStatus,
+  Prisma,
+} from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
-import { extractMetaStatuses, verifyMetaWebhookSignature, verifyMetaWebhookToken } from "@/lib/whatsapp-meta";
+import {
+  extractMetaInboundMessages,
+  extractMetaStatuses,
+  normalizeWhatsappNumber,
+  verifyMetaWebhookSignature,
+  verifyMetaWebhookToken,
+} from "@/lib/whatsapp-meta";
+
+async function resolveApplicationForWhatsappNumber(number: string) {
+  const normalizedNumber = normalizeWhatsappNumber(number);
+
+  if (!normalizedNumber) {
+    return null;
+  }
+
+  const match = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      publicToken: string;
+      firstName: string;
+      surname: string;
+      cellphone: string;
+    }>
+  >`
+    SELECT
+      a."id",
+      a."publicToken",
+      c."firstName",
+      c."surname",
+      c."cellphone"
+    FROM "Application" a
+    INNER JOIN "Client" c ON c."id" = a."clientId"
+    WHERE regexp_replace(c."cellphone", '\\D', '', 'g') = ${normalizedNumber}
+    ORDER BY a."createdAt" DESC
+    LIMIT 1
+  `;
+
+  return match[0] ?? null;
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -29,7 +72,9 @@ export async function POST(request: Request) {
   } catch {
     return new Response("Invalid JSON payload", { status: 400 });
   }
+
   const statuses = extractMetaStatuses(payload);
+  const inboundMessages = extractMetaInboundMessages(payload);
 
   for (const item of statuses) {
     const updates: {
@@ -63,5 +108,41 @@ export async function POST(request: Request) {
     });
   }
 
-  return Response.json({ ok: true, processed: statuses.length });
+  let inboundProcessed = 0;
+  let inboundSkipped = 0;
+
+  for (const item of inboundMessages) {
+    const application = await resolveApplicationForWhatsappNumber(item.from);
+
+    if (!application) {
+      inboundSkipped += 1;
+      continue;
+    }
+
+    await prisma.communication.create({
+      data: {
+        applicationId: application.id,
+        channel: CommunicationChannel.WHATSAPP,
+        direction: CommunicationDirection.INBOUND,
+        status: CommunicationStatus.RECEIVED,
+        senderId: null,
+        recipientName: item.senderName,
+        recipientAddress: item.from,
+        body: item.body,
+        providerMessageId: item.providerMessageId,
+        providerPayload: item.raw as Prisma.InputJsonValue,
+        receivedAt: new Date(),
+      },
+    });
+
+    inboundProcessed += 1;
+  }
+
+  return Response.json({
+    ok: true,
+    processed: statuses.length + inboundProcessed,
+    statusesProcessed: statuses.length,
+    inboundProcessed,
+    inboundSkipped,
+  });
 }
