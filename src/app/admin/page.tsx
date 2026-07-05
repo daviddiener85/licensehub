@@ -1358,7 +1358,9 @@ export default async function AdminPage({
                   <p className="mt-2 text-sm leading-6 text-[#26312d]">{message.body}</p>
                   {message.status === "FAILED" ? (
                     <p className="mt-2 border border-[#f1c2c0] bg-[#fff5f4] px-3 py-2 text-xs text-[#b3261e]">
-                      This WhatsApp send failed{message.errorMessage ? `: ${message.errorMessage}` : "."}
+                      {message.errorMessage?.includes("Authentication Error")
+                        ? "This WhatsApp send failed: Meta rejected the token. Refresh WHATSAPP_ACCESS_TOKEN from Meta API setup, or replace the temporary token with a fresh production token."
+                        : `This WhatsApp send failed${message.errorMessage ? `: ${message.errorMessage}` : "."}`}
                     </p>
                   ) : null}
                 </div>
