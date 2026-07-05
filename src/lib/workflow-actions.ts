@@ -19,6 +19,7 @@ import {
   PaymentMethod,
   PaymentStatus,
   PaymentType,
+  Prisma,
   SupplierUrgency,
   UserRole,
 } from "@/generated/prisma/client";
@@ -712,12 +713,67 @@ async function dispatchWhatsAppCommunication(communication: {
       },
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown Meta dispatch error";
+    const templateTranslationMissing =
+      communication.template &&
+      /132001|template name does not exist in the translation/i.test(errorMessage);
+
+    if (templateTranslationMissing) {
+      try {
+        const fallbackResult = await sendMetaWhatsAppText({
+          to: communication.recipientAddress,
+          body: communication.body,
+          previewUrl: true,
+        });
+
+        await prisma.communication.update({
+          where: { id: communication.id },
+          data: {
+            status: CommunicationStatus.SENT,
+            sentAt: new Date(),
+            providerMessageId: fallbackResult.providerMessageId,
+            providerPayload: {
+              mode: "text_fallback",
+              template: communication.template,
+              templateError: errorMessage,
+              raw: fallbackResult.raw,
+            } as Prisma.InputJsonValue,
+            errorMessage: null,
+            failedAt: null,
+          },
+        });
+
+        return;
+      } catch (fallbackError) {
+        const fallbackMessage =
+          fallbackError instanceof Error ? fallbackError.message : "Unknown Meta dispatch error";
+
+        await prisma.communication.update({
+          where: { id: communication.id },
+          data: {
+            status: CommunicationStatus.FAILED,
+            failedAt: new Date(),
+            errorMessage: fallbackMessage,
+            providerPayload: {
+              mode: "template_then_text_failed",
+              template: communication.template,
+              templateError: errorMessage,
+              fallbackError: fallbackMessage,
+            } as Prisma.InputJsonValue,
+          },
+        });
+
+        console.error("WhatsApp dispatch failed after text fallback:", fallbackError);
+        return;
+      }
+    }
+
     await prisma.communication.update({
       where: { id: communication.id },
       data: {
         status: CommunicationStatus.FAILED,
         failedAt: new Date(),
-        errorMessage: error instanceof Error ? error.message : "Unknown Meta dispatch error",
+        errorMessage,
       },
     });
 
