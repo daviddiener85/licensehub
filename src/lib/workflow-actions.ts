@@ -31,7 +31,7 @@ import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
 import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
-import { isMetaProviderEnabled, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
+import { isMetaProviderEnabled, sendMetaWhatsAppTemplate, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
 
 export type PublicIntakeSubmissionState = {
   status: "idle" | "success" | "error";
@@ -676,17 +676,29 @@ async function dispatchWhatsAppCommunication(communication: {
   id: string;
   recipientAddress: string;
   body: string;
+  template?: {
+    name: string;
+    languageCode?: string;
+    bodyParameters: ReadonlyArray<{ type: "text"; text: string }>;
+  };
 }) {
   if (!isMetaProviderEnabled()) {
     return;
   }
 
   try {
-    const result = await sendMetaWhatsAppText({
-      to: communication.recipientAddress,
-      body: communication.body,
-      previewUrl: true,
-    });
+    const result = communication.template
+      ? await sendMetaWhatsAppTemplate({
+          to: communication.recipientAddress,
+          name: communication.template.name,
+          languageCode: communication.template.languageCode,
+          bodyParameters: communication.template.bodyParameters,
+        })
+      : await sendMetaWhatsAppText({
+          to: communication.recipientAddress,
+          body: communication.body,
+          previewUrl: true,
+        });
 
     await prisma.communication.update({
       where: { id: communication.id },
@@ -1519,7 +1531,7 @@ export async function createPublicApplicationIntake(
       });
     }
 
-    const whatsappConfirmationMessage = startAwaitingPayment
+  const whatsappConfirmationMessage = startAwaitingPayment
       ? [
           `Hi ${firstName},`,
           "",
@@ -1546,6 +1558,28 @@ export async function createPublicApplicationIntake(
       "",
       `Track your application here: ${clientStatusLink(publicToken)}.`,
     ].join("\n");
+    const whatsappConfirmationTemplateName = "license_hub_application_received";
+    const whatsappConfirmationTemplateParameters = [
+      { type: "text", text: firstName },
+      { type: "text", text: applicationId },
+      {
+        type: "text",
+        text: startAwaitingPayment
+          ? [
+              "Your License Hub order has been received.",
+              "",
+              paymentMethod === PaymentMethod.PAYSTACK
+                ? "Your Paystack payment request is ready."
+                : "Your EFT payment request is ready.",
+              paymentMethod === PaymentMethod.PAYSTACK
+                ? `Pay now here: ${paymentUploadLink(applicationId)}`
+                : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
+              "Use the payment reference shown on your application page.",
+            ].join("\n")
+          : "Our admin team will now prepare your quote and we'll keep you updated on your application status.",
+      },
+      { type: "text", text: clientStatusLink(publicToken) },
+    ] as const;
     const communication = await prisma.communication.create({
       data: {
         applicationId,
@@ -1564,7 +1598,14 @@ export async function createPublicApplicationIntake(
         body: true,
       },
     });
-    await dispatchWhatsAppCommunication(communication);
+    await dispatchWhatsAppCommunication({
+      ...communication,
+      template: {
+        name: whatsappConfirmationTemplateName,
+        languageCode: "en_US",
+        bodyParameters: whatsappConfirmationTemplateParameters,
+      },
+    });
     const savedIdPhoto = await saveMandateIdPhoto(applicationId, identityDocumentForStorage);
     await saveMandateIdPhotoDocument(applicationId, identityDocumentForStorage, savedIdPhoto);
 

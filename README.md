@@ -96,6 +96,15 @@ Run `npm run check:whatsapp` after setting env vars to confirm the token can rea
 
 Inbound WhatsApp messages are matched to the most recent application for the sender's phone number and then shown in the admin application `messages` view alongside outbound staff messages.
 
+Application-complete messages now use the approved WhatsApp template `license_hub_application_received` so they can be delivered outside the 24-hour customer service window. The template should use four body parameters in this order:
+
+- `{{1}}` client first name
+- `{{2}}` application number
+- `{{3}}` next-step text
+- `{{4}}` client status link
+
+Create and approve that template in Meta before testing new application submissions.
+
 ## First Build Targets
 
 1. Client unique-link application flow.

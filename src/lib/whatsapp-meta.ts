@@ -7,6 +7,11 @@ export type MetaSendResult = {
   raw: unknown;
 };
 
+export type MetaWhatsAppTemplateParameter = {
+  type: "text";
+  text: string;
+};
+
 export type MetaWhatsAppInboundMessage = {
   providerMessageId: string;
   from: string;
@@ -14,6 +19,8 @@ export type MetaWhatsAppInboundMessage = {
   body: string;
   raw: unknown;
 };
+
+export type MetaWhatsAppTemplateSendResult = MetaSendResult;
 
 function requiredEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -116,6 +123,85 @@ export async function sendMetaWhatsAppText(options: {
     providerMessageId,
     raw: payload,
   } satisfies MetaSendResult;
+}
+
+export async function sendMetaWhatsAppTemplate(options: {
+  to: string;
+  name: string;
+  languageCode?: string;
+  bodyParameters: ReadonlyArray<MetaWhatsAppTemplateParameter>;
+}) {
+  const accessToken = requiredEnv("WHATSAPP_ACCESS_TOKEN");
+  const phoneNumberId = requiredEnv("WHATSAPP_PHONE_NUMBER_ID");
+  const apiVersion = (process.env.WHATSAPP_API_VERSION ?? "v23.0").trim();
+  const to = normalizeWhatsappNumber(options.to);
+
+  if (!to) {
+    throw new Error("Recipient cellphone is invalid.");
+  }
+
+  const response = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "template",
+      template: {
+        name: options.name,
+        language: {
+          code: options.languageCode ?? "en_US",
+        },
+        components: [
+          {
+            type: "body",
+            parameters: options.bodyParameters,
+          },
+        ],
+      },
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const providerMessage =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "object" &&
+      payload.error !== null &&
+      "message" in payload.error
+        ? String(payload.error.message)
+        : `Meta API error (${response.status})`;
+
+    throw new Error(providerMessage);
+  }
+
+  const providerMessageId =
+    typeof payload === "object" &&
+    payload !== null &&
+    "messages" in payload &&
+    Array.isArray(payload.messages) &&
+    payload.messages.length > 0 &&
+    typeof payload.messages[0] === "object" &&
+    payload.messages[0] !== null &&
+    "id" in payload.messages[0]
+      ? String(payload.messages[0].id)
+      : "";
+
+  if (!providerMessageId) {
+    throw new Error("Meta API response did not include a message id.");
+  }
+
+  return {
+    providerMessageId,
+    raw: payload,
+  } satisfies MetaWhatsAppTemplateSendResult;
 }
 
 export function verifyMetaWebhookToken(mode: string | null, token: string | null) {
