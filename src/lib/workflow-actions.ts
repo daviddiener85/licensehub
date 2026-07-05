@@ -709,7 +709,7 @@ async function dispatchWhatsAppCommunication(communication: {
       },
     });
 
-    throw error;
+    console.error("WhatsApp dispatch failed:", error);
   }
 }
 
