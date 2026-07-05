@@ -98,7 +98,7 @@ export async function listActiveServices(): Promise<ServiceSummary[]> {
 }
 
 async function ensureFallbackServices() {
-  await Promise.all(Object.keys(fallbackServices).map((slug) => upsertFallbackService(slug)));
+  await Promise.all(Object.keys(fallbackServices).map((slug) => ensureFallbackServiceExists(slug)));
 }
 
 export async function findActiveServiceBySlug(slug: string): Promise<ServiceDetail> {
@@ -113,7 +113,7 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
     `;
 
     if (rows.length === 0) {
-      const fallbackService = await upsertFallbackService(slug);
+      const fallbackService = await ensureFallbackServiceExists(slug);
 
       if (!fallbackService) {
         throw new Error(`Service not found for slug "${slug}".`);
@@ -133,7 +133,7 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
   `;
 
   if (rows.length === 0) {
-    const fallbackService = await upsertFallbackService(slug);
+    const fallbackService = await ensureFallbackServiceExists(slug);
 
     if (!fallbackService) {
       throw new Error(`Service not found for slug "${slug}".`);
@@ -145,23 +145,32 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
   return normalizeServicePricing(rows[0]);
 }
 
-async function upsertFallbackService(slug: string): Promise<ServiceDetail | null> {
+async function ensureFallbackServiceExists(slug: string): Promise<ServiceDetail | null> {
   const fallback = fallbackServices[slug];
 
   if (!fallback) {
     return null;
   }
 
-  const service = await prisma.service.upsert({
+  const existingService = await prisma.service.findUnique({
     where: { slug },
-    update: {
-      name: fallback.name,
-      description: fallback.description,
-      basePrice: fallback.basePrice,
-      deliveryFee: fallback.deliveryFee,
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      description: true,
+      basePrice: true,
+      deliveryFee: true,
       isActive: true,
     },
-    create: {
+  });
+
+  if (existingService) {
+    return normalizeServicePricing(existingService);
+  }
+
+  const service = await prisma.service.create({
+    data: {
       id: slug,
       slug,
       name: fallback.name,
