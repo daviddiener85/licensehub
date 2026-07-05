@@ -13,6 +13,41 @@ import {
   verifyMetaWebhookToken,
 } from "@/lib/whatsapp-meta";
 
+function extractMetaFailureMessage(rawStatus: unknown) {
+  if (typeof rawStatus !== "object" || rawStatus === null) {
+    return null;
+  }
+
+  const status = rawStatus as Record<string, unknown>;
+  const errors = "errors" in status && Array.isArray(status.errors) ? status.errors : [];
+
+  for (const error of errors) {
+    if (typeof error !== "object" || error === null) {
+      continue;
+    }
+
+    const entry = error as Record<string, unknown>;
+    const code = "code" in entry ? String(entry.code ?? "") : "";
+    const title = "title" in entry ? String(entry.title ?? "").trim() : "";
+    const message = "message" in entry ? String(entry.message ?? "").trim() : "";
+    const details =
+      "error_data" in entry &&
+      typeof entry.error_data === "object" &&
+      entry.error_data !== null &&
+      "details" in entry.error_data
+        ? String((entry.error_data as Record<string, unknown>).details ?? "").trim()
+        : "";
+
+    if (code === "131047") {
+      return details || "Re-engagement message: more than 24 hours have passed since the customer last replied.";
+    }
+
+    return [title || message, details].filter(Boolean).join(" - ") || null;
+  }
+
+  return null;
+}
+
 async function resolveApplicationForWhatsappNumber(number: string) {
   const normalizedNumber = normalizeWhatsappNumber(number);
 
@@ -83,6 +118,7 @@ export async function POST(request: Request) {
       readAt?: Date;
       failedAt?: Date;
       providerPayload?: Prisma.InputJsonValue;
+      errorMessage?: string | null;
     } = {
       status: CommunicationStatus.SENT,
     };
@@ -96,8 +132,10 @@ export async function POST(request: Request) {
     } else if (item.status === "failed") {
       updates.status = CommunicationStatus.FAILED;
       updates.failedAt = new Date();
+      updates.errorMessage = extractMetaFailureMessage(item.raw);
     } else {
       updates.status = CommunicationStatus.SENT;
+      updates.errorMessage = null;
     }
 
     updates.providerPayload = item.raw as Prisma.InputJsonValue;
