@@ -2581,7 +2581,10 @@ export async function cancelApplication(formData: FormData) {
   refreshWorkflowPages();
 }
 
-export async function sendClientMessage(formData: FormData) {
+export async function sendClientMessage(
+  _previousState: { status: string; message: string; sentAt: number } | null,
+  formData: FormData,
+) {
   const applicationId = getApplicationId(formData);
   const body = formData.get("body");
   const adminId = await actorIdFor(UserRole.ADMIN);
@@ -2625,6 +2628,12 @@ export async function sendClientMessage(formData: FormData) {
   await dispatchWhatsAppCommunication(communication);
 
   refreshWorkflowPages();
+
+  return {
+    status: "success" as const,
+    message: "WhatsApp sent.",
+    sentAt: Date.now(),
+  };
 }
 
 export async function resendClientStatusLink(formData: FormData) {

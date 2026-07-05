@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 type WhatsAppTemplate = {
@@ -10,7 +10,11 @@ type WhatsAppTemplate = {
 };
 
 type AdminWhatsappComposerProps = {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (previousState: { status: string; message: string; sentAt: number } | null, formData: FormData) => Promise<{
+    status: string;
+    message: string;
+    sentAt: number;
+  }>;
   applicationId: string;
   clientFirstName: string;
   templates: ReadonlyArray<WhatsAppTemplate>;
@@ -47,8 +51,9 @@ export function AdminWhatsappComposer({
   clientFirstName,
   templates,
 }: AdminWhatsappComposerProps) {
+  const [sendState, formAction] = useActionState(action, { status: "idle", message: "", sentAt: 0 });
   const [body, setBody] = useState(() =>
-    fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId),
+    sendState.sentAt > 0 ? "" : fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId),
   );
 
   const templateButtons = useMemo(
@@ -61,7 +66,7 @@ export function AdminWhatsappComposer({
   );
 
   return (
-    <form action={action}>
+    <form action={formAction} key={sendState.sentAt}>
       <input type="hidden" name="applicationId" value={applicationId} />
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
