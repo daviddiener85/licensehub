@@ -438,3 +438,7 @@ This repository keeps a dated record of product/specification decisions and impl
 - Admin and supplier users can view and print the completed mandate form from the platform.
 - The previous handwritten mandate letter upload requirement is removed.
 - The business owner must provide the approved mandate form template before the mandate form module is built.
+# 11 July 2026 — Specification v1.9
+
+- Created `docs/specs/license_hub_spec_v1_9.docx` from v1.8.
+- Added an implementation-alignment amendment for the current public intake, vehicle terminology and AI scan, payments, WhatsApp, document review, supplier privacy and printing, persistent storage, retention, and referral-routing behaviour.
