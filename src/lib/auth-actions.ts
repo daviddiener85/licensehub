@@ -13,7 +13,7 @@ function stringField(formData: FormData, key: string) {
 export async function loginWithRolePasscode(formData: FormData) {
   const role = stringField(formData, "role");
   const passcode = stringField(formData, "passcode");
-  const nextPath = stringField(formData, "nextPath") || "/";
+  const nextPath = stringField(formData, "nextPath") || (role === "SUPPLIER" ? "/supplier" : "/admin");
 
   if (!isValidRole(role)) {
     throw new Error("Invalid role selected.");
@@ -46,4 +46,3 @@ export async function logout() {
   cookieStore.delete(AUTH_COOKIE_NAME);
   redirect("/login");
 }
-
