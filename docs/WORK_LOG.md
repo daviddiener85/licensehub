@@ -442,3 +442,10 @@ This repository keeps a dated record of product/specification decisions and impl
 
 - Created `docs/specs/license_hub_spec_v1_9.docx` from v1.8.
 - Added an implementation-alignment amendment for the current public intake, vehicle terminology and AI scan, payments, WhatsApp, document review, supplier privacy and printing, persistent storage, retention, and referral-routing behaviour.
+
+# 11 July 2026 — Retention deletion automation
+
+- Added a batched retention purge for applications past `retentionEligibleAt` in terminal `DISPATCHED` or `CANCELLED` states.
+- Added durable retry tracking so database deletion cannot silently leave application files behind after a filesystem or process failure.
+- Purge removes application audit records, cascading workflow data, upload directories and orphaned client records when the client has no remaining applications.
+- Added production startup/24-hour scheduling, CLI dry-run/manual commands and an end-to-end retention regression test.

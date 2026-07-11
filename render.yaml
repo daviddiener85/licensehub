@@ -5,6 +5,13 @@ services:
     plan: starter
     buildCommand: npm ci && npm run build
     startCommand: npm start
+    envVars:
+      - key: RETENTION_PURGE_ENABLED
+        value: "true"
+      - key: RETENTION_PURGE_INTERVAL_HOURS
+        value: "24"
+      - key: RETENTION_PURGE_BATCH_SIZE
+        value: "25"
     disk:
       name: uploads
       mountPath: /opt/render/project/src/public/uploads

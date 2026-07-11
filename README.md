@@ -96,6 +96,14 @@ Run `npm run check:whatsapp` after setting env vars to confirm the token can rea
 
 Inbound WhatsApp messages are matched to the most recent application for the sender's phone number and then shown in the admin application `messages` view alongside outbound staff messages.
 
+## Retention deletion
+
+Applications become eligible for deletion only after reaching `DISPATCHED` or `CANCELLED` and passing the Admin-configured retention date. In production, the web service runs the purge shortly after startup and every 24 hours so the process has access to both PostgreSQL and the attached `public/uploads` disk.
+
+The purge deletes application-linked audit records, the application and its cascading records, all application upload directories, and the client record only when that client has no other applications. A durable `RetentionPurge` queue retries disk deletion after process or filesystem failures.
+
+Use `npm run jobs:retention:dry-run` to preview eligible application IDs without deleting anything. Use `npm run jobs:retention` for a manual purge, optionally with `-- --limit=10`. The production interval and batch size are controlled by the `RETENTION_PURGE_*` environment variables documented in `.env.example`.
+
 Application-complete messages now use the approved WhatsApp template `license_hub_application_received` so they can be delivered outside the 24-hour customer service window. The template should use four body parameters in this order:
 
 - `{{1}}` client first name

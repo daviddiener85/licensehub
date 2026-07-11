@@ -145,13 +145,13 @@ model User {
 }
 
 model Client {
-  id                      String   @id @default(cuid())
+  id                      String           @id @default(cuid())
   entityType              ClientEntityType @default(PRIVATE_OWNER)
   referralSource          String?
   firstName               String
   surname                 String
   southAfricanIdEncrypted String
-  southAfricanIdHash      String   @unique
+  southAfricanIdHash      String           @unique
   cellphone               String
   email                   String
   deliveryAddressLine1    String
@@ -161,8 +161,8 @@ model Client {
   deliveryProvince        String?
   deliveryPostalCode      String
   popiaConsentAcceptedAt  DateTime
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
   applications Application[]
 }
@@ -198,73 +198,86 @@ model ServiceDocumentRequirement {
 }
 
 model RetentionSetting {
-  id                       String   @id @default("default")
-  daysAfterCompletion      Int?
-  adminAutoRefreshEnabled  Boolean  @default(true)
-  adminRefreshIntervalSeconds Int    @default(30)
-  aiDocumentVerificationEnabled Boolean @default(false)
-  eftBankName              String?
-  eftAccountNumber         String?
-  eftBranchCode            String?
-  eftAccountType           String?
-  eftAccountHolder         String?
-  eftReferenceInstruction  String?
-  updatedByName            String?
-  complianceResponsibility String   @default("Business Owner")
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  id                            String   @id @default("default")
+  daysAfterCompletion           Int?
+  adminAutoRefreshEnabled       Boolean  @default(true)
+  adminRefreshIntervalSeconds   Int      @default(30)
+  aiDocumentVerificationEnabled Boolean  @default(false)
+  eftBankName                   String?
+  eftAccountNumber              String?
+  eftBranchCode                 String?
+  eftAccountType                String?
+  eftAccountHolder              String?
+  eftReferenceInstruction       String?
+  updatedByName                 String?
+  complianceResponsibility      String   @default("Business Owner")
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+}
+
+model RetentionPurge {
+  id                String   @id @default(cuid())
+  applicationId     String   @unique
+  clientId          String
+  storagePaths      Json
+  databaseDeletedAt DateTime @default(now())
+  lastError         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([createdAt])
 }
 
 model Application {
-  id                  String             @id @default(cuid())
-  publicToken         String             @unique
-  clientId            String
-  serviceId           String
-  currentStatus       ApplicationStatus  @default(DRAFT)
-  previousStatus      ApplicationStatus?
-  registrationNumber  String?
-  vehicleMake         String?
-  vehicleModel        String?
-  vehicleYear         Int?
-  vehicleColour       String?
-  vin                 String?
-  entityDisplayName   String?
-  entityRegistrationNumber String?
-  representativeFullName String?
-  representativeCapacity String?
-  referralSource      String?
-  referralContact     String?
-  sendCompletedDocumentsToReferrer Boolean @default(false)
-  ocrConfidence       Decimal?           @db.Decimal(5, 2)
-  supplierUrgency     SupplierUrgency    @default(NORMAL)
-  submittedAt         DateTime?
-  quotedAt            DateTime?
-  quoteApprovedAt     DateTime?
-  quoteVersion        Int                @default(0)
-  popDueAt            DateTime?
-  lastPopReminderAt   DateTime?
-  popReminderCount    Int                @default(0)
-  autoCancelOnNoPop   Boolean            @default(true)
-  approvedAt          DateTime?
-  completedAt         DateTime?
-  cancelledAt         DateTime?
-  retentionEligibleAt DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                               String             @id @default(cuid())
+  publicToken                      String             @unique
+  clientId                         String
+  serviceId                        String
+  currentStatus                    ApplicationStatus  @default(DRAFT)
+  previousStatus                   ApplicationStatus?
+  registrationNumber               String?
+  vehicleMake                      String?
+  vehicleModel                     String?
+  vehicleYear                      Int?
+  vehicleColour                    String?
+  vin                              String?
+  entityDisplayName                String?
+  entityRegistrationNumber         String?
+  representativeFullName           String?
+  representativeCapacity           String?
+  referralSource                   String?
+  referralContact                  String?
+  sendCompletedDocumentsToReferrer Boolean            @default(false)
+  ocrConfidence                    Decimal?           @db.Decimal(5, 2)
+  supplierUrgency                  SupplierUrgency    @default(NORMAL)
+  submittedAt                      DateTime?
+  quotedAt                         DateTime?
+  quoteApprovedAt                  DateTime?
+  quoteVersion                     Int                @default(0)
+  popDueAt                         DateTime?
+  lastPopReminderAt                DateTime?
+  popReminderCount                 Int                @default(0)
+  autoCancelOnNoPop                Boolean            @default(true)
+  approvedAt                       DateTime?
+  completedAt                      DateTime?
+  cancelledAt                      DateTime?
+  retentionEligibleAt              DateTime?
+  createdAt                        DateTime           @default(now())
+  updatedAt                        DateTime           @updatedAt
 
-  client         Client          @relation(fields: [clientId], references: [id])
-  service        Service         @relation(fields: [serviceId], references: [id])
-  documents      Document[]
-  payments       Payment[]
-  charges        Charge[]
-  statusHistory  StatusHistory[]
-  auditLogs      AuditLog[]
-  dispatch       Dispatch?
+  client                Client                 @relation(fields: [clientId], references: [id])
+  service               Service                @relation(fields: [serviceId], references: [id])
+  documents             Document[]
+  payments              Payment[]
+  charges               Charge[]
+  statusHistory         StatusHistory[]
+  auditLogs             AuditLog[]
+  dispatch              Dispatch?
   mandateFormSubmission MandateFormSubmission?
-  supplierEvents SupplierEvent[]
-  notifications  Notification[]
-  communications Communication[]
-  orderComments  OrderComment[]
+  supplierEvents        SupplierEvent[]
+  notifications         Notification[]
+  communications        Communication[]
+  orderComments         OrderComment[]
 
   @@index([clientId])
   @@index([serviceId])
@@ -312,15 +325,15 @@ model Document {
 }
 
 model MandateFormSubmission {
-  id                  String   @id @default(cuid())
-  applicationId       String   @unique
-  signatureDataUrl    String   @db.Text
-  idPhotoFileName     String
-  idPhotoMimeType     String
-  idPhotoSizeBytes    Int
-  idPhotoStorageKey   String
-  submittedAt         DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String   @id @default(cuid())
+  applicationId     String   @unique
+  signatureDataUrl  String   @db.Text
+  idPhotoFileName   String
+  idPhotoMimeType   String
+  idPhotoSizeBytes  Int
+  idPhotoStorageKey String
+  submittedAt       DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
@@ -403,14 +416,14 @@ model SupplierEvent {
 }
 
 model Dispatch {
-  id             String    @id @default(cuid())
-  applicationId  String    @unique
+  id             String   @id @default(cuid())
+  applicationId  String   @unique
   courierName    String
   trackingNumber String
   trackingUrl    String?
   dispatchedAt   DateTime
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 }
