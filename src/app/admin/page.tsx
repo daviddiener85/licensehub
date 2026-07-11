@@ -60,7 +60,14 @@ type AdminSearchParams = {
 const adminDetailViews = ["overview", "documents", "payment", "supplier", "messages", "audit"] as const;
 type AdminDetailView = (typeof adminDetailViews)[number];
 
+const paymentFollowUpSummaries = ["EFT pending", "Paystack pending", "Additional charge pending"];
+const terminalPaymentStatuses = new Set(["CANCELLED", "DISPATCHED"]);
+
 function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  if (terminalPaymentStatuses.has(application.currentStatus)) {
+    return statusLabel(application.currentStatus);
+  }
+
   const latestPayment = application.payments[0];
 
   if (!latestPayment) {
@@ -91,6 +98,10 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
   }
 
   return "EFT pending";
+}
+
+function needsPaymentFollowUp(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  return !terminalPaymentStatuses.has(application.currentStatus) && paymentFollowUpSummaries.includes(paymentSummary(application));
 }
 
 function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
@@ -554,10 +565,7 @@ export default async function AdminPage({
       const paymentBucket = paymentSummary(application);
       const paymentFilterValue = paymentBucket.toLowerCase().replace(/\s+/g, "-");
 
-      if (
-        paymentFilter === "payment-follow-up" &&
-        !["EFT pending", "Paystack pending", "Additional charge pending"].includes(paymentBucket)
-      ) {
+      if (paymentFilter === "payment-follow-up" && !needsPaymentFollowUp(application)) {
         return false;
       }
 
@@ -647,9 +655,7 @@ export default async function AdminPage({
     },
     {
       label: "Payment follow-up",
-      count: applications.filter((application) =>
-        ["EFT pending", "Paystack pending", "Additional charge pending"].includes(paymentSummary(application)),
-      ).length,
+      count: applications.filter((application) => needsPaymentFollowUp(application)).length,
       href: adminHref(baseAdminParams, { payment: "payment-follow-up", status: undefined, documents: undefined }),
     },
     {
