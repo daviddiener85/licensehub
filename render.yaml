@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: license-hub
+    name: licensehub
     runtime: node
     plan: starter
     buildCommand: npm ci && npm run build
