@@ -24,6 +24,7 @@ import {
   approveToSupplier,
   cancelApplication,
   confirmEftPayment,
+  adminUploadDocument,
   acceptDocument,
   markDocumentPending,
   acceptAllPendingDocuments,
@@ -1141,7 +1142,7 @@ export default async function AdminPage({
                 );
               })}
             </div>
-            <AdminDocumentUploadForm applicationId={selectedApplication.id} />
+            <AdminDocumentUploadForm applicationId={selectedApplication.id} action={adminUploadDocument} />
             <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-3 text-sm">
               <span className="font-semibold">Mandate capture: </span>
               {selectedApplication.mandateFormSubmission

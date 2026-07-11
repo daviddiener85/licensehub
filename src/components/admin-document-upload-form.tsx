@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 
-import { adminUploadDocument } from "@/lib/workflow-actions";
 import { DocumentType } from "@/generated/prisma/client";
 
 const uploadableDocumentTypes: Array<{ value: DocumentType; label: string }> = [
@@ -16,6 +15,7 @@ const uploadableDocumentTypes: Array<{ value: DocumentType; label: string }> = [
 
 type AdminDocumentUploadFormProps = {
   applicationId: string;
+  action: (formData: FormData) => Promise<UploadState>;
 };
 
 type UploadState = {
@@ -28,12 +28,9 @@ const initialState: UploadState = {
   message: "",
 };
 
-export function AdminDocumentUploadForm({ applicationId }: AdminDocumentUploadFormProps) {
+export function AdminDocumentUploadForm({ applicationId, action }: AdminDocumentUploadFormProps) {
   const [state, formAction, pending] = useActionState(
-    async (_previousState: UploadState, formData: FormData): Promise<UploadState> => {
-      const result = await adminUploadDocument(formData);
-      return result;
-    },
+    async (_previousState: UploadState, formData: FormData): Promise<UploadState> => action(formData),
     initialState,
   );
 
