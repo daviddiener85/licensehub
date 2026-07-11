@@ -2386,6 +2386,75 @@ export async function requestResubmission(formData: FormData) {
   refreshWorkflowPages();
 }
 
+async function restoreReviewAfterDocumentRecovery(applicationId: string, adminId: string | null) {
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: {
+      currentStatus: true,
+      client: {
+        select: {
+          entityType: true,
+        },
+      },
+      documents: {
+        orderBy: [{ type: "asc" }, { version: "desc" }],
+        select: {
+          type: true,
+          status: true,
+          version: true,
+        },
+      },
+    },
+  });
+
+  if (application.currentStatus !== ApplicationStatus.DOCUMENTS_RESUBMIT_REQUIRED) {
+    return;
+  }
+
+  const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
+    .filter((requirement) => requirement.confirmedForUpload)
+    .find((requirement) => {
+      if (!requirement.documentType) {
+        const supportingDocuments = application.documents
+          .filter((document) => document.type === DocumentType.OTHER)
+          .sort((first, second) => first.version - second.version);
+        const supportingRequirements = documentRequirementsForEntityType(application.client.entityType).filter(
+          (item) => item.confirmedForUpload && !item.documentType,
+        );
+        const activeSupportingDocuments = supportingDocuments.slice(-supportingRequirements.length);
+        const supportingIndexByRequirement: Partial<Record<string, number>> = {
+          "death-certificate": 0,
+          "executor-authority": 1,
+          "registration-or-trust-document": 0,
+          "representative-authority": 1,
+          "traffic-register-document": 0,
+          "passport-document": 1,
+        };
+        const supportingIndex = supportingIndexByRequirement[requirement.key];
+
+        if (typeof supportingIndex !== "number") {
+          return true;
+        }
+
+        const supportingDocument = activeSupportingDocuments[supportingIndex];
+        return !supportingDocument || supportingDocument.status !== DocumentStatus.ACCEPTED;
+      }
+
+      const latestDocument = application.documents.find((document) => document.type === requirement.documentType);
+
+      return !latestDocument || latestDocument.status !== DocumentStatus.ACCEPTED;
+    });
+
+  if (incompleteRequirement) {
+    return;
+  }
+
+  await transitionApplication(applicationId, ApplicationStatus.PENDING_REVIEW, {
+    actorId: adminId,
+    note: "All resubmitted documents are accepted. Application returned to review.",
+  });
+}
+
 export async function acceptDocument(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const documentId = getRequiredString(formData, "documentId", "Document");
@@ -2403,6 +2472,7 @@ export async function acceptDocument(formData: FormData) {
   });
 
   await appendStatusHistoryNote(applicationId, adminId, `Admin accepted ${documentAuditLabel} during review.`);
+  await restoreReviewAfterDocumentRecovery(applicationId, adminId);
 
   refreshWorkflowPages();
   revalidatePath(`/admin?application=${applicationId}`);
@@ -2466,6 +2536,7 @@ export async function acceptAllPendingDocuments(formData: FormData) {
     adminId,
     `Admin bulk-accepted ${pendingDocuments.length} pending document(s) during review.`,
   );
+  await restoreReviewAfterDocumentRecovery(applicationId, adminId);
 
   refreshWorkflowPages();
   revalidatePath(`/admin?application=${applicationId}`);
@@ -2497,6 +2568,7 @@ export async function adminUploadDocument(formData: FormData) {
       adminId,
       `Admin uploaded ${documentLabel(documentType, file.name)} on behalf of the client.`,
     );
+    await restoreReviewAfterDocumentRecovery(applicationId, adminId);
 
     refreshWorkflowPages();
     revalidatePath(`/admin?application=${applicationId}`);

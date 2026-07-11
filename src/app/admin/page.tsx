@@ -457,7 +457,7 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
     });
   }
 
-  if (application.currentStatus === "PENDING_REVIEW") {
+  if (application.currentStatus === "PENDING_REVIEW" || application.currentStatus === "DOCUMENTS_RESUBMIT_REQUIRED") {
     if (!approvalBlockReason(application)) {
       actions.push({
         label: "Approve",
@@ -466,6 +466,9 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
         message: `Approve ${application.id} and send it to the supplier?`,
       });
     }
+  }
+
+  if (application.currentStatus === "PENDING_REVIEW") {
     actions.push({
       label: "Resubmit",
       action: requestResubmission,
