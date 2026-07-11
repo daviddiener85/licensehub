@@ -383,6 +383,86 @@ async function saveAdditionalSupportingDocuments(applicationId: string, files: F
   }
 }
 
+async function saveAdminUploadedDocument(
+  applicationId: string,
+  file: File,
+  type: DocumentType,
+  uploadFolder: string,
+  proofDocumentDate?: Date,
+) {
+  const uploadDirectory = path.join(process.cwd(), "public", "uploads", uploadFolder, applicationId);
+  await mkdir(uploadDirectory, { recursive: true });
+
+  const fileName = `${randomUUID()}-${safeFileName(file.name || type.toLowerCase())}`;
+  const bytes = Buffer.from(await file.arrayBuffer());
+
+  await writeFile(path.join(uploadDirectory, fileName), bytes);
+
+  if (type === DocumentType.OTHER) {
+    const latestOtherDocument = await prisma.document.findFirst({
+      where: {
+        applicationId,
+        type: DocumentType.OTHER,
+      },
+      orderBy: { version: "desc" },
+      select: { version: true },
+    });
+    const nextVersion = (latestOtherDocument?.version ?? 0) + 1;
+
+    await prisma.document.create({
+      data: {
+        applicationId,
+        type,
+        status: DocumentStatus.ACCEPTED,
+        version: nextVersion,
+        fileName: file.name || fileName,
+        mimeType: file.type || "application/octet-stream",
+        fileSizeBytes: bytes.length,
+        storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+        proofDocumentDate,
+        reviewedById: await actorIdFor(UserRole.ADMIN),
+        reviewedAt: new Date(),
+      },
+    });
+
+    return;
+  }
+
+  await prisma.document.upsert({
+    where: {
+      applicationId_type_version: {
+        applicationId,
+        type,
+        version: 1,
+      },
+    },
+    update: {
+      status: DocumentStatus.ACCEPTED,
+      fileName: file.name || fileName,
+      mimeType: file.type || "application/octet-stream",
+      fileSizeBytes: bytes.length,
+      storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+      proofDocumentDate,
+      rejectionReason: null,
+      reviewedById: await actorIdFor(UserRole.ADMIN),
+      reviewedAt: new Date(),
+    },
+    create: {
+      applicationId,
+      type,
+      status: DocumentStatus.ACCEPTED,
+      version: 1,
+      fileName: file.name || fileName,
+      mimeType: file.type || "application/octet-stream",
+      fileSizeBytes: bytes.length,
+      storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+      proofDocumentDate,
+      reviewedById: await actorIdFor(UserRole.ADMIN),
+      reviewedAt: new Date(),
+    },
+  });
+}
+
 async function maybeVerifyUploadedDocumentsWithAi(options: {
   applicationId: string;
   registrationNumber: string;
@@ -2389,6 +2469,53 @@ export async function acceptAllPendingDocuments(formData: FormData) {
 
   refreshWorkflowPages();
   revalidatePath(`/admin?application=${applicationId}`);
+}
+
+export async function adminUploadDocument(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const documentType = getRequiredString(formData, "documentType", "Document type") as DocumentType;
+  const file = formData.get("documentFile");
+  const proofDocumentDateValue = getOptionalString(formData, "proofDocumentDate");
+  const adminId = await actorIdFor(UserRole.ADMIN);
+
+  try {
+    if (!Object.values(DocumentType).includes(documentType)) {
+      throw new Error("Select a valid document type.");
+    }
+
+    if (!(file instanceof File) || file.size === 0) {
+      throw new Error("Choose a file to upload.");
+    }
+
+    const proofDocumentDate =
+      documentType === DocumentType.PROOF_OF_ADDRESS && proofDocumentDateValue ? getProofDocumentDate(formData) : undefined;
+
+    await saveAdminUploadedDocument(applicationId, file, documentType, "admin-documents", proofDocumentDate);
+
+    await appendStatusHistoryNote(
+      applicationId,
+      adminId,
+      `Admin uploaded ${documentLabel(documentType, file.name)} on behalf of the client.`,
+    );
+
+    refreshWorkflowPages();
+    revalidatePath(`/admin?application=${applicationId}`);
+
+    return {
+      status: "success",
+      message: `Uploaded ${documentLabel(documentType, file.name)}.`,
+    } as const;
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : "Unable to upload document.";
+    return {
+      status: "error",
+      message,
+    } as const;
+  }
 }
 
 export async function rejectDocument(formData: FormData) {

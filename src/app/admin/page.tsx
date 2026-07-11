@@ -6,6 +6,7 @@ import { AdminWhatsappComposer } from "@/components/admin-whatsapp-composer";
 import { AdminRefreshController } from "@/components/admin-refresh-controller";
 import { AdminSeenOrders } from "@/components/admin-seen-orders";
 import { AdminDocumentQuickView } from "@/components/admin-document-quick-view";
+import { AdminDocumentUploadForm } from "@/components/admin-document-upload-form";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
@@ -229,9 +230,13 @@ function documentRequirementStatus(
   application: Awaited<ReturnType<typeof listAdminApplications>>[number],
 ) {
   if (!requirement.documentType) {
+    const requirements = documentRequirementsForEntityType(application.client.entityType).filter(
+      (item) => item.confirmedForUpload && !item.documentType,
+    );
     const supportingDocuments = application.documents
       .filter((document: ApplicationDocumentRecord) => document.type === "OTHER")
       .sort((first, second) => first.version - second.version);
+    const activeSupportingDocuments = supportingDocuments.slice(-requirements.length);
 
     const supportingIndexByRequirement: Partial<Record<string, number>> = {
       "death-certificate": 0,
@@ -247,7 +252,7 @@ function documentRequirementStatus(
       return "MISSING";
     }
 
-    return supportingDocuments[supportingIndex]?.status ?? "MISSING";
+    return activeSupportingDocuments[supportingIndex]?.status ?? "MISSING";
   }
 
   const latestDocument = application.documents.find(
@@ -271,7 +276,8 @@ function supportingDocumentLabel(
   const supportingDocuments = application.documents
     .filter((item) => item.type === "OTHER")
     .sort((first, second) => first.version - second.version);
-  const supportingIndex = supportingDocuments.findIndex((item) => item.id === document.id);
+  const activeSupportingDocuments = supportingDocuments.slice(-requirements.length);
+  const supportingIndex = activeSupportingDocuments.findIndex((item) => item.id === document.id);
   const requirementForIndex = supportingIndex >= 0 ? requirements[supportingIndex] : null;
 
   return requirementForIndex?.label ?? documentLabel(document.type, document.fileName);
@@ -1135,6 +1141,7 @@ export default async function AdminPage({
                 );
               })}
             </div>
+            <AdminDocumentUploadForm applicationId={selectedApplication.id} />
             <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-3 text-sm">
               <span className="font-semibold">Mandate capture: </span>
               {selectedApplication.mandateFormSubmission
