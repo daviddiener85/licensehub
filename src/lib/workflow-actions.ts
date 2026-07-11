@@ -1701,26 +1701,8 @@ export async function createPublicApplicationIntake(
       "",
       `Track your application here: ${clientStatusLink(publicToken)}.`,
     ].join("\n");
-    const whatsappConfirmationTemplateName = "license_hub_application_received";
-    const whatsappConfirmationTemplateParameters = [
-      { type: "text", text: firstName },
-      { type: "text", text: applicationId },
-      {
-        type: "text",
-        text: startAwaitingPayment
-          ? [
-              "Your application has been received.",
-              "",
-              "Your payment request is ready.",
-              paymentMethod === PaymentMethod.PAYSTACK
-                ? `Pay now here: ${paymentUploadLink(applicationId)}`
-                : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
-              "Use the payment reference shown on your application page.",
-            ].join("\n")
-          : "Our team will prepare your quote next and keep you updated on your application status.",
-      },
-      { type: "text", text: clientStatusLink(publicToken) },
-    ] as const;
+    const whatsappConfirmationTemplateName = "application_received";
+    const whatsappConfirmationTemplateParameters = whatsappTemplateParameters(firstName, applicationId, publicToken);
     const communication = await prisma.communication.create({
       data: {
         applicationId,
@@ -1839,6 +1821,14 @@ function clientStatusLink(publicToken: string) {
   return `${appBaseUrl()}/client/${encodeURIComponent(publicToken)}`;
 }
 
+function whatsappTemplateParameters(firstName: string, applicationId: string, publicToken: string) {
+  return [
+    { type: "text", text: firstName },
+    { type: "text", text: applicationId },
+    { type: "text", text: clientStatusLink(publicToken) },
+  ] as const;
+}
+
 function withClientStatusLink(body: string, publicToken: string) {
   const link = clientStatusLink(publicToken);
 
@@ -1952,10 +1942,11 @@ export async function publishAdminQuote(formData: FormData) {
   });
 
   const quoteApprovalTemplateName = "order_update";
-  const quoteApprovalTemplateParameters = [
-    { type: "text", text: application.client.firstName },
-    { type: "text", text: applicationId },
-  ] as const;
+  const quoteApprovalTemplateParameters = whatsappTemplateParameters(
+    application.client.firstName,
+    applicationId,
+    application.publicToken,
+  );
 
   const communication = await prisma.communication.create({
     data: {
@@ -1967,7 +1958,7 @@ export async function publishAdminQuote(formData: FormData) {
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
       templateKey: quoteApprovalTemplateName,
-      body: `Hi ${application.client.firstName}, your quote for application ${applicationId} is ready. Please review and approve it to continue.`,
+      body: `Hi ${application.client.firstName}, your quote for application ${applicationId} is ready. Please review and approve it to continue. Track it here: ${clientStatusLink(application.publicToken)}`,
     },
     select: {
       id: true,

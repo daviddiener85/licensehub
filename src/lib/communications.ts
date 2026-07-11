@@ -1,18 +1,13 @@
 export const whatsappTemplates = [
   {
-    key: "resubmit-proof-of-address",
-    label: "Resubmit proof of address",
-    body: "Hi {{firstName}}, your proof of address for application {{applicationId}} needs to be updated because it is older than 3 months.\n\nPlease upload a newer document to continue.\n\nThanks,\nThe License Hub",
+    key: "application_received",
+    label: "Application received",
+    body: "Hi {{firstName}},\n\nYour new application {{applicationId}} has been created successfully.\n\nPlease view your tracking page here: {{trackingUrl}}",
   },
   {
-    key: "payment-reminder",
-    label: "Payment reminder",
-    body: "Hi {{firstName}}, payment for application {{applicationId}} is still waiting for confirmation.\n\nPlease complete payment to continue.\n\nThanks,\nThe License Hub",
-  },
-  {
-    key: "dispatch-update",
-    label: "Dispatch update",
-    body: "Hi {{firstName}}, your document has been dispatched.\n\nTracking details are available on your status page.\n\nThanks,\nThe License Hub",
+    key: "order_update",
+    label: "Order update",
+    body: "Hello {{firstName}},\n\nWe updated your order {{applicationId}}. Please view your tracking page for an update: {{trackingUrl}}.\n\nThank you for supporting us!",
   },
 ] as const;
 
