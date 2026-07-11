@@ -2,15 +2,21 @@
 
 import { useActionState } from "react";
 
-import { DocumentType } from "@/generated/prisma/client";
+type UploadableDocumentType =
+  | "ID_PHOTO"
+  | "LICENCE_DISK_PHOTO"
+  | "PROOF_OF_ADDRESS"
+  | "MANDATE_FORM"
+  | "PROOF_OF_EFT_PAYMENT"
+  | "OTHER";
 
-const uploadableDocumentTypes: Array<{ value: DocumentType; label: string }> = [
-  { value: DocumentType.ID_PHOTO, label: "ID photo" },
-  { value: DocumentType.LICENCE_DISK_PHOTO, label: "Licence disk photo" },
-  { value: DocumentType.PROOF_OF_ADDRESS, label: "Proof of address" },
-  { value: DocumentType.MANDATE_FORM, label: "Completed mandate form" },
-  { value: DocumentType.PROOF_OF_EFT_PAYMENT, label: "Proof of EFT payment" },
-  { value: DocumentType.OTHER, label: "Other document" },
+const uploadableDocumentTypes: Array<{ value: UploadableDocumentType; label: string }> = [
+  { value: "ID_PHOTO", label: "ID photo" },
+  { value: "LICENCE_DISK_PHOTO", label: "Licence disk photo" },
+  { value: "PROOF_OF_ADDRESS", label: "Proof of address" },
+  { value: "MANDATE_FORM", label: "Completed mandate form" },
+  { value: "PROOF_OF_EFT_PAYMENT", label: "Proof of EFT payment" },
+  { value: "OTHER", label: "Other document" },
 ];
 
 type AdminDocumentUploadFormProps = {
@@ -43,7 +49,7 @@ export function AdminDocumentUploadForm({ applicationId, action }: AdminDocument
       </p>
       <label className="block text-sm font-semibold">
         Document type
-        <select name="documentType" defaultValue={DocumentType.PROOF_OF_ADDRESS} className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal">
+        <select name="documentType" defaultValue="PROOF_OF_ADDRESS" className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal">
           {uploadableDocumentTypes.map((type) => (
             <option key={type.value} value={type.value}>
               {type.label}
