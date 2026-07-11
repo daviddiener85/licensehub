@@ -794,59 +794,6 @@ async function dispatchWhatsAppCommunication(communication: {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown Meta dispatch error";
-    const templateTranslationMissing =
-      communication.template &&
-      /132001|template name does not exist in the translation/i.test(errorMessage);
-
-    if (templateTranslationMissing) {
-      try {
-        const fallbackResult = await sendMetaWhatsAppText({
-          to: communication.recipientAddress,
-          body: communication.body,
-          previewUrl: true,
-        });
-
-        await prisma.communication.update({
-          where: { id: communication.id },
-          data: {
-            status: CommunicationStatus.SENT,
-            sentAt: new Date(),
-            providerMessageId: fallbackResult.providerMessageId,
-            providerPayload: {
-              mode: "text_fallback",
-              template: communication.template,
-              templateError: errorMessage,
-              raw: fallbackResult.raw,
-            } as Prisma.InputJsonValue,
-            errorMessage: null,
-            failedAt: null,
-          },
-        });
-
-        return;
-      } catch (fallbackError) {
-        const fallbackMessage =
-          fallbackError instanceof Error ? fallbackError.message : "Unknown Meta dispatch error";
-
-        await prisma.communication.update({
-          where: { id: communication.id },
-          data: {
-            status: CommunicationStatus.FAILED,
-            failedAt: new Date(),
-            errorMessage: fallbackMessage,
-            providerPayload: {
-              mode: "template_then_text_failed",
-              template: communication.template,
-              templateError: errorMessage,
-              fallbackError: fallbackMessage,
-            } as Prisma.InputJsonValue,
-          },
-        });
-
-        console.error("WhatsApp dispatch failed after text fallback:", fallbackError);
-        return;
-      }
-    }
 
     await prisma.communication.update({
       where: { id: communication.id },
@@ -854,6 +801,9 @@ async function dispatchWhatsAppCommunication(communication: {
         status: CommunicationStatus.FAILED,
         failedAt: new Date(),
         errorMessage,
+        providerPayload: communication.template
+          ? ({ mode: "template", template: communication.template, error: errorMessage } as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
     });
 
@@ -1676,8 +1626,9 @@ export async function createPublicApplicationIntake(
       });
     }
 
-    const whatsappConfirmationTemplateName = "application_received";
-    const whatsappConfirmationTemplateParameters = whatsappTemplateParameters(firstName, applicationId, publicToken);
+    const whatsappConfirmationTemplateKey = "application_received";
+    const whatsappConfirmationTemplateName = "account_creation_confirmation_3";
+    const whatsappConfirmationTemplateParameters = applicationReceivedTemplateParameters(firstName, publicToken);
     const whatsappConfirmationMessage = applicationReceivedTemplateBody(firstName, applicationId, publicToken);
     const communication = await prisma.communication.create({
       data: {
@@ -1688,7 +1639,7 @@ export async function createPublicApplicationIntake(
         senderId: adminId,
         recipientName: `${firstName} ${surname}`.trim(),
         recipientAddress: cellphone,
-        templateKey: whatsappConfirmationTemplateName,
+        templateKey: whatsappConfirmationTemplateKey,
         body: whatsappConfirmationMessage,
       },
       select: {
@@ -1797,7 +1748,7 @@ function clientStatusLink(publicToken: string) {
   return `${appBaseUrl()}/client/${encodeURIComponent(publicToken)}`;
 }
 
-function whatsappTemplateParameters(firstName: string, applicationId: string, publicToken: string) {
+function orderUpdateTemplateParameters(firstName: string, applicationId: string, publicToken: string) {
   return [
     { type: "text", text: firstName },
     { type: "text", text: applicationId },
@@ -1805,8 +1756,16 @@ function whatsappTemplateParameters(firstName: string, applicationId: string, pu
   ] as const;
 }
 
+function applicationReceivedTemplateParameters(firstName: string, publicToken: string) {
+  return [
+    { type: "text", text: firstName },
+    { type: "text", text: clientStatusLink(publicToken) },
+  ] as const;
+}
+
 function applicationReceivedTemplateBody(firstName: string, applicationId: string, publicToken: string) {
-  return `Hi ${firstName},\n\nYour new application ${applicationId} has been created successfully.\n\nPlease view your tracking page here: ${clientStatusLink(publicToken)}`;
+  void applicationId;
+  return `Hi ${firstName},\n\nYour new application has been created successfully.\n\nPlease view ${clientStatusLink(publicToken)} for any update.`;
 }
 
 function orderUpdateTemplateBody(firstName: string, applicationId: string, publicToken: string) {
@@ -1989,7 +1948,7 @@ export async function publishAdminQuote(formData: FormData) {
   });
 
   const quoteApprovalTemplateName = "order_update";
-  const quoteApprovalTemplateParameters = whatsappTemplateParameters(
+  const quoteApprovalTemplateParameters = orderUpdateTemplateParameters(
     application.client.firstName,
     applicationId,
     application.publicToken,
@@ -2894,13 +2853,19 @@ export async function sendClientMessage(
     ...(approvedTemplateKey
       ? {
           template: {
-            name: approvedTemplateKey,
+            name:
+              approvedTemplateKey === "application_received"
+                ? "account_creation_confirmation_3"
+                : approvedTemplateKey,
             languageCode: "en_US",
-            bodyParameters: whatsappTemplateParameters(
-              application.client.firstName,
-              applicationId,
-              application.publicToken,
-            ),
+            bodyParameters:
+              approvedTemplateKey === "application_received"
+                ? applicationReceivedTemplateParameters(application.client.firstName, application.publicToken)
+                : orderUpdateTemplateParameters(
+                    application.client.firstName,
+                    applicationId,
+                    application.publicToken,
+                  ),
           },
         }
       : {}),

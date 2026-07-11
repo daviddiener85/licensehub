@@ -2,7 +2,7 @@ export const whatsappTemplates = [
   {
     key: "application_received",
     label: "Application received",
-    body: "Hi {{firstName}},\n\nYour new application {{applicationId}} has been created successfully.\n\nPlease view your tracking page here: {{trackingUrl}}",
+    body: "Hi {{firstName}},\n\nYour new application has been created successfully.\n\nPlease view {{trackingUrl}} for any update.",
   },
   {
     key: "order_update",
