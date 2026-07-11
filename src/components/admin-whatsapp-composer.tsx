@@ -18,6 +18,8 @@ type AdminWhatsappComposerProps = {
   applicationId: string;
   clientFirstName: string;
   templates: ReadonlyArray<WhatsAppTemplate>;
+  replyWindowState: "free_reply" | "template_required";
+  lastInboundAt?: string | null;
 };
 
 function fillTemplate(body: string, clientFirstName: string, applicationId: string) {
@@ -51,6 +53,8 @@ export function AdminWhatsappComposer({
   applicationId,
   clientFirstName,
   templates,
+  replyWindowState,
+  lastInboundAt,
 }: AdminWhatsappComposerProps) {
   const [sendState, formAction] = useActionState(action, { status: "idle", message: "", sentAt: 0 });
 
@@ -61,6 +65,8 @@ export function AdminWhatsappComposer({
       applicationId={applicationId}
       clientFirstName={clientFirstName}
       templates={templates}
+      replyWindowState={replyWindowState}
+      lastInboundAt={lastInboundAt}
       resetKey={sendState.sentAt}
     />
   );
@@ -71,12 +77,16 @@ function AdminWhatsappComposerBody({
   applicationId,
   clientFirstName,
   templates,
+  replyWindowState,
+  lastInboundAt,
   resetKey,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   applicationId: string;
   clientFirstName: string;
   templates: ReadonlyArray<WhatsAppTemplate>;
+  replyWindowState: "free_reply" | "template_required";
+  lastInboundAt?: string | null;
   resetKey: number;
 }) {
   const [body, setBody] = useState(() => (resetKey > 0 ? "" : fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId)));
@@ -94,6 +104,26 @@ function AdminWhatsappComposerBody({
   return (
     <form action={action}>
       <input type="hidden" name="applicationId" value={applicationId} />
+
+      <div
+        className={[
+          "mt-4 border px-3 py-2 text-xs font-medium",
+          replyWindowState === "free_reply"
+            ? "border-[#c7e4d2] bg-[#eef9f1] text-[#1f7a4d]"
+            : "border-[#e5d8b8] bg-[#fff8df] text-[#8a6a2a]",
+        ].join(" ")}
+      >
+        {replyWindowState === "free_reply" ? (
+          <span>Free reply available. You can send a normal WhatsApp message.</span>
+        ) : (
+          <span>Template required. Use an approved WhatsApp template before sending.</span>
+        )}
+        {lastInboundAt ? (
+          <span className="ml-2 text-[11px] opacity-80">
+            Last client reply: {new Date(lastInboundAt).toLocaleString("en-ZA", { timeZone: "Africa/Johannesburg" })}
+          </span>
+        ) : null}
+      </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         {templateButtons.map((template) => (
@@ -115,6 +145,11 @@ function AdminWhatsappComposerBody({
         required
         value={body}
       />
+      {replyWindowState === "template_required" ? (
+        <p className="mt-2 text-xs text-[#8a6a2a]">
+          This conversation is outside the 24-hour customer service window. Keep the message aligned with an approved template.
+        </p>
+      ) : null}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-[#6b5e4f]">Messages are stored against the application audit record.</p>
         <WhatsAppSubmitButton disabled={!canSend} />

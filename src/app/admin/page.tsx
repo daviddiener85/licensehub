@@ -68,6 +68,8 @@ type AdminSearchParams = {
 const adminDetailViews = ["overview", "documents", "payment", "supplier", "messages", "audit"] as const;
 type AdminDetailView = (typeof adminDetailViews)[number];
 
+const whatsappReplyWindowMs = 24 * 60 * 60 * 1000;
+
 const paymentFollowUpSummaries = ["EFT pending", "Paystack pending", "Additional charge pending"];
 const terminalPaymentStatuses = new Set(["CANCELLED", "DISPATCHED"]);
 
@@ -127,6 +129,22 @@ function hasUnseenWhatsappReply(
       message.status === "RECEIVED" &&
       message.adminSeenAt == null,
   );
+}
+
+function lastInboundWhatsappAt(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  return application.communications.find(
+    (message) => message.direction === CommunicationDirection.INBOUND && message.status === "RECEIVED",
+  )?.receivedAt ?? null;
+}
+
+function isWhatsappFreeReplyAvailable(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  const lastInboundAt = lastInboundWhatsappAt(application);
+
+  if (!lastInboundAt) {
+    return false;
+  }
+
+  return Date.now() - lastInboundAt.getTime() <= whatsappReplyWindowMs;
 }
 
 function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
@@ -1401,8 +1419,15 @@ export default async function AdminPage({
                   {selectedApplication.client.cellphone}
                 </p>
               </div>
-              <span className="border border-[#c5b89e] px-2 py-1 text-xs font-medium text-[#6b5e4f]">
-                History retained
+              <span
+                className={[
+                  "border px-2 py-1 text-xs font-medium",
+                  isWhatsappFreeReplyAvailable(selectedApplication)
+                    ? "border-[#c7e4d2] bg-[#eef9f1] text-[#1f7a4d]"
+                    : "border-[#e5d8b8] bg-[#fff8df] text-[#8a6a2a]",
+                ].join(" ")}
+              >
+                {isWhatsappFreeReplyAvailable(selectedApplication) ? "Free reply available" : "Template required"}
               </span>
             </div>
 
@@ -1412,6 +1437,8 @@ export default async function AdminPage({
               applicationId={selectedApplication.id}
               clientFirstName={selectedApplication.client.firstName}
               templates={whatsappTemplates}
+              replyWindowState={isWhatsappFreeReplyAvailable(selectedApplication) ? "free_reply" : "template_required"}
+              lastInboundAt={lastInboundWhatsappAt(selectedApplication)?.toISOString() ?? null}
             />
 
             <div className="mt-5 space-y-3 border-t border-[#d8d1c3] pt-5">
