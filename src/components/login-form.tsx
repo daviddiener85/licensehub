@@ -8,13 +8,18 @@ type LoginFormProps = {
   action: (formData: FormData) => Promise<{ error: string; redirectTo?: string }>;
 };
 
-const initialState = { error: "" };
+type LoginFormState = {
+  error: string;
+  redirectTo?: string;
+};
+
+const initialState: LoginFormState = { error: "" };
 
 export function LoginForm({ nextPath, action }: LoginFormProps) {
   const router = useRouter();
   const [role, setRole] = useState<"ADMIN" | "SUPPLIER">(nextPath === "/supplier" ? "SUPPLIER" : "ADMIN");
   const [state, formAction, pending] = useActionState(
-    async (_previousState: typeof initialState, formData: FormData) => action(formData),
+    async (_previousState: LoginFormState, formData: FormData): Promise<LoginFormState> => action(formData),
     initialState,
   );
 
