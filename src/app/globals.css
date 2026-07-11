@@ -87,3 +87,35 @@ body {
   background: linear-gradient(180deg, #2a343b, #111719);
   color: #f7f7f2;
 }
+
+@media print {
+  body {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .tlh-print-hide,
+  nav,
+  button,
+  .tlh-supplier-print-area > .border-t {
+    display: none !important;
+  }
+
+  .tlh-supplier-print-area,
+  .tlh-supplier-print-area * {
+    box-shadow: none !important;
+  }
+
+  .print-pack-document {
+    break-after: page;
+    page-break-after: always;
+    border: 1px solid #cfcfcf !important;
+    margin: 0 !important;
+    min-height: 100vh;
+  }
+
+  .print-pack-document:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+}

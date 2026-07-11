@@ -242,7 +242,7 @@ export default async function SupplierPage({
                   </div>
                 </div>
 
-                <div className="p-5">
+                <div className="p-5 tlh-supplier-print-area">
                   <dl className="grid gap-3 text-sm sm:grid-cols-3">
                     <div className="border border-[#eee8dc] p-3">
                       <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Status</dt>
@@ -277,7 +277,7 @@ export default async function SupplierPage({
                     </div>
                   </dl>
 
-                  <section className="mt-6">
+                  <section className="mt-6 tlh-print-hide">
                     <div className="flex items-center justify-between gap-3">
                       <h3 className="font-semibold">Print Pack Documents</h3>
                       <span className="text-xs font-semibold text-[#6b5e4f]">
@@ -308,17 +308,17 @@ export default async function SupplierPage({
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex gap-3 border border-[#d8d1c3] px-4 py-3 text-left text-sm transition hover:border-[#0f766e]"
+                            className="print-pack-document flex gap-3 border border-[#d8d1c3] px-4 py-3 text-left text-sm transition hover:border-[#0f766e]"
                           >
                             {content}
                           </a>
                         ) : (
-                          <div key={document.id} className="flex gap-3 border border-[#d8d1c3] px-4 py-3 text-sm">
+                          <div key={document.id} className="print-pack-document flex gap-3 border border-[#d8d1c3] px-4 py-3 text-sm">
                             {content}
                           </div>
                         );
                       })}
-                      <div className="flex gap-3 border border-[#d8d1c3] px-4 py-3 text-sm">
+                      <div className="print-pack-document flex gap-3 border border-[#d8d1c3] px-4 py-3 text-sm">
                         <PackageCheck className="h-5 w-5 text-[#0f766e]" />
                         <span>
                           <span className="block font-semibold">Payment</span>
@@ -335,7 +335,7 @@ export default async function SupplierPage({
                     ) : null}
                   </section>
 
-                  <section className="mt-6 border-t border-[#d6d0c1] pt-5">
+                  <section className="mt-6 border-t border-[#d6d0c1] pt-5 tlh-print-hide">
                     <h3 className="font-semibold">Order Comments</h3>
                     <div className="mt-3 space-y-2">
                       {selectedOrder.orderComments.map((comment) => (
@@ -368,7 +368,7 @@ export default async function SupplierPage({
                     </form>
                   </section>
 
-                  <section className="mt-6 border-t border-[#d6d0c1] pt-5">
+                  <section className="mt-6 border-t border-[#d6d0c1] pt-5 tlh-print-hide">
                     <h3 className="font-semibold">Supplier Actions</h3>
                     <div className="mt-3 flex flex-wrap gap-3">
                       {visibleActions(selectedOrder).map((action) => {
