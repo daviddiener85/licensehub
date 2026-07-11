@@ -1126,6 +1126,7 @@ async function extractLicenceDiskWithOpenAi(file: File): Promise<LicenceDiskExtr
                   "Extract vehicle details from this South African vehicle licence disk photo. " +
                   "Return JSON only. If a field is unclear, use an empty string and set needsManualReview to true. " +
                   "For registrationNumber, extract the VEHICLE REGISTER NUMBER only. It is labelled 'Veh. register no.' or 'Vrt.registernr.' on the disk. " +
+                  "Across South African provinces, wording and layout may differ; still choose the vehicle register/register no. field, not the licence/licence plate field. " +
                   "Do NOT use the licence plate/licence number labelled 'Licence no.' or 'Lisensienr.' for registrationNumber. " +
                   "For example, if the disk shows 'Licence no. DG80YBZN' and 'Veh. register no. WGJ776W', return registrationNumber as 'WGJ776W'. " +
                   "Do not guess the register number, VIN/chassis, make, or model from partial unreadable text.",
