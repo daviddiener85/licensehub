@@ -1870,6 +1870,69 @@ async function buildPaymentRequest(options: {
   };
 }
 
+export async function switchPendingPaymentToPaystack(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const publicToken = getRequiredString(formData, "publicToken", "Public token");
+
+  if (!isPaystackConfigured()) {
+    throw new Error("Paystack is not configured.");
+  }
+
+  const application = await prisma.application.findFirstOrThrow({
+    where: {
+      id: applicationId,
+      publicToken,
+    },
+    select: {
+      client: {
+        select: {
+          email: true,
+        },
+      },
+      payments: {
+        where: { status: PaymentStatus.PENDING },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          method: true,
+          amount: true,
+          reference: true,
+        },
+      },
+    },
+  });
+  const payment = application.payments[0];
+
+  if (!payment) {
+    throw new Error("No pending payment was found.");
+  }
+
+  if (payment.method !== PaymentMethod.EFT) {
+    throw new Error("This payment is already set to Paystack.");
+  }
+
+  const paymentRequest = await buildPaymentRequest({
+    applicationId,
+    email: application.client.email,
+    amount: payment.amount.toString(),
+    reference: payment.reference,
+    paymentMethod: PaymentMethod.PAYSTACK,
+  });
+
+  await prisma.payment.update({
+    where: { id: payment.id },
+    data: {
+      method: PaymentMethod.PAYSTACK,
+      checkoutUrl: paymentRequest.checkoutUrl,
+      providerReference: paymentRequest.providerReference,
+    },
+  });
+
+  refreshWorkflowPages();
+  redirect(`/apply/submitted?application=${encodeURIComponent(applicationId)}`);
+}
+
 export async function publishAdminQuote(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const amount = getRequiredMoneyAmount(formData, "quoteAmount", "Quote amount");
