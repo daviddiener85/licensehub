@@ -448,6 +448,7 @@ model Communication {
   deliveredAt       DateTime?
   readAt            DateTime?
   receivedAt        DateTime?
+  adminSeenAt       DateTime?
   failedAt          DateTime?
   errorMessage      String?
   createdAt         DateTime               @default(now())
@@ -459,6 +460,7 @@ model Communication {
   @@index([applicationId, createdAt])
   @@index([channel, status])
   @@index([providerMessageId])
+  @@index([applicationId, direction, adminSeenAt])
 }
 
 model AuditLog {

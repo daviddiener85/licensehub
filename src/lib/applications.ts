@@ -85,6 +85,7 @@ type ApplicationCommunicationRecord = {
   createdAt: Date;
   receivedAt: Date | null;
   sentAt: Date | null;
+  adminSeenAt: Date | null;
 };
 
 type ApplicationStatusHistoryRecord = {
@@ -258,6 +259,7 @@ const applicationCommunicationSelect = {
   createdAt: true,
   receivedAt: true,
   sentAt: true,
+  adminSeenAt: true,
 };
 
 const applicationStatusHistorySelect = {

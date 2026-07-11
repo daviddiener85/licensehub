@@ -11,7 +11,15 @@ import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
 import { SettingsActionButton as PendingActionButton } from "@/components/settings-action-button";
-import { DocumentType, PaymentMethod, PaymentStatus, PaymentType, SupplierUrgency } from "@/generated/prisma/client";
+import {
+  CommunicationChannel,
+  CommunicationDirection,
+  DocumentType,
+  PaymentMethod,
+  PaymentStatus,
+  PaymentType,
+  SupplierUrgency,
+} from "@/generated/prisma/client";
 import type { ApplicationChargeRecord, ApplicationDocumentRecord } from "@/lib/applications";
 import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
@@ -102,6 +110,23 @@ function paymentSummary(application: Awaited<ReturnType<typeof listAdminApplicat
 
 function needsPaymentFollowUp(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
   return !terminalPaymentStatuses.has(application.currentStatus) && paymentFollowUpSummaries.includes(paymentSummary(application));
+}
+
+function hasUnseenWhatsappReply(
+  application: Awaited<ReturnType<typeof listAdminApplications>>[number],
+  selectedApplicationId?: string,
+  selectedView?: AdminDetailView,
+) {
+  if (application.id === selectedApplicationId && selectedView === "messages") {
+    return false;
+  }
+
+  return application.communications.some(
+    (message) =>
+      message.direction === CommunicationDirection.INBOUND &&
+      message.status === "RECEIVED" &&
+      message.adminSeenAt == null,
+  );
 }
 
 function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
@@ -647,6 +672,21 @@ export default async function AdminPage({
     application: selectedApplication.id,
     view: selectedView,
   };
+
+  if (selectedView === "messages") {
+    await prisma.communication.updateMany({
+      where: {
+        applicationId: selectedApplication.id,
+        channel: CommunicationChannel.WHATSAPP,
+        direction: CommunicationDirection.INBOUND,
+        adminSeenAt: null,
+      },
+      data: {
+        adminSeenAt: new Date(),
+      },
+    });
+  }
+
   const queueCards = [
     {
       label: "Needs quote",
@@ -875,6 +915,19 @@ export default async function AdminPage({
               </AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>{ageSummary(application.createdAt)}</AdminApplicationCell>
               <span className="flex flex-wrap gap-2">
+                {hasUnseenWhatsappReply(application, selectedApplication.id, selectedView) ? (
+                  <Link
+                    href={adminHref(baseAdminParams, { application: application.id, view: "messages" })}
+                    scroll={false}
+                    className="inline-flex items-center gap-1 border border-[#128c7e] bg-[#e7f7ef] px-2 py-1 text-xs font-semibold text-[#075e54]"
+                    title="View new WhatsApp message"
+                  >
+                    <span aria-hidden="true" className="text-sm leading-none">
+                      ●
+                    </span>
+                    View new WhatsApp message
+                  </Link>
+                ) : null}
                 {adminActions(application).map((item) =>
                   item.type === "resubmission" ? (
                     <ResubmissionActionForm
