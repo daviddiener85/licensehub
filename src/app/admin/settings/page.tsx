@@ -237,7 +237,7 @@ export default async function AdminSettingsPage({
                   type="number"
                 />
               </label>
-              <input name="updatedByName" type="hidden" value="License Hub Admin" />
+              <input name="updatedByName" type="hidden" value="The License Hub Admin" />
               <SettingsActionButton
                 className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
                 pendingLabel="Saving..."
@@ -333,7 +333,7 @@ export default async function AdminSettingsPage({
                   />
                 </label>
               </div>
-              <input name="updatedByName" type="hidden" value="License Hub Admin" />
+              <input name="updatedByName" type="hidden" value="The License Hub Admin" />
               <SettingsActionButton
                 className="h-10 border border-[#1f2724] bg-[#1f2724] px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-80"
                 pendingLabel="Saving..."

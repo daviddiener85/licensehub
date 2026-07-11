@@ -1041,7 +1041,8 @@ async function extractLicenceDiskWithOpenAi(file: File): Promise<LicenceDiskExtr
                 text:
                   "Extract vehicle details from this South African vehicle licence disk photo. " +
                   "Return JSON only. If a field is unclear, use an empty string and set needsManualReview to true. " +
-                  "Do not guess registration, VIN/chassis, make, or model from partial unreadable text.",
+                  "The registration number is the vehicle license plate number shown on the disk. " +
+                  "Do not guess registration number, VIN/chassis, make, or model from partial unreadable text.",
               },
               {
                 type: "input_image",
@@ -1061,7 +1062,7 @@ async function extractLicenceDiskWithOpenAi(file: File): Promise<LicenceDiskExtr
               properties: {
                 registrationNumber: {
                   type: "string",
-                  description: "Vehicle registration number from the licence disk, without spaces where possible.",
+                  description: "Vehicle registration number or license plate number from the licence disk, without spaces where possible.",
                 },
                 vin: {
                   type: "string",
@@ -1293,7 +1294,7 @@ export async function createClientApplicationLink(formData: FormData) {
   const deliveryAddressLine1 = getRequiredString(formData, "deliveryAddressLine1", "Address line 1");
   const deliveryCity = getRequiredString(formData, "deliveryCity", "City");
   const deliveryPostalCode = getRequiredString(formData, "deliveryPostalCode", "Postal code");
-  const registrationNumber = getRequiredString(formData, "registrationNumber", "Registration number");
+  const registrationNumber = getRequiredString(formData, "registrationNumber", "Register");
   const vin = getOptionalString(formData, "vin");
   const vehicleMake = getOptionalString(formData, "vehicleMake");
   const vehicleModel = getOptionalString(formData, "vehicleModel");
@@ -1401,7 +1402,7 @@ export async function createPublicApplicationIntake(
     const paymentDeliveryPostalCode = deliveryRequired
       ? getRequiredString(formData, "paymentDeliveryPostalCode", "Payment delivery postal code")
       : deliveryPostalCode;
-    const registrationNumber = getRequiredString(formData, "registrationNumber", "Registration number");
+    const registrationNumber = getRequiredString(formData, "registrationNumber", "Register");
     const vin = getOptionalString(formData, "vin");
     const vehicleMake = getOptionalString(formData, "vehicleMake");
     const vehicleModel = getOptionalString(formData, "vehicleModel");
@@ -1591,12 +1592,10 @@ export async function createPublicApplicationIntake(
       ? [
           `Hi ${firstName},`,
           "",
-          "Your License Hub order has been received.",
+          "Your application has been received.",
           `Reference number: ${applicationId}.`,
           "",
-          paymentMethod === PaymentMethod.PAYSTACK
-            ? "Your Paystack payment request is ready."
-            : "Your EFT payment request is ready.",
+          "Your payment request is ready.",
           paymentMethod === PaymentMethod.PAYSTACK
             ? `Pay now here: ${paymentUploadLink(applicationId)}`
             : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
@@ -1607,10 +1606,10 @@ export async function createPublicApplicationIntake(
       : [
       `Hi ${firstName},`,
       "",
-      "Your License Hub order has been received.",
+      "Your application has been received.",
       `Reference number: ${applicationId}.`,
       "",
-      "Our admin team will now prepare your quote and we'll keep you updated on your application status.",
+      "Our team will prepare your quote next and keep you updated on your application status.",
       "",
       `Track your application here: ${clientStatusLink(publicToken)}.`,
     ].join("\n");
@@ -1622,17 +1621,15 @@ export async function createPublicApplicationIntake(
         type: "text",
         text: startAwaitingPayment
           ? [
-              "Your License Hub order has been received.",
+              "Your application has been received.",
               "",
-              paymentMethod === PaymentMethod.PAYSTACK
-                ? "Your Paystack payment request is ready."
-                : "Your EFT payment request is ready.",
+              "Your payment request is ready.",
               paymentMethod === PaymentMethod.PAYSTACK
                 ? `Pay now here: ${paymentUploadLink(applicationId)}`
                 : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
               "Use the payment reference shown on your application page.",
             ].join("\n")
-          : "Our admin team will now prepare your quote and we'll keep you updated on your application status.",
+          : "Our team will prepare your quote next and keep you updated on your application status.",
       },
       { type: "text", text: clientStatusLink(publicToken) },
     ] as const;
@@ -1866,6 +1863,12 @@ export async function publishAdminQuote(formData: FormData) {
     },
   });
 
+  const quoteApprovalTemplateName = "order_update";
+  const quoteApprovalTemplateParameters = [
+    { type: "text", text: application.client.firstName },
+    { type: "text", text: applicationId },
+  ] as const;
+
   const communication = await prisma.communication.create({
     data: {
       applicationId,
@@ -1875,11 +1878,8 @@ export async function publishAdminQuote(formData: FormData) {
       senderId: adminId,
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
-      templateKey: "quote-ready-for-approval",
-      body: withClientStatusLink(
-        `Hi ${application.client.firstName}, your quote is ready for application ${applicationId}. Please review and approve so we can proceed.`,
-        application.publicToken,
-      ),
+      templateKey: quoteApprovalTemplateName,
+      body: `Hi ${application.client.firstName}, your quote for application ${applicationId} is ready. Please review and approve it to continue.`,
     },
     select: {
       id: true,
@@ -1887,7 +1887,14 @@ export async function publishAdminQuote(formData: FormData) {
       body: true,
     },
   });
-  await dispatchWhatsAppCommunication(communication);
+  await dispatchWhatsAppCommunication({
+    ...communication,
+    template: {
+      name: quoteApprovalTemplateName,
+      languageCode: "en_US",
+      bodyParameters: quoteApprovalTemplateParameters,
+    },
+  });
 
   refreshWorkflowPages();
   revalidatePath("/admin");
@@ -1981,8 +1988,8 @@ export async function raiseAdditionalCharge(formData: FormData) {
       templateKey: "additional-charge-ready",
       body: withClientStatusLink(
         paymentMethod === PaymentMethod.PAYSTACK
-          ? `Hi ${application.client.firstName}, an additional charge has been added for application ${applicationId}. Please review and pay here: ${paymentUploadLink(applicationId)}.`
-          : `Hi ${application.client.firstName}, an additional charge has been added for application ${applicationId}. Please review and upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
+          ? `Hi ${application.client.firstName}, an additional charge has been added to application ${applicationId}. Please review the details and complete payment here: ${paymentUploadLink(applicationId)}.`
+          : `Hi ${application.client.firstName}, an additional charge has been added to application ${applicationId}. Please review the details and upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
         application.publicToken,
       ),
     },
@@ -2101,8 +2108,8 @@ export async function approveClientQuote(formData: FormData) {
       templateKey: "payment-pop-upload-link",
       body: withClientStatusLink(
         paymentMethod === PaymentMethod.PAYSTACK
-          ? `Hi ${applicationWithClient.client.firstName}, your Paystack payment request is ready here: ${paymentUploadLink(applicationId)}.`
-          : `Hi ${applicationWithClient.client.firstName}, please upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
+          ? `Hi ${applicationWithClient.client.firstName}, your payment request for application ${applicationId} is ready. Complete payment here: ${paymentUploadLink(applicationId)}.`
+          : `Hi ${applicationWithClient.client.firstName}, your payment for application ${applicationId} is ready. Please upload your proof of payment here: ${paymentUploadLink(applicationId)}.`,
         application.publicToken,
       ),
     },
@@ -2412,7 +2419,7 @@ export async function rejectDocument(formData: FormData) {
 
 export async function updateSupplierHandoff(formData: FormData) {
   const applicationId = getApplicationId(formData);
-  const adminName = "License Hub Admin";
+  const adminName = "The License Hub Admin";
   const supplierUrgency = getSupplierUrgency(formData);
   const comment = getOptionalString(formData, "orderComment");
 
@@ -2512,7 +2519,7 @@ export async function markDocumentReturned(formData: FormData) {
 
   await transitionApplication(applicationId, ApplicationStatus.DOCUMENT_RETURNED, {
     actorId: adminId,
-    note: "Admin confirmed the physical document returned to License Hub.",
+    note: "Admin confirmed the physical document returned to The License Hub.",
   });
 
   refreshWorkflowPages();
@@ -2663,7 +2670,7 @@ export async function resendClientStatusLink(formData: FormData) {
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
       templateKey: "client-status-link-resend",
-      body: `Hi ${application.client.firstName}, here is your License Hub status link for application ${applicationId}: ${clientStatusLink(application.publicToken)}`,
+      body: `Hi ${application.client.firstName}, here is your status link for application ${applicationId}: ${clientStatusLink(application.publicToken)}`,
     },
     select: {
       id: true,
@@ -2857,7 +2864,7 @@ export async function supplierMarkReturning(formData: FormData) {
 
   await transitionApplication(applicationId, ApplicationStatus.RETURNING_TO_LICENSE_HUB, {
     actorId: supplierId,
-    note: "Supplier marked the document as returning to License Hub.",
+    note: "Supplier marked the document as returning to The License Hub.",
   });
 
   if (supplierId) {
@@ -2866,7 +2873,7 @@ export async function supplierMarkReturning(formData: FormData) {
         applicationId,
         action: ApplicationStatus.RETURNING_TO_LICENSE_HUB,
         actorId: supplierId,
-        note: "Document sent back to License Hub.",
+        note: "Document sent back to The License Hub.",
       },
     });
   }

@@ -628,19 +628,19 @@ export function MandateCaptureForm({
       <div className="mt-6 border-t border-[#d8d1c3] pt-5">
         <h3 className="text-base font-semibold">2. Complete mandate form</h3>
         <p className="mt-1 text-sm leading-6 text-[#52615b]">
-          Review the mandate details and sign below. The completed mandate form will be sent to License Hub for review.
+          Review the mandate details and sign below. The completed mandate form will be sent to The License Hub for review.
         </p>
 
         <div className="mt-4 border border-[#d8d1c3] bg-white p-4 text-sm leading-6">
-          <p className="font-semibold">Request letter for duplicate vehicle registration document</p>
+          <p className="font-semibold">Request letter for duplicate vehicle register document</p>
           <p className="mt-3">
             I, <span className="font-semibold">{clientName}</span>, hereby state that I have lost my vehicle&apos;s
-            registration document and request License Hub&apos;s assistance in obtaining a duplicate vehicle registration
+            register document and request The License Hub&apos;s assistance in obtaining a duplicate vehicle register
             document on my behalf.
           </p>
           <dl className="mt-4 grid gap-3 border-t border-[#eee8dc] pt-4 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Registration</dt>
+              <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Register</dt>
               <dd className="font-medium">{fieldValue(registrationNumber)}</dd>
             </div>
             <div>

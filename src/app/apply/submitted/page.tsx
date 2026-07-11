@@ -98,9 +98,9 @@ export default async function ApplicationSubmittedPage({
   const applicationProcessing =
     applicationRecord?.currentStatus === ApplicationStatus.PENDING_REVIEW || paymentConfirmed || returnedFromPaystack;
   const paymentRequested = quoteApprovedAwaitingPayment || additionalChargeRaised;
-  const pageTitle = applicationProcessing ? "Payment received" : additionalChargeRaised ? "Additional charge required" : "Application received";
+  const pageTitle = applicationProcessing ? "Thank you" : additionalChargeRaised ? "Additional charge required" : "Application received";
   const pageSummary = applicationProcessing
-    ? "Your request is now with License Hub. Please watch WhatsApp for progress updates from our team."
+    ? "Thank you! Your application has been submitted for review. We will get back to you shortly."
     : additionalChargeRaised
       ? "An additional charge has been added to your application. Please complete payment so we can continue."
     : "Your application, supporting documents, and mandate form were saved successfully.";
@@ -111,7 +111,7 @@ export default async function ApplicationSubmittedPage({
   return (
     <main className="min-h-screen bg-[#f7f5ef] px-4 py-10 text-[#1f2724] sm:px-6 lg:px-8">
       <section className="mx-auto max-w-3xl border border-[#d8d1c3] bg-white p-6 sm:p-8">
-        <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub</p>
+        <p className="text-sm font-semibold uppercase text-[#6b5e4f]">The License Hub</p>
         <h1 className="mt-4 text-3xl font-semibold">{pageTitle}</h1>
         <p className="mt-4 text-sm leading-6 text-[#52615b]">{pageSummary}</p>
 
@@ -163,11 +163,10 @@ export default async function ApplicationSubmittedPage({
 
         {applicationProcessing ? (
           <div className="mt-6 border border-[#1f7a4d] bg-[#f4fbf7] p-4">
-            <p className="text-xs font-semibold uppercase text-[#1f7a4d]">Payment received</p>
-            <h2 className="mt-2 text-xl font-semibold">Your request is being processed</h2>
+            <p className="text-xs font-semibold uppercase text-[#1f7a4d]">Submitted for review</p>
+            <h2 className="mt-2 text-xl font-semibold">Thank you! Your application is submitted</h2>
             <p className="mt-2 text-sm leading-6 text-[#52615b]">
-              Your request is now with License Hub for processing. Please keep an eye on WhatsApp for progress updates
-              and any requests from our team.
+              Your application has been submitted for review. We will get back to you shortly.
             </p>
             {returnedFromPaystack && !paymentConfirmed ? (
               <p className="mt-3 border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
@@ -269,7 +268,7 @@ export default async function ApplicationSubmittedPage({
                     </div>
                   ) : (
                     <p className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm font-semibold text-[#6b5e4f]">
-                      EFT banking details are not configured yet. Please contact License Hub support before paying.
+                      EFT banking details are not configured yet. Please contact The License Hub support before paying.
                     </p>
                   )}
                   <details className="border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">

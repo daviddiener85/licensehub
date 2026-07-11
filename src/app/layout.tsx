@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "License Hub",
+  title: "The License Hub",
   description: "Vehicle document services workflow platform.",
 };
 

@@ -46,7 +46,7 @@ export function LegalPageShell({ eyebrow, title, intro, updatedOn, children }: L
               <p className="text-sm font-black uppercase tracking-[0.16em] text-[#ffb84d]">Read this first</p>
               <ul className="mt-4 space-y-3 text-sm leading-6 text-white/80">
                 <li>These pages are a draft policy draft for review before publication.</li>
-                <li>They are written to match the current License Hub tone and flow.</li>
+                <li>They are written to match the current The License Hub tone and flow.</li>
                 <li>Use them as the customer-facing legal pages linked from the site footer.</li>
               </ul>
               <Link

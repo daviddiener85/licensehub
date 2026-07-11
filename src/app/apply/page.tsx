@@ -2,6 +2,7 @@ import { ClientIntakeFlow } from "@/components/client-intake-flow";
 import { PublicFooter } from "@/components/public-footer";
 import { isPaystackConfigured } from "@/lib/paystack";
 import { listActiveServices } from "@/lib/services";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,14 @@ export default async function ApplyPage({
         <div className="relative mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1fr_0.9fr] lg:px-8">
           <div className="flex min-h-[330px] flex-col justify-center">
             <div>
-              <p className="inline-flex border border-[#ff9f0a]/50 bg-[#ff9f0a]/12 px-3 py-2 text-sm font-black uppercase tracking-[0.16em] text-[#ffd08a]">
-                The License Hub
-              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="inline-flex border border-[#ff9f0a]/50 bg-[#ff9f0a]/12 px-3 py-2 text-sm font-black uppercase tracking-[0.16em] text-[#ffd08a]">
+                  The License Hub
+                </p>
+                <Link href="/help" className="text-sm font-semibold text-white/72 underline decoration-white/30 underline-offset-4">
+                  Need help?
+                </Link>
+              </div>
               <p className="tlh-brand-mark mt-7 text-6xl font-black italic sm:text-8xl">
                 T<span className="tlh-l">L</span>H
               </p>
@@ -41,29 +47,6 @@ export default async function ApplyPage({
               </p>
             </div>
           </div>
-
-          <aside className="tlh-dark-panel p-4 sm:p-5">
-            <h2 className="text-lg font-black uppercase">What to expect</h2>
-            <div className="mt-5 grid gap-3 text-sm">
-              {[
-                ["1", "Choose your service", "Pick the request you want to submit."],
-                ["2", "Complete the details", "We show only the documents that match your situation."],
-                ["3", "Sign and pay", "Upload the files, sign the mandate, then continue to payment."],
-              ].map(([step, title, text]) => (
-                <div key={title} className="border border-white/12 bg-white/8 p-3">
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-[#ff9f0a] bg-[#ff9f0a] text-xs font-black text-[#111719]">
-                      {step}
-                    </span>
-                    <div>
-                      <p className="font-black uppercase text-white">{title}</p>
-                      <p className="mt-1 leading-5 text-white/68">{text}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </aside>
         </div>
       </section>
 

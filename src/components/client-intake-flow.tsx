@@ -713,7 +713,7 @@ export function ClientIntakeFlow({
                     checked={popiaConsent}
                     onChange={(event) => setPopiaConsent(event.currentTarget.checked)}
                   />
-                  <span>I agree that License Hub may use these details to process this application.</span>
+                  <span>I agree that The License Hub may use these details to process this application.</span>
                 </label>
               </div>
             ) : null}
@@ -782,7 +782,7 @@ export function ClientIntakeFlow({
                   />
                 </label>
                 <label className="text-sm font-semibold">
-                  CIPC / BRNC / registration number
+                  CIPC / BRNC / register
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     value={entityDetails.entityRegistrationNumber}
@@ -965,7 +965,7 @@ export function ClientIntakeFlow({
               </form>
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
-                  ["registrationNumber", "Registration number"],
+                  ["registrationNumber", "Register"],
                   ["vin", "VIN / chassis number"],
                   ["make", "Vehicle make"],
                   ["model", "Vehicle model"],
@@ -1001,9 +1001,9 @@ export function ClientIntakeFlow({
                   {!vehicleDetailsComplete ? (
                     <span className="mt-1 block text-xs font-normal text-[#9a6a20]">
                       {licenceDiskScanAttempted
-                        ? "Enter at least the registration number before confirming."
+                        ? "Enter at least the register before confirming."
                         : licenceDiskFileName
-                          ? "Enter at least the registration number before confirming."
+                          ? "Enter at least the register before confirming."
                           : "Upload the licence disk photo before confirming."}
                     </span>
                   ) : null}
@@ -1147,19 +1147,19 @@ export function ClientIntakeFlow({
                               {entityDetails.entityDisplayName ||
                                 (ownershipType === "company-or-trust" ? "the company or trust" : "the deceased estate")}
                             </span>
-                            , hereby state that I require assistance with my selected License Hub service,{" "}
+                            , hereby state that I require assistance with my selected The License Hub service,{" "}
                             <span className="font-semibold">{selectedService.name}</span>.
                           </>
                         ) : (
                           <>
                             I, <span className="font-semibold">{clientDetails.fullName || "Client name"}</span>, hereby
-                            state that I require assistance with my selected License Hub service,{" "}
+                            state that I require assistance with my selected The License Hub service,{" "}
                             <span className="font-semibold">{selectedService.name}</span>.
                           </>
                         )}
                       </p>
                       <p className="mt-3">
-                        I request License Hub&apos;s assistance in preparing and submitting the required vehicle
+                        I request The License Hub&apos;s assistance in preparing and submitting the required vehicle
                         administration documents on my behalf, using the details I have provided and confirmed in this
                         application.
                       </p>
@@ -1179,7 +1179,7 @@ export function ClientIntakeFlow({
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Registration</dt>
+                          <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Register</dt>
                           <dd className="font-medium">{effectiveVehicleDetails.registrationNumber || "To be confirmed"}</dd>
                         </div>
                         <div>
@@ -1381,7 +1381,7 @@ export function ClientIntakeFlow({
                   <p className="mt-4 text-sm leading-6 text-[#6b5e4f]">
                     {isQuoteFlowService
                       ? "The application will be submitted for admin quote preparation when you submit."
-                      : "The application will be submitted for processing when you submit."}
+                      : "The application will be submitted for review when you submit."}
                   </p>
                   {!requiredUploadsReady ? (
                     <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">

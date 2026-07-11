@@ -9,6 +9,7 @@ import { AdminDocumentQuickView } from "@/components/admin-document-quick-view";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { ResubmissionActionForm } from "@/components/resubmission-action-form";
+import { SettingsActionButton as PendingActionButton } from "@/components/settings-action-button";
 import { DocumentType, PaymentMethod, PaymentStatus, PaymentType, SupplierUrgency } from "@/generated/prisma/client";
 import type { ApplicationChargeRecord, ApplicationDocumentRecord } from "@/lib/applications";
 import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
@@ -472,7 +473,7 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
       label: "Returned",
       action: markDocumentReturned,
       variant: "primary",
-      message: `Confirm the physical document for ${application.id} has returned to License Hub?`,
+      message: `Confirm the physical document for ${application.id} has returned to The License Hub?`,
     });
   }
 
@@ -1296,9 +1297,12 @@ export default async function AdminPage({
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 text-sm font-normal"
                   />
                 </label>
-                <button className="w-full border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white">
+                <PendingActionButton
+                  className="w-full border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-70"
+                  pendingLabel="Publishing quote..."
+                >
                   Publish Quote To Client
-                </button>
+                </PendingActionButton>
               </form>
             ) : null}
             <div className="mt-4 space-y-2 border border-[#eee8dc] bg-[#fffdf8] p-3">
@@ -1342,7 +1346,7 @@ export default async function AdminPage({
                 <div key={message.id} className="border border-[#eee8dc] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#6b5e4f]">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span>{message.direction === "OUTBOUND" ? "License Hub Admin" : message.recipientName}</span>
+                      <span>{message.direction === "OUTBOUND" ? "The License Hub Admin" : message.recipientName}</span>
                       <span className="border border-[#d8d1c3] px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-[#8a6a2a]">
                         {message.direction === "OUTBOUND" ? "Sent" : "Received"}
                       </span>

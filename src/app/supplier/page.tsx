@@ -90,8 +90,8 @@ function visibleActions(order: SupplierOrder) {
     return [
       {
         action: supplierMarkReturning,
-        label: "Returning to License Hub",
-        message: `Confirm that ${order.id} is returning to License Hub?`,
+        label: "Returning to The License Hub",
+        message: `Confirm that ${order.id} is returning to The License Hub?`,
         icon: Truck,
         primary: true,
       },
@@ -134,7 +134,7 @@ export default async function SupplierPage({
               </Link>
               <h1 className="mt-4 text-3xl font-semibold">Supplier Desk</h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#52615b]">
-                Work from approved print packs, produce the document, then mark it returning to License Hub.
+                Work from approved print packs, produce the document, then mark it returning to The License Hub.
               </p>
             </div>
             <div className="border border-[#16352d] bg-[#16352d] px-4 py-3 text-sm font-semibold text-white">
@@ -212,7 +212,7 @@ export default async function SupplierPage({
 
               {orders.length === 0 ? (
                 <div className="px-4 py-10 text-sm leading-6 text-[#52615b]">
-                  No supplier-visible orders right now. Approved applications will appear here once License Hub sends
+                  No supplier-visible orders right now. Approved applications will appear here once The License Hub sends
                   them to the supplier stage.
                 </div>
               ) : null}
@@ -249,7 +249,7 @@ export default async function SupplierPage({
                       <dd className="mt-2 font-semibold">{statusLabel(selectedOrder.currentStatus)}</dd>
                     </div>
                     <div className="border border-[#eee8dc] p-3">
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Registration</dt>
+                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Register</dt>
                       <dd className="mt-2 font-semibold">{selectedOrder.registrationNumber || "Not captured"}</dd>
                     </div>
                     <div className="border border-[#eee8dc] p-3">
@@ -323,7 +323,7 @@ export default async function SupplierPage({
                         <span>
                           <span className="block font-semibold">Payment</span>
                           <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
-                            {selectedOrder.payments.length > 0 ? "Confirmed by License Hub." : "Not confirmed."}
+                            {selectedOrder.payments.length > 0 ? "Confirmed by The License Hub." : "Not confirmed."}
                           </span>
                         </span>
                       </div>
@@ -357,7 +357,7 @@ export default async function SupplierPage({
                         Supplier feedback
                         <input
                           name="orderComment"
-                          placeholder="Add feedback for License Hub"
+                          placeholder="Add feedback for The License Hub"
                           className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                           required
                         />
@@ -389,7 +389,7 @@ export default async function SupplierPage({
                       })}
                       {visibleActions(selectedOrder).length === 0 ? (
                         <p className="border border-[#d8b267] bg-[#fff8df] px-4 py-2 text-sm font-semibold text-[#6b5e4f]">
-                          Waiting for License Hub to receive this pack back.
+                          Waiting for The License Hub to receive this pack back.
                         </p>
                       ) : null}
                     </div>
@@ -398,7 +398,7 @@ export default async function SupplierPage({
               </>
             ) : (
               <div className="p-10 text-sm leading-6 text-[#52615b]">
-                No order selected. Once License Hub approves an application to supplier, its print pack appears here.
+                No order selected. Once The License Hub approves an application to supplier, its print pack appears here.
               </div>
             )}
           </article>

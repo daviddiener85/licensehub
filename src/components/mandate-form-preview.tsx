@@ -23,7 +23,7 @@ type MandateFormPreviewProps = {
 };
 
 const detailRows = [
-  { label: "Vehicle Registration Number", key: "registrationNumber", icon: FileText },
+  { label: "Register", key: "registrationNumber", icon: FileText },
   { label: "VIN Number", key: "vin", icon: Hash },
   { label: "Make", key: "make", icon: Car },
   { label: "Model", key: "model", icon: Laptop },
@@ -64,7 +64,7 @@ export function MandateFormPreview({
     <section className="border border-[#0b3564] bg-white text-[#111827] shadow-sm">
       <header className="bg-[#07315f] px-5 py-5 text-center text-white">
         <h3 className="text-balance text-xl font-black uppercase leading-tight sm:text-2xl">
-          Request Letter For Duplicate Vehicle Registration Document
+          Request Letter For Duplicate Vehicle Register Document
         </h3>
       </header>
 

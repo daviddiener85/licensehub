@@ -4,8 +4,8 @@ import { LegalPageShell } from "@/components/legal-page-shell";
 import { PublicFooter } from "@/components/public-footer";
 
 export const metadata: Metadata = {
-  title: "Refund & Cancellation Policy | License Hub",
-  description: "Refund and cancellation policy for License Hub customers.",
+  title: "Refund & Cancellation Policy | The License Hub",
+  description: "Refund and cancellation policy for The License Hub customers.",
 };
 
 const sections = [
@@ -56,7 +56,7 @@ const sections = [
   {
     title: "7. Contact",
     content: [
-      "For cancellation help, contact the License Hub team using the usual customer support or application channels.",
+      "For cancellation help, contact The License Hub team using the usual customer support or application channels.",
     ],
   },
 ] as const;

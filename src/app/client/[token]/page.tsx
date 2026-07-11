@@ -42,7 +42,7 @@ export default async function ClientApplicationPage({
           <div className="border border-[#d8d1c3] bg-white p-5 sm:p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub status</p>
+                <p className="text-sm font-semibold uppercase text-[#6b5e4f]">The License Hub status</p>
                 <h1 className="mt-3 text-3xl font-semibold">Application {application.id}</h1>
                 <p className="mt-2 text-sm leading-6 text-[#52615b]">
                   {application.client.firstName} {application.client.surname} · {application.service.name}
@@ -225,7 +225,7 @@ export default async function ClientApplicationPage({
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:grid-cols-[1fr_0.9fr] lg:px-8">
           <div className="flex min-h-[430px] flex-col justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase text-[#6b5e4f]">License Hub</p>
+              <p className="text-sm font-semibold uppercase text-[#6b5e4f]">The License Hub</p>
               <h1 className="mt-8 max-w-2xl text-4xl font-semibold leading-tight text-[#111815] sm:text-5xl">
                 Let&apos;s work out what this request needs
               </h1>

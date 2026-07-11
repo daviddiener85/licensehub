@@ -32,13 +32,16 @@ export function ResubmissionActionForm({
 
   const selectedDocuments = documents.filter((document) => selectedDocumentIds.includes(document.id));
   const whatsappMessage = [
-    `Hi ${clientFirstName}, your License Hub application ${applicationId} needs a few document updates:`,
+    `Hi ${clientFirstName}, your application ${applicationId} needs a few document updates:`,
     "",
     ...selectedDocuments.map((document) => `- ${document.label}: ${reasons[document.id] || "Please update this document."}`),
     adminComment.trim().length > 0 ? "" : null,
     adminComment.trim().length > 0 ? `Additional note: ${adminComment.trim()}` : null,
     "",
-    "Please upload the corrected document(s) using your License Hub link.",
+    "Please upload the corrected document(s) using your application link.",
+    "",
+    "Thanks,",
+    "The License Hub",
   ]
     .filter((line) => line !== null)
     .join("\n");

@@ -32,7 +32,7 @@ export const applicationPipeline = [
     status: "PENDING_REVIEW",
     label: "Pending Review",
     owner: "System",
-    clientDescription: "Your application has been received and is being reviewed by our team.",
+    clientDescription: "Thank you! Your application has been submitted for review. We will get back to you shortly.",
   },
   {
     key: "documents-resubmit-required",
@@ -53,7 +53,7 @@ export const applicationPipeline = [
     status: "APPROVED",
     label: "Approved",
     owner: "Admin",
-    clientDescription: "Your application has been approved and sent to our processing partner.",
+    clientDescription: "Your application is successful and is now being processed.",
   },
   {
     key: "at-supplier",
@@ -72,16 +72,16 @@ export const applicationPipeline = [
   {
     key: "returning-to-license-hub",
     status: "RETURNING_TO_LICENSE_HUB",
-    label: "Returning to License Hub",
+    label: "Returning to The License Hub",
     owner: "Supplier",
-    clientDescription: "Your document is on its way back to License Hub.",
+    clientDescription: "Your document is on its way back to The License Hub.",
   },
   {
     key: "document-returned",
     status: "DOCUMENT_RETURNED",
     label: "Document Returned",
     owner: "Admin",
-    clientDescription: "Your document has been received back at License Hub.",
+    clientDescription: "Your document has been received back at The License Hub.",
   },
   {
     key: "dispatched",
@@ -107,7 +107,7 @@ export const supplierStatusActions = [
   },
   {
     status: "RETURNING_TO_LICENSE_HUB",
-    label: "Returning to License Hub",
+    label: "Returning to The License Hub",
     effect: "Admin is notified immediately and the client status reflects the return leg.",
   },
 ] as const;
@@ -125,7 +125,7 @@ export const buildModules = [
   },
   {
     title: "Supplier Portal",
-    description: "Approved order queue with print-ready packs and only Produced or Returning to License Hub status actions.",
+    description: "Approved order queue with print-ready packs and only Produced or Returning to The License Hub status actions.",
     status: "Restricted access",
   },
   {

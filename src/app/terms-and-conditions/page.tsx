@@ -4,15 +4,15 @@ import { LegalPageShell } from "@/components/legal-page-shell";
 import { PublicFooter } from "@/components/public-footer";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | License Hub",
-  description: "Draft terms and conditions for License Hub customers.",
+  title: "Terms & Conditions | The License Hub",
+  description: "Draft terms and conditions for The License Hub customers.",
 };
 
 const sections = [
   {
-    title: "1. About License Hub",
+    title: "1. About The License Hub",
     content: [
-      "License Hub helps customers prepare and submit vehicle document requests, supporting documents, signed mandate forms and payment details.",
+      "The License Hub helps customers prepare and submit vehicle document requests, supporting documents, signed mandate forms and payment details.",
       "We act as a service platform and administration team. We do not guarantee approval by third parties, licensing authorities or payment providers.",
     ],
   },
@@ -29,7 +29,7 @@ const sections = [
     content: [
       "Applications can only move forward when the required documents are supplied in a clear, readable format.",
       "We may ask you to resubmit documents, provide extra proof or correct information before processing continues.",
-      "Submitted files may be reviewed by License Hub staff and, where needed, shared with payment or processing partners involved in the request.",
+      "Submitted files may be reviewed by The License Hub staff and, where needed, shared with payment or processing partners involved in the request.",
     ],
   },
   {
@@ -72,7 +72,7 @@ const sections = [
   {
     title: "9. Contact",
     content: [
-      "If you have any questions about these terms, contact the License Hub team using the details shown on the site or through your application reference.",
+      "If you have any questions about these terms, contact The License Hub team using the details shown on the site or through your application reference.",
     ],
   },
 ] as const;
@@ -82,8 +82,8 @@ export default function TermsAndConditionsPage() {
     <>
       <LegalPageShell
         eyebrow="Terms & Conditions"
-        title="Clear terms for customers using License Hub"
-        intro="These terms explain how the License Hub application flow works, what we need from you, and how payment and processing are handled. Please review them before submitting an application."
+        title="Clear terms for customers using The License Hub"
+        intro="These terms explain how The License Hub application flow works, what we need from you, and how payment and processing are handled. Please review them before submitting an application."
         updatedOn="21 June 2026"
       >
         <div className="grid gap-5">

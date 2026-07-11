@@ -81,12 +81,12 @@ export async function updateRetentionSetting(formData: FormData) {
     where: { id: "default" },
     update: {
       daysAfterCompletion: days ? Number(days) : null,
-      updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
+      updatedByName: stringField(formData, "updatedByName") || "The License Hub Admin",
     },
     create: {
       id: "default",
       daysAfterCompletion: days ? Number(days) : null,
-      updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
+      updatedByName: stringField(formData, "updatedByName") || "The License Hub Admin",
     },
   });
 
@@ -119,7 +119,7 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
       eftAccountType: eftAccountType || null,
       eftAccountHolder: eftAccountHolder || null,
       eftReferenceInstruction: eftReferenceInstruction || null,
-      updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
+      updatedByName: stringField(formData, "updatedByName") || "The License Hub Admin",
     },
     create: {
       id: "default",
@@ -132,7 +132,7 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
       eftAccountType: eftAccountType || null,
       eftAccountHolder: eftAccountHolder || null,
       eftReferenceInstruction: eftReferenceInstruction || null,
-      updatedByName: stringField(formData, "updatedByName") || "License Hub Admin",
+      updatedByName: stringField(formData, "updatedByName") || "The License Hub Admin",
     },
   });
 
