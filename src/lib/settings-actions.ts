@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { UserRole, UserStatus } from "@/generated/prisma/client";
+import { ApplicationStatus, UserRole, UserStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { calculateRetentionEligibleAt } from "@/lib/retention";
 
 function stringField(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -76,19 +77,51 @@ export async function updateService(formData: FormData) {
 
 export async function updateRetentionSetting(formData: FormData) {
   const days = stringField(formData, "daysAfterCompletion");
+  const daysAfterCompletion = days ? Number(days) : null;
 
   await prisma.retentionSetting.upsert({
     where: { id: "default" },
     update: {
-      daysAfterCompletion: days ? Number(days) : null,
+      daysAfterCompletion,
       updatedByName: stringField(formData, "updatedByName") || "The License Hub Admin",
     },
     create: {
       id: "default",
-      daysAfterCompletion: days ? Number(days) : null,
+      daysAfterCompletion,
       updatedByName: stringField(formData, "updatedByName") || "The License Hub Admin",
     },
   });
+
+  const retainedApplications = await prisma.application.findMany({
+    where: {
+      currentStatus: {
+        in: [ApplicationStatus.DISPATCHED, ApplicationStatus.CANCELLED],
+      },
+    },
+    select: {
+      id: true,
+      currentStatus: true,
+      completedAt: true,
+      cancelledAt: true,
+    },
+  });
+
+  await prisma.$transaction(
+    retainedApplications.map((application) => {
+      const retentionStart = application.cancelledAt ?? application.completedAt ?? new Date();
+
+      return prisma.application.update({
+        where: { id: application.id },
+        data: {
+          retentionEligibleAt: calculateRetentionEligibleAt(
+            application.currentStatus,
+            daysAfterCompletion,
+            retentionStart,
+          ),
+        },
+      });
+    }),
+  );
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin");

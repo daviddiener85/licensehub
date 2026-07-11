@@ -287,7 +287,11 @@ export function formatMoney(amount: { toString: () => string }, currency = "ZAR"
 }
 
 export async function listAdminApplications(): Promise<ApplicationRecord[]> {
+  const now = new Date();
   const rows = await prisma.application.findMany({
+    where: {
+      OR: [{ retentionEligibleAt: null }, { retentionEligibleAt: { gt: now } }],
+    },
     orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
     select: {
       ...applicationBaseSelect,
