@@ -1676,33 +1676,9 @@ export async function createPublicApplicationIntake(
       });
     }
 
-  const whatsappConfirmationMessage = startAwaitingPayment
-      ? [
-          `Hi ${firstName},`,
-          "",
-          "Your application has been received.",
-          `Reference number: ${applicationId}.`,
-          "",
-          "Your payment request is ready.",
-          paymentMethod === PaymentMethod.PAYSTACK
-            ? `Pay now here: ${paymentUploadLink(applicationId)}`
-            : `Upload your proof of payment here: ${paymentUploadLink(applicationId)}`,
-          "Use the payment reference shown on your application page.",
-          "",
-          `Track your application here: ${clientStatusLink(publicToken)}.`,
-        ].join("\n")
-      : [
-      `Hi ${firstName},`,
-      "",
-      "Your application has been received.",
-      `Reference number: ${applicationId}.`,
-      "",
-      "Our team will prepare your quote next and keep you updated on your application status.",
-      "",
-      `Track your application here: ${clientStatusLink(publicToken)}.`,
-    ].join("\n");
     const whatsappConfirmationTemplateName = "application_received";
     const whatsappConfirmationTemplateParameters = whatsappTemplateParameters(firstName, applicationId, publicToken);
+    const whatsappConfirmationMessage = applicationReceivedTemplateBody(firstName, applicationId, publicToken);
     const communication = await prisma.communication.create({
       data: {
         applicationId,
@@ -1712,7 +1688,7 @@ export async function createPublicApplicationIntake(
         senderId: adminId,
         recipientName: `${firstName} ${surname}`.trim(),
         recipientAddress: cellphone,
-        templateKey: "application-received-confirmation",
+        templateKey: whatsappConfirmationTemplateName,
         body: whatsappConfirmationMessage,
       },
       select: {
@@ -1827,6 +1803,14 @@ function whatsappTemplateParameters(firstName: string, applicationId: string, pu
     { type: "text", text: applicationId },
     { type: "text", text: clientStatusLink(publicToken) },
   ] as const;
+}
+
+function applicationReceivedTemplateBody(firstName: string, applicationId: string, publicToken: string) {
+  return `Hi ${firstName},\n\nYour new application ${applicationId} has been created successfully.\n\nPlease view your tracking page here: ${clientStatusLink(publicToken)}`;
+}
+
+function orderUpdateTemplateBody(firstName: string, applicationId: string, publicToken: string) {
+  return `Hello ${firstName},\n\nWe updated your order ${applicationId}. Please view your tracking page for an update: ${clientStatusLink(publicToken)}.\n\nThank you for supporting us!`;
 }
 
 function withClientStatusLink(body: string, publicToken: string) {
@@ -1958,7 +1942,7 @@ export async function publishAdminQuote(formData: FormData) {
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
       templateKey: quoteApprovalTemplateName,
-      body: `Hi ${application.client.firstName}, your quote for application ${applicationId} is ready. Please review and approve it to continue. Track it here: ${clientStatusLink(application.publicToken)}`,
+      body: orderUpdateTemplateBody(application.client.firstName, applicationId, application.publicToken),
     },
     select: {
       id: true,
