@@ -950,6 +950,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
 }
 
 type LicenceDiskExtraction = {
+  /**
+   * Stored on the application as registrationNumber for legacy reasons, but this value must be the
+   * licence disk's vehicle register number, not the licence plate/licence number.
+   */
   registrationNumber: string;
   vin: string;
   make: string;
@@ -1121,8 +1125,10 @@ async function extractLicenceDiskWithOpenAi(file: File): Promise<LicenceDiskExtr
                 text:
                   "Extract vehicle details from this South African vehicle licence disk photo. " +
                   "Return JSON only. If a field is unclear, use an empty string and set needsManualReview to true. " +
-                  "The registration number is the vehicle license plate number shown on the disk. " +
-                  "Do not guess registration number, VIN/chassis, make, or model from partial unreadable text.",
+                  "For registrationNumber, extract the VEHICLE REGISTER NUMBER only. It is labelled 'Veh. register no.' or 'Vrt.registernr.' on the disk. " +
+                  "Do NOT use the licence plate/licence number labelled 'Licence no.' or 'Lisensienr.' for registrationNumber. " +
+                  "For example, if the disk shows 'Licence no. DG80YBZN' and 'Veh. register no. WGJ776W', return registrationNumber as 'WGJ776W'. " +
+                  "Do not guess the register number, VIN/chassis, make, or model from partial unreadable text.",
               },
               {
                 type: "input_image",
@@ -1142,7 +1148,8 @@ async function extractLicenceDiskWithOpenAi(file: File): Promise<LicenceDiskExtr
               properties: {
                 registrationNumber: {
                   type: "string",
-                  description: "Vehicle registration number or license plate number from the licence disk, without spaces where possible.",
+                  description:
+                    "Vehicle register number from the licence disk, labelled 'Veh. register no.' or 'Vrt.registernr.'. This is not the licence plate/licence number.",
                 },
                 vin: {
                   type: "string",
