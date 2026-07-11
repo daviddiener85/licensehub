@@ -972,7 +972,7 @@ export function ClientIntakeFlow({
                       : "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]",
                   ].join(" ")}
                 >
-                  {scanLicenceDiskPending ? "Scanning..." : "Try AI Scan"}
+                  {scanLicenceDiskPending ? "Scanning..." : "Retry AI Scan"}
                 </button>
               </form>
               <div className="grid gap-3 sm:grid-cols-2">
