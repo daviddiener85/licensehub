@@ -1027,7 +1027,11 @@ export default async function AdminPage({
                 <dd className="mt-1 font-medium">{selectedApplication.referralSource || "Not captured"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Completed documents</dt>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Referrer details</dt>
+                <dd className="mt-1 font-medium">{selectedApplication.referralContact || "Not provided"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Completed document destination</dt>
                 <dd className="mt-1 font-medium">
                   {selectedApplication.sendCompletedDocumentsToReferrer
                     ? `Send to referrer${selectedApplication.referralContact ? `: ${selectedApplication.referralContact}` : ""}`

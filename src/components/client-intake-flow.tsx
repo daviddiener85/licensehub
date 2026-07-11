@@ -1040,7 +1040,7 @@ export function ClientIntakeFlow({
               </p>
             </div>
             <div className="grid gap-3">
-              {["WeBuyCars", "A friend or family member", "A dealership or motor industry professional", "Online search or social media", "Other"].map((option) => (
+              {["A friend or family member", "A dealership or motor industry professional", "Online search or social media", "Other"].map((option) => (
                 <label key={option} className="flex cursor-pointer gap-3 border border-[#d8d1c3] bg-white p-3 text-sm font-semibold">
                   <input
                     type="radio"
@@ -1049,7 +1049,7 @@ export function ClientIntakeFlow({
                     checked={referralSource === option}
                     onChange={() => {
                       setReferralSource(option);
-                      if (option !== "WeBuyCars") {
+                      if (option !== "A dealership or motor industry professional") {
                         setSendCompletedDocumentsToReferrer(false);
                         setReferralContact("");
                       }
@@ -1069,28 +1069,26 @@ export function ClientIntakeFlow({
                   />
                 </label>
               ) : null}
-              {referralSource === "WeBuyCars" ? (
+              {referralSource === "A dealership or motor industry professional" ? (
                 <div className="border border-[#d8d1c3] bg-[#fffdf8] p-4">
-                  <p className="text-sm font-semibold">Where should we send the completed documents?</p>
+                  <label className="block text-sm font-semibold">
+                    Dealership or contact name
+                    <input
+                      value={referralContact}
+                      onChange={(event) => setReferralContact(event.currentTarget.value)}
+                      placeholder="Enter the name, if known"
+                      className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    />
+                  </label>
+                  <p className="mt-4 text-sm font-semibold">Where should we send the completed documents?</p>
                   <label className="mt-3 flex gap-3 text-sm">
                     <input
                       type="checkbox"
                       checked={sendCompletedDocumentsToReferrer}
                       onChange={(event) => setSendCompletedDocumentsToReferrer(event.currentTarget.checked)}
                     />
-                    <span>Send them directly to my WeBuyCars contact.</span>
+                    <span>Send them directly to the referring dealership or contact.</span>
                   </label>
-                  {sendCompletedDocumentsToReferrer ? (
-                    <label className="mt-3 block text-sm font-semibold">
-                      WeBuyCars contact or branch
-                      <input
-                        value={referralContact}
-                        onChange={(event) => setReferralContact(event.currentTarget.value)}
-                        placeholder="Name or branch, if known"
-                        className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
-                      />
-                    </label>
-                  ) : null}
                 </div>
               ) : null}
             </div>

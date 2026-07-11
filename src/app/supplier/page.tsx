@@ -255,14 +255,6 @@ export default async function SupplierPage({
                       <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Status</dt>
                       <dd className="mt-2 font-semibold">{statusLabel(selectedOrder.currentStatus)}</dd>
                     </div>
-                    <div className="border border-[#eee8dc] p-3 sm:col-span-2">
-                      <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Completed document destination</dt>
-                      <dd className="mt-2 font-semibold">
-                        {selectedOrder.sendCompletedDocumentsToReferrer
-                          ? `Send directly to referrer${selectedOrder.referralContact ? `: ${selectedOrder.referralContact}` : ""}`
-                          : "Return to The License Hub for the client"}
-                      </dd>
-                    </div>
                     <div className="border border-[#eee8dc] p-3">
                       <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Register</dt>
                       <dd className="mt-2 font-semibold">{selectedOrder.registrationNumber || "Not captured"}</dd>
