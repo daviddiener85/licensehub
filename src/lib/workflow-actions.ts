@@ -69,6 +69,9 @@ type ApplicationBaseRowInput = {
   vehicleYear?: number | null;
   vehicleColour?: string | null;
   vin: string | null;
+  referralSource?: string | null;
+  referralContact?: string | null;
+  sendCompletedDocumentsToReferrer?: boolean;
 };
 
 const mandatePdfApplicationSelect = {
@@ -141,6 +144,9 @@ async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
       "vehicleYear",
       "vehicleColour",
       "vin",
+      "referralSource",
+      "referralContact",
+      "sendCompletedDocumentsToReferrer",
       "createdAt",
       "updatedAt"
     )
@@ -156,6 +162,9 @@ async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
       ${input.vehicleYear ?? null},
       ${input.vehicleColour ?? null},
       ${input.vin},
+      ${input.referralSource ?? null},
+      ${input.referralContact ?? null},
+      ${input.sendCompletedDocumentsToReferrer ?? false},
       ${now},
       ${now}
     )
@@ -1516,11 +1525,14 @@ export async function createPublicApplicationIntake(
     const initialStatus = startAwaitingPayment
       ? ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT
       : ApplicationStatus.AWAITING_ADMIN_QUOTE;
+    const referralSource = getRequiredString(formData, "referralSource", "Referral source");
+    const referralContact = getOptionalString(formData, "referralContact");
+    const sendCompletedDocumentsToReferrer = formData.get("sendCompletedDocumentsToReferrer") === "yes";
     const client = await prisma.client.upsert({
     where: { southAfricanIdHash: identifierHash },
     update: {
       entityType,
-      referralSource: "Website",
+      referralSource,
       firstName,
       surname,
       southAfricanIdEncrypted: identityNumber,
@@ -1542,7 +1554,7 @@ export async function createPublicApplicationIntake(
     },
     create: {
       entityType,
-      referralSource: "Website",
+      referralSource,
       firstName,
       surname,
       southAfricanIdEncrypted: identityNumber,
@@ -1574,6 +1586,9 @@ export async function createPublicApplicationIntake(
       vin,
       vehicleMake,
       vehicleModel,
+      referralSource,
+      referralContact,
+      sendCompletedDocumentsToReferrer,
     });
     await prisma.statusHistory.create({
       data: {

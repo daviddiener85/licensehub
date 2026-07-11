@@ -153,7 +153,7 @@ const steps = [
   "Vehicle Relationship",
   "Who You Are",
   "Vehicle Details",
-  "Documents",
+  "Referral",
   "Mandate Form",
   "Payment",
 ] as const;
@@ -164,7 +164,7 @@ const stepSummaries = [
   "Tell us who legally owns the vehicle.",
   "Share the contact and ID details for the person completing this.",
   "Confirm the vehicle details from the licence disk.",
-  "See the documents needed for this request.",
+  "Tell us who referred you and where completed documents should go.",
   "Upload files and sign the mandate.",
   "Choose how you want to pay and submit.",
 ] as const;
@@ -263,6 +263,10 @@ export function ClientIntakeFlow({
   const [ownershipType, setOwnershipType] = useState<OwnershipType>("private-owner");
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>("");
   const [relation, setRelation] = useState("");
+  const [referralSource, setReferralSource] = useState("");
+  const [referralOther, setReferralOther] = useState("");
+  const [referralContact, setReferralContact] = useState("");
+  const [sendCompletedDocumentsToReferrer, setSendCompletedDocumentsToReferrer] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, string>>({});
   const [uploadedFiles, setUploadedFiles] = useState<Partial<Record<UploadFieldName, File | null>>>({});
   const [clientDetails, setClientDetails] = useState({
@@ -1030,29 +1034,65 @@ export function ClientIntakeFlow({
         {stepIndex === 5 ? (
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <h2 className="text-2xl font-semibold">Required documents</h2>
+              <h2 className="text-2xl font-semibold">Who referred you to us?</h2>
               <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                Based on: <span className="font-semibold">{selectedOwnership.label}</span>.
+                This helps us coordinate your application and return the completed documents to the right person.
               </p>
             </div>
-            <div className="grid gap-2">
-              {requiredDocuments.filter((document) => isMandateStepUpload(document.label)).map((document) => (
-                <div key={document.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
-                  <div className="flex items-start gap-3">
-                    <FileText size={18} className="mt-0.5 shrink-0 text-[#07315f]" aria-hidden="true" />
-                    <span>
-                      <span className="block font-semibold">{document.label}</span>
-                      <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">{document.description}</span>
-                    </span>
-                  </div>
-                </div>
+            <div className="grid gap-3">
+              {["WeBuyCars", "A friend or family member", "A dealership or motor industry professional", "Online search or social media", "Other"].map((option) => (
+                <label key={option} className="flex cursor-pointer gap-3 border border-[#d8d1c3] bg-white p-3 text-sm font-semibold">
+                  <input
+                    type="radio"
+                    name="referralChoice"
+                    value={option}
+                    checked={referralSource === option}
+                    onChange={() => {
+                      setReferralSource(option);
+                      if (option !== "WeBuyCars") {
+                        setSendCompletedDocumentsToReferrer(false);
+                        setReferralContact("");
+                      }
+                    }}
+                  />
+                  <span>{option}</span>
+                </label>
               ))}
-              <div className="mt-2 border border-[#1f7a4d] bg-[#f4fbf7] p-3 text-sm text-[#1f7a4d]">
-                <span className="flex items-center gap-2 font-semibold">
-                  <CheckCircle2 size={18} aria-hidden="true" />
-                  Checklist ready
-                </span>
-              </div>
+              {referralSource === "Other" ? (
+                <label className="text-sm font-semibold">
+                  Please tell us who referred you
+                  <input
+                    value={referralOther}
+                    onChange={(event) => setReferralOther(event.currentTarget.value)}
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
+                  />
+                </label>
+              ) : null}
+              {referralSource === "WeBuyCars" ? (
+                <div className="border border-[#d8d1c3] bg-[#fffdf8] p-4">
+                  <p className="text-sm font-semibold">Where should we send the completed documents?</p>
+                  <label className="mt-3 flex gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={sendCompletedDocumentsToReferrer}
+                      onChange={(event) => setSendCompletedDocumentsToReferrer(event.currentTarget.checked)}
+                    />
+                    <span>Send them directly to my WeBuyCars contact.</span>
+                  </label>
+                  {sendCompletedDocumentsToReferrer ? (
+                    <label className="mt-3 block text-sm font-semibold">
+                      WeBuyCars contact or branch
+                      <input
+                        value={referralContact}
+                        onChange={(event) => setReferralContact(event.currentTarget.value)}
+                        placeholder="Name or branch, if known"
+                        className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -1063,6 +1103,17 @@ export function ClientIntakeFlow({
             <input type="hidden" name="paymentMethod" value={effectivePaymentMethod} />
             <input type="hidden" name="ownershipType" value={effectiveOwnershipType} />
             <input type="hidden" name="relation" value={relation || selectedOwnership.relationPrompt} />
+            <input
+              type="hidden"
+              name="referralSource"
+              value={referralSource === "Other" ? referralOther.trim() : referralSource}
+            />
+            <input type="hidden" name="referralContact" value={referralContact.trim()} />
+            <input
+              type="hidden"
+              name="sendCompletedDocumentsToReferrer"
+              value={sendCompletedDocumentsToReferrer ? "yes" : "no"}
+            />
             {Object.entries(clientDetails).map(([field, value]) => (
               <input key={field} type="hidden" name={field} value={value} />
             ))}
@@ -1441,6 +1492,7 @@ export function ClientIntakeFlow({
               stepIndex === steps.length - 1 ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
+              (stepIndex === 5 && (!referralSource || (referralSource === "Other" && !referralOther.trim()))) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
             }
             className={[
@@ -1448,6 +1500,7 @@ export function ClientIntakeFlow({
               stepIndex === steps.length - 1 ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
+              (stepIndex === 5 && (!referralSource || (referralSource === "Other" && !referralOther.trim()))) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
                 ? "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
                 : "tlh-button-primary",

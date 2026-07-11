@@ -152,6 +152,9 @@ export type ApplicationRecord = {
   entityRegistrationNumber: string | null;
   representativeFullName: string | null;
   representativeCapacity: string | null;
+  referralSource: string | null;
+  referralContact: string | null;
+  sendCompletedDocumentsToReferrer: boolean;
   client: ApplicationClientRecord;
   service: ApplicationServiceRecord;
   documents: ApplicationDocumentRecord[];
@@ -185,6 +188,9 @@ const applicationBaseSelect = {
   vehicleYear: true,
   vehicleColour: true,
   vin: true,
+  referralSource: true,
+  referralContact: true,
+  sendCompletedDocumentsToReferrer: true,
   ocrConfidence: true,
   supplierUrgency: true,
   submittedAt: true,

@@ -232,6 +232,9 @@ model Application {
   entityRegistrationNumber String?
   representativeFullName String?
   representativeCapacity String?
+  referralSource      String?
+  referralContact     String?
+  sendCompletedDocumentsToReferrer Boolean @default(false)
   ocrConfidence       Decimal?           @db.Decimal(5, 2)
   supplierUrgency     SupplierUrgency    @default(NORMAL)
   submittedAt         DateTime?
