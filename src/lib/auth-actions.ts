@@ -38,7 +38,7 @@ export async function loginWithRolePasscode(formData: FormData) {
     maxAge: 60 * 60 * 12,
   });
 
-  redirect(nextPath);
+  return { error: "", redirectTo: nextPath };
 }
 
 export async function logout() {
