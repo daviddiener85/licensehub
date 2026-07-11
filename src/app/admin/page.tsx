@@ -434,7 +434,7 @@ function textParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
-function adminHref(params: Record<string, string>, updates: Record<string, string | undefined>) {
+function adminHref(params: Record<string, string>, updates: Record<string, string | undefined>, hash?: string) {
   const next = new URLSearchParams();
 
   Object.entries({ ...params, ...updates }).forEach(([key, value]) => {
@@ -444,7 +444,8 @@ function adminHref(params: Record<string, string>, updates: Record<string, strin
   });
 
   const query = next.toString();
-  return query ? `/admin?${query}` : "/admin";
+  const suffix = hash ? `#${hash}` : "";
+  return query ? `/admin?${query}${suffix}` : `/admin${suffix}`;
 }
 
 function adminViewParam(value: string): AdminDetailView {
@@ -917,8 +918,7 @@ export default async function AdminPage({
               <span className="flex flex-wrap gap-2">
                 {hasUnseenWhatsappReply(application, selectedApplication.id, selectedView) ? (
                   <Link
-                    href={adminHref(baseAdminParams, { application: application.id, view: "messages" })}
-                    scroll={false}
+                    href={adminHref(baseAdminParams, { application: application.id, view: "messages" }, "messages")}
                     className="inline-flex items-center gap-1 border border-[#128c7e] bg-[#e7f7ef] px-2 py-1 text-xs font-semibold text-[#075e54]"
                     title="View new WhatsApp message"
                   >
@@ -1389,7 +1389,10 @@ export default async function AdminPage({
             </div>
           </aside>
 
-          <aside className={selectedView === "messages" ? "border border-[#d8d1c3] bg-white p-5" : "hidden"}>
+          <aside
+            id="messages"
+            className={selectedView === "messages" ? "scroll-mt-6 border border-[#d8d1c3] bg-white p-5" : "hidden"}
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-lg font-semibold">WhatsApp</h2>
