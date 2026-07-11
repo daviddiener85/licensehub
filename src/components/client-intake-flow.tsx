@@ -961,19 +961,21 @@ export function ClientIntakeFlow({
                     Trying to read the licence disk. If this takes too long, enter the details manually.
                   </div>
                 ) : null}
-                <button
-                  type="submit"
-                  disabled={!licenceDiskFileName || scanLicenceDiskPending}
-                  onClick={() => setLicenceDiskScanResultInvalidated(false)}
-                  className={[
-                    "mt-3 border px-3 py-2 text-xs font-black uppercase tracking-wide",
-                    licenceDiskFileName && !scanLicenceDiskPending
-                      ? "tlh-button-dark"
-                      : "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]",
-                  ].join(" ")}
-                >
-                  {scanLicenceDiskPending ? "Scanning..." : "Retry AI Scan"}
-                </button>
+                {licenceDiskScanAttempted ? (
+                  <button
+                    type="submit"
+                    disabled={!licenceDiskFileName || scanLicenceDiskPending}
+                    onClick={() => setLicenceDiskScanResultInvalidated(false)}
+                    className={[
+                      "mt-3 border px-3 py-2 text-xs font-black uppercase tracking-wide",
+                      licenceDiskFileName && !scanLicenceDiskPending
+                        ? "tlh-button-dark"
+                        : "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]",
+                    ].join(" ")}
+                  >
+                    Retry AI Scan
+                  </button>
+                ) : null}
               </form>
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
