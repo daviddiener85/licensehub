@@ -1436,6 +1436,7 @@ export default async function AdminPage({
               action={sendClientMessage}
               applicationId={selectedApplication.id}
               clientFirstName={selectedApplication.client.firstName}
+              trackingUrl={`/client/${selectedApplication.publicToken}`}
               templates={whatsappTemplates}
               replyWindowState={isWhatsappFreeReplyAvailable(selectedApplication) ? "free_reply" : "template_required"}
               lastInboundAt={lastInboundWhatsappAt(selectedApplication)?.toISOString() ?? null}

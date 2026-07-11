@@ -17,13 +17,17 @@ type AdminWhatsappComposerProps = {
   }>;
   applicationId: string;
   clientFirstName: string;
+  trackingUrl: string;
   templates: ReadonlyArray<WhatsAppTemplate>;
   replyWindowState: "free_reply" | "template_required";
   lastInboundAt?: string | null;
 };
 
-function fillTemplate(body: string, clientFirstName: string, applicationId: string) {
-  return body.replaceAll("{{firstName}}", clientFirstName).replaceAll("{{applicationId}}", applicationId);
+function fillTemplate(body: string, clientFirstName: string, applicationId: string, trackingUrl: string) {
+  return body
+    .replaceAll("{{firstName}}", clientFirstName)
+    .replaceAll("{{applicationId}}", applicationId)
+    .replaceAll("{{trackingUrl}}", trackingUrl);
 }
 
 function WhatsAppSubmitButton({ disabled }: { disabled?: boolean }) {
@@ -52,6 +56,7 @@ export function AdminWhatsappComposer({
   action,
   applicationId,
   clientFirstName,
+  trackingUrl,
   templates,
   replyWindowState,
   lastInboundAt,
@@ -64,6 +69,7 @@ export function AdminWhatsappComposer({
       action={formAction}
       applicationId={applicationId}
       clientFirstName={clientFirstName}
+      trackingUrl={trackingUrl}
       templates={templates}
       replyWindowState={replyWindowState}
       lastInboundAt={lastInboundAt}
@@ -76,6 +82,7 @@ function AdminWhatsappComposerBody({
   action,
   applicationId,
   clientFirstName,
+  trackingUrl,
   templates,
   replyWindowState,
   lastInboundAt,
@@ -84,26 +91,31 @@ function AdminWhatsappComposerBody({
   action: (formData: FormData) => void | Promise<void>;
   applicationId: string;
   clientFirstName: string;
+  trackingUrl: string;
   templates: ReadonlyArray<WhatsAppTemplate>;
   replyWindowState: "free_reply" | "template_required";
   lastInboundAt?: string | null;
   resetKey: number;
 }) {
-  const [body, setBody] = useState(() => (resetKey > 0 ? "" : fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId)));
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState(() => (resetKey > 0 ? "" : templates[0]?.key ?? ""));
+  const [body, setBody] = useState(() =>
+    resetKey > 0 ? "" : fillTemplate(templates[0]?.body ?? "", clientFirstName, applicationId, trackingUrl),
+  );
   const canSend = body.trim().length > 0;
 
   const templateButtons = useMemo(
     () =>
       templates.map((template) => ({
         ...template,
-        body: fillTemplate(template.body, clientFirstName, applicationId),
+        body: fillTemplate(template.body, clientFirstName, applicationId, trackingUrl),
       })),
-    [applicationId, clientFirstName, templates],
+    [applicationId, clientFirstName, templates, trackingUrl],
   );
 
   return (
     <form action={action}>
       <input type="hidden" name="applicationId" value={applicationId} />
+      <input type="hidden" name="templateKey" value={selectedTemplateKey} />
 
       <div
         className={[
@@ -131,7 +143,10 @@ function AdminWhatsappComposerBody({
             key={template.key}
             type="button"
             className="border border-[#d8d1c3] px-3 py-2 text-left text-sm font-medium"
-            onClick={() => setBody(template.body)}
+            onClick={() => {
+              setSelectedTemplateKey(template.key);
+              setBody(template.body);
+            }}
           >
             {template.label}
           </button>
@@ -141,7 +156,10 @@ function AdminWhatsappComposerBody({
       <textarea
         className="mt-4 h-24 w-full border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm outline-none"
         name="body"
-        onChange={(event) => setBody(event.target.value)}
+        onChange={(event) => {
+          setSelectedTemplateKey("");
+          setBody(event.target.value);
+        }}
         required
         value={body}
       />

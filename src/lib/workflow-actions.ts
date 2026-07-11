@@ -2776,6 +2776,7 @@ export async function sendClientMessage(
 ) {
   const applicationId = getApplicationId(formData);
   const body = formData.get("body");
+  const templateKey = formData.get("templateKey");
   const adminId = await actorIdFor(UserRole.ADMIN);
 
   if (typeof body !== "string" || body.trim().length === 0) {
@@ -2805,8 +2806,16 @@ export async function sendClientMessage(
       senderId: adminId,
       recipientName: `${application.client.firstName} ${application.client.surname}`,
       recipientAddress: application.client.cellphone,
-      templateKey: "manual-admin-message",
-      body: withClientStatusLink(body.trim(), application.publicToken),
+      templateKey:
+        templateKey === "application_received" || templateKey === "order_update"
+          ? templateKey
+          : "manual-admin-message",
+      body:
+        templateKey === "application_received"
+          ? applicationReceivedTemplateBody(application.client.firstName, applicationId, application.publicToken)
+          : templateKey === "order_update"
+            ? orderUpdateTemplateBody(application.client.firstName, applicationId, application.publicToken)
+            : withClientStatusLink(body.trim(), application.publicToken),
     },
     select: {
       id: true,
@@ -2814,7 +2823,25 @@ export async function sendClientMessage(
       body: true,
     },
   });
-  await dispatchWhatsAppCommunication(communication);
+  const approvedTemplateKey =
+    templateKey === "application_received" || templateKey === "order_update" ? templateKey : null;
+
+  await dispatchWhatsAppCommunication({
+    ...communication,
+    ...(approvedTemplateKey
+      ? {
+          template: {
+            name: approvedTemplateKey,
+            languageCode: "en_US",
+            bodyParameters: whatsappTemplateParameters(
+              application.client.firstName,
+              applicationId,
+              application.publicToken,
+            ),
+          },
+        }
+      : {}),
+  });
 
   refreshWorkflowPages();
 
