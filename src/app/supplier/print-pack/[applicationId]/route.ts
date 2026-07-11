@@ -3,8 +3,9 @@ import { Buffer } from "node:buffer";
 import path from "node:path";
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import sharp from "sharp";
 
-import { DocumentStatus } from "@/generated/prisma/client";
+import { DocumentStatus, DocumentType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { documentLabel } from "@/lib/documents";
 
@@ -43,8 +44,9 @@ async function addPlaceholderPage(pdf: PDFDocument, title: string, message: stri
   });
 }
 
-async function addImagePage(pdf: PDFDocument, bytes: Uint8Array, extension: string, title: string) {
-  const image = extension === ".png" ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+async function addImagePage(pdf: PDFDocument, bytes: Uint8Array, title: string) {
+  const orientedImage = await sharp(bytes).rotate().jpeg({ quality: 92 }).toBuffer();
+  const image = await pdf.embedJpg(orientedImage);
   const page = pdf.addPage([595.28, 841.89]);
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);
   const margin = 36;
@@ -79,6 +81,7 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
       documents: {
         where: {
           status: DocumentStatus.ACCEPTED,
+          type: { not: DocumentType.PROOF_OF_EFT_PAYMENT },
         },
         orderBy: [{ type: "asc" }, { version: "asc" }],
         select: {
@@ -121,7 +124,7 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
       }
 
       if (extension === ".jpg" || extension === ".jpeg" || extension === ".png") {
-        await addImagePage(outputPdf, bytes, extension, label);
+        await addImagePage(outputPdf, bytes, label);
         continue;
       }
 

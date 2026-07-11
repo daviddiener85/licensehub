@@ -1,24 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
-function SubmitButton() {
+function UploadStatus({ selectedFileName }: { selectedFileName: string }) {
   const { pending } = useFormStatus();
 
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className={[
-        "border px-4 py-2 text-sm font-semibold",
-        pending
-          ? "cursor-wait border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
-          : "border-[#1f2724] bg-[#1f2724] text-white",
-      ].join(" ")}
-    >
-      {pending ? "Uploading..." : "Upload EFT Proof"}
-    </button>
+  if (pending) {
+    return <p className="text-sm font-semibold text-[#8a6a2a]">Uploading proof of payment...</p>;
+  }
+
+  return selectedFileName ? (
+    <p className="text-sm font-semibold text-[#1f7a4d]">Upload starting automatically...</p>
+  ) : (
+    <p className="text-xs text-[#6b5e4f]">The file uploads automatically after selection.</p>
   );
 }
 
@@ -29,9 +24,10 @@ type EftProofUploadFormProps = {
 
 export function EftProofUploadForm({ applicationId, action }: EftProofUploadFormProps) {
   const [selectedFileName, setSelectedFileName] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <form action={action} className="space-y-3 border border-[#e4ded2] bg-white p-3">
+    <form ref={formRef} action={action} className="space-y-3 border border-[#e4ded2] bg-white p-3">
       <input type="hidden" name="applicationId" value={applicationId} />
       <div className="space-y-2">
         <p className="text-sm font-semibold">Upload proof of EFT payment</p>
@@ -44,13 +40,18 @@ export function EftProofUploadForm({ applicationId, action }: EftProofUploadForm
             accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
             className="sr-only"
             onChange={(event) => {
-              setSelectedFileName(event.currentTarget.files?.[0]?.name ?? "");
+              const selectedFile = event.currentTarget.files?.[0] ?? null;
+
+              setSelectedFileName(selectedFile?.name ?? "");
+              if (selectedFile) {
+                window.requestAnimationFrame(() => formRef.current?.requestSubmit());
+              }
             }}
           />
         </label>
         <p className="text-sm text-[#52615b]">{selectedFileName || "No file chosen yet."}</p>
       </div>
-      <SubmitButton />
+      <UploadStatus selectedFileName={selectedFileName} />
     </form>
   );
 }

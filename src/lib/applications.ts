@@ -357,6 +357,9 @@ export async function listSupplierApplications(): Promise<ApplicationRecord[]> {
         select: applicationServiceSelect,
       },
       documents: {
+        where: {
+          type: { not: DocumentType.PROOF_OF_EFT_PAYMENT },
+        },
         orderBy: [{ type: "asc" }, { version: "desc" }],
         select: applicationDocumentSelect,
       },

@@ -5,7 +5,7 @@ import { ArrowLeft, Clock3, FileText, PackageCheck, Truck } from "lucide-react";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { SupplierPrintButton } from "@/components/supplier-print-button";
-import { ApplicationStatus, DocumentStatus, SupplierUrgency } from "@/generated/prisma/client";
+import { ApplicationStatus, DocumentStatus, DocumentType, SupplierUrgency } from "@/generated/prisma/client";
 import { listSupplierApplications, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { clientEntityTypeLabels } from "@/lib/entity-requirements";
@@ -117,7 +117,11 @@ export default async function SupplierPage({
 
   const { order: selectedOrderId } = await searchParams;
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? orders[0];
-  const approvedDocuments = selectedOrder?.documents.filter((document) => document.status === DocumentStatus.ACCEPTED) ?? [];
+  const approvedDocuments =
+    selectedOrder?.documents.filter(
+      (document) =>
+        document.status === DocumentStatus.ACCEPTED && document.type !== DocumentType.PROOF_OF_EFT_PAYMENT,
+    ) ?? [];
   const atSupplierCount = orders.filter((order) => order.currentStatus === ApplicationStatus.AT_SUPPLIER).length;
   const producedCount = orders.filter((order) => order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED).length;
   const returningCount = orders.filter((order) => order.currentStatus === ApplicationStatus.RETURNING_TO_LICENSE_HUB).length;
@@ -321,15 +325,6 @@ export default async function SupplierPage({
                           </div>
                         );
                       })}
-                      <div className="print-pack-document flex gap-3 border border-[#d8d1c3] px-4 py-3 text-sm">
-                        <PackageCheck className="h-5 w-5 text-[#0f766e]" />
-                        <span>
-                          <span className="block font-semibold">Payment</span>
-                          <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
-                            {selectedOrder.payments.length > 0 ? "Confirmed by The License Hub." : "Not confirmed."}
-                          </span>
-                        </span>
-                      </div>
                     </div>
                     {approvedDocuments.length === 0 ? (
                       <p className="mt-3 text-sm text-[#52615b]">
