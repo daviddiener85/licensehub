@@ -240,6 +240,7 @@ export function ClientIntakeFlow({
   const signatureInputRef = useRef<HTMLInputElement>(null);
   const fullNameInputRef = useRef<HTMLInputElement>(null);
   const stepContentTopRef = useRef<HTMLDivElement>(null);
+  const licenceDiskScanFormRef = useRef<HTMLFormElement>(null);
   const availableServices = [...(services.length > 0 ? services : fallbackServices)].sort((first, second) => {
     if (first.slug === "duplicate-certificate") {
       return -1;
@@ -377,7 +378,7 @@ export function ClientIntakeFlow({
     : licenceDiskScanState.status !== "idle" && !licenceDiskScanResultInvalidated
       ? licenceDiskScanState.message
       : licenceDiskFileName
-        ? "Licence disk photo selected. Enter the vehicle details from the disk below. You may try the AI scan, but manual confirmation is the source of truth."
+        ? "Licence disk photo selected. AI scan will start automatically. Manual confirmation is still the source of truth."
         : "Choose a clear licence disk photo, then enter the vehicle details from the disk.";
 
   useEffect(() => {
@@ -908,7 +909,11 @@ export function ClientIntakeFlow({
               </div>
             </div>
             <div>
-              <form action={scanLicenceDiskAction} className="mb-4 border border-[#07315f] bg-white p-4 text-sm">
+              <form
+                ref={licenceDiskScanFormRef}
+                action={scanLicenceDiskAction}
+                className="mb-4 border border-[#07315f] bg-white p-4 text-sm"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="flex items-center gap-2 font-semibold">
                     <Upload size={18} className="text-[#07315f]" aria-hidden="true" />
@@ -919,7 +924,7 @@ export function ClientIntakeFlow({
                     <input
                       type="file"
                       name="licenceDiskPhoto"
-                      accept="image/jpeg,image/png,image/heic,image/heif"
+                      accept="image/jpeg,image/png"
                       className="sr-only"
                       onChange={(event) => {
                         const selectedFile = event.currentTarget.files?.[0] ?? null;
@@ -936,6 +941,13 @@ export function ClientIntakeFlow({
                           ...current,
                           "Licence disk photo": fileName,
                         }));
+
+                        if (selectedFile) {
+                          setLicenceDiskScanResultInvalidated(false);
+                          window.requestAnimationFrame(() => {
+                            licenceDiskScanFormRef.current?.requestSubmit();
+                          });
+                        }
                       }}
                     />
                   </label>
