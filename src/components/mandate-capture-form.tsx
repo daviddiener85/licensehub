@@ -20,6 +20,7 @@ type MandateCaptureFormProps = {
   colour: string | null;
   submittedAt?: Date | null;
   idPhotoFileName?: string | null;
+  supportingDocumentTypes?: Array<{ key: string; label: string; description: string }>;
 };
 
 type Point = {
@@ -107,6 +108,7 @@ export function MandateCaptureForm({
   model,
   colour,
   submittedAt,
+  supportingDocumentTypes = [],
 }: MandateCaptureFormProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
@@ -391,6 +393,23 @@ export function MandateCaptureForm({
                   </p>
                 ) : null}
               </div>
+              {supportingDocumentTypes.map((document) => (
+                <div key={document.key} className="border border-[#d8d1c3] bg-white p-3">
+                  <label className="flex items-center gap-2 text-sm font-semibold">
+                    <FileText size={18} className="text-[#07315f]" aria-hidden="true" />
+                    {document.label}
+                    <input type="hidden" name="supportingDocumentKey" value={document.key} />
+                    <input
+                      type="file"
+                      name="supportingDocument"
+                      accept="image/jpeg,image/png,image/heic,image/heif,application/pdf"
+                      required
+                      className="mt-2 block w-full border border-[#d8d1c3] bg-white px-3 py-2 font-normal"
+                    />
+                  </label>
+                  <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">{document.description}</p>
+                </div>
+              ))}
             </div>
 
             <button

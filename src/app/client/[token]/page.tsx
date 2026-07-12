@@ -9,6 +9,7 @@ import { ClientIntakeFlow } from "@/components/client-intake-flow";
 import { isPaystackConfigured } from "@/lib/paystack";
 import { listActiveServices } from "@/lib/services";
 import { applicationPipeline } from "@/lib/workflow";
+import { supportingRequirementsForEntityType } from "@/lib/entity-requirements";
 
 export const dynamic = "force-dynamic";
 
@@ -195,6 +196,13 @@ export default async function ClientApplicationPage({
                   model={application.vehicleModel}
                   colour={application.vehicleColour}
                   submittedAt={application.mandateFormSubmission?.submittedAt ?? application.submittedAt}
+                  supportingDocumentTypes={supportingRequirementsForEntityType(application.client.entityType).map(
+                    (requirement) => ({
+                      key: requirement.key,
+                      label: requirement.label,
+                      description: requirement.description,
+                    }),
+                  )}
                 />
               </div>
             </section>

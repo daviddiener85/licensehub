@@ -41,6 +41,7 @@ const missingApplicationQuoteFields = {
 export type ApplicationDocumentRecord = {
   id: string;
   type: DocumentType;
+  requirementKey: string | null;
   fileName: string;
   status: DocumentStatus;
   rejectionReason: string | null;
@@ -221,6 +222,7 @@ const applicationServiceSelect = {
 const applicationDocumentSelect = {
   id: true,
   type: true,
+  requirementKey: true,
   fileName: true,
   status: true,
   rejectionReason: true,

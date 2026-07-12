@@ -305,6 +305,7 @@ model Document {
   id                String         @id @default(cuid())
   applicationId     String
   type              DocumentType
+  requirementKey    String?
   status            DocumentStatus @default(PENDING)
   version           Int
   fileName          String
@@ -322,6 +323,7 @@ model Document {
 
   @@unique([applicationId, type, version])
   @@index([applicationId, type, status])
+  @@index([applicationId, requirementKey, status])
 }
 
 model MandateFormSubmission {

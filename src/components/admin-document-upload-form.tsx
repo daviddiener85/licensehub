@@ -22,6 +22,7 @@ const uploadableDocumentTypes: Array<{ value: UploadableDocumentType; label: str
 type AdminDocumentUploadFormProps = {
   applicationId: string;
   action: (formData: FormData) => Promise<UploadState>;
+  supportingDocumentTypes: Array<{ key: string; label: string }>;
 };
 
 type UploadState = {
@@ -34,7 +35,7 @@ const initialState: UploadState = {
   message: "",
 };
 
-export function AdminDocumentUploadForm({ applicationId, action }: AdminDocumentUploadFormProps) {
+export function AdminDocumentUploadForm({ applicationId, action, supportingDocumentTypes }: AdminDocumentUploadFormProps) {
   const [state, formAction, pending] = useActionState(
     async (_previousState: UploadState, formData: FormData): Promise<UploadState> => action(formData),
     initialState,
@@ -52,6 +53,11 @@ export function AdminDocumentUploadForm({ applicationId, action }: AdminDocument
         <select name="documentType" defaultValue="PROOF_OF_ADDRESS" className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal">
           {uploadableDocumentTypes.map((type) => (
             <option key={type.value} value={type.value}>
+              {type.label}
+            </option>
+          ))}
+          {supportingDocumentTypes.map((type) => (
+            <option key={type.key} value={`OTHER:${type.key}`}>
               {type.label}
             </option>
           ))}

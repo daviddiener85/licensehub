@@ -8,7 +8,7 @@ import { SupplierPrintButton } from "@/components/supplier-print-button";
 import { ApplicationStatus, DocumentStatus, DocumentType, SupplierUrgency } from "@/generated/prisma/client";
 import { listSupplierApplications, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
-import { clientEntityTypeLabels } from "@/lib/entity-requirements";
+import { clientEntityTypeLabels, supportingRequirementForDocument } from "@/lib/entity-requirements";
 import { addSupplierOrderComment, supplierMarkProduced, supplierMarkReturning } from "@/lib/workflow-actions";
 import { logout } from "@/lib/auth-actions";
 
@@ -294,11 +294,19 @@ export default async function SupplierPage({
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       {approvedDocuments.map((document) => {
                         const href = document.storageKey ? documentHref(document.storageKey) : null;
+                        const supplierDocumentLabel =
+                          document.type === DocumentType.OTHER
+                            ? supportingRequirementForDocument(
+                                document,
+                                selectedOrder.client.entityType,
+                                selectedOrder.documents,
+                              )?.label ?? documentLabel(document.type, document.fileName)
+                            : documentLabel(document.type, document.fileName);
                         const content = (
                           <>
                             <FileText className="h-5 w-5 text-[#0f766e]" />
                             <span>
-                              <span className="block font-semibold">{documentLabel(document.type, document.fileName)}</span>
+                              <span className="block font-semibold">{supplierDocumentLabel}</span>
                               {documentTypeDescriptions[document.type] ? (
                                 <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
                                   {documentTypeDescriptions[document.type]}

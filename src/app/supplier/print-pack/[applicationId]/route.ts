@@ -8,6 +8,7 @@ import sharp from "sharp";
 import { DocumentStatus, DocumentType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { documentLabel } from "@/lib/documents";
+import { supportingRequirementForDocument } from "@/lib/entity-requirements";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,7 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
     where: { id: applicationId },
     select: {
       id: true,
+      client: { select: { entityType: true } },
       documents: {
         where: {
           status: DocumentStatus.ACCEPTED,
@@ -85,9 +87,12 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
         },
         orderBy: [{ type: "asc" }, { version: "asc" }],
         select: {
+          id: true,
           fileName: true,
           storageKey: true,
           type: true,
+          version: true,
+          requirementKey: true,
         },
       },
     },
@@ -105,7 +110,11 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
     }
 
     const filePath = storageKeyPath(document.storageKey);
-    const label = documentLabel(document.type, document.fileName);
+    const label =
+      document.type === DocumentType.OTHER
+        ? supportingRequirementForDocument(document, application.client.entityType, application.documents)?.label ??
+          documentLabel(document.type, document.fileName)
+        : documentLabel(document.type, document.fileName);
 
     if (!filePath) {
       await addPlaceholderPage(outputPdf, label, "This document could not be loaded for printing.");

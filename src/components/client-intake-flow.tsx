@@ -7,9 +7,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Building2,
-  CheckCircle2,
   CreditCard,
-  FileText,
   LoaderCircle,
   PenLine,
   Scale,
@@ -119,31 +117,31 @@ const ownershipOptions: {
   },
 ];
 
-const documentsByOwnership: Record<OwnershipType, { label: string; description: string }[]> = {
+const documentsByOwnership: Record<OwnershipType, { key: string; label: string; description: string }[]> = {
   "private-owner": [
-    { label: "Owner ID photo", description: "A clear photo of the South African ID document or card." },
-    { label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
-    { label: "Proof of address", description: "A document dated within the last 3 months." },
+    { key: "id-photo", label: "Owner ID photo", description: "A clear photo of the South African ID document or card." },
+    { key: "licence-disk", label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
+    { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
   "deceased-estate": [
-    { label: "Executor or representative ID", description: "A clear photo of the person handling the estate request." },
-    { label: "Death certificate", description: "Proof that the registered owner is deceased." },
-    { label: "Executor authority document", description: "Letter of executorship or authority to act for the estate." },
-    { label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
-    { label: "Proof of address", description: "A document dated within the last 3 months." },
+    { key: "id-photo", label: "Executor or representative ID", description: "A clear photo of the person handling the estate request." },
+    { key: "death-certificate", label: "Death certificate", description: "Proof that the registered owner is deceased." },
+    { key: "executor-authority", label: "Executor authority document", description: "Letter of executorship or authority to act for the estate." },
+    { key: "licence-disk", label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
+    { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
   "company-or-trust": [
-    { label: "Representative ID photo", description: "A clear photo of the authorised signer." },
-    { label: "Company or trust registration document", description: "CIPC document, trust deed, or equivalent entity document." },
-    { label: "Authority to act", description: "Resolution, letter, or proof that the signer may act for the entity." },
-    { label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
-    { label: "Proof of address", description: "A document dated within the last 3 months." },
+    { key: "id-photo", label: "Representative ID photo", description: "A clear photo of the authorised signer." },
+    { key: "registration-or-trust-document", label: "Company or trust registration document", description: "CIPC document, trust deed, or equivalent entity document." },
+    { key: "representative-authority", label: "Authority to act", description: "Resolution, letter, or proof that the signer may act for the entity." },
+    { key: "licence-disk", label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
+    { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
   "non-sa-citizen": [
-    { label: "Traffic register document (TRN)", description: "A clear TRN document for the owner." },
-    { label: "Passport document", description: "A clear passport document for the owner." },
-    { label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
-    { label: "Proof of address", description: "A document dated within the last 3 months." },
+    { key: "traffic-register-document", label: "Traffic register document (TRN)", description: "A clear TRN document for the owner." },
+    { key: "passport-document", label: "Passport document", description: "A clear passport document for the owner." },
+    { key: "licence-disk", label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
+    { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
 };
 
@@ -369,10 +367,7 @@ export function ClientIntakeFlow({
     })
     .map((document) => document.label);
   const requiredUploadsReady = requiredUploadLabels.every((label) => {
-    const inputName = uploadInputName(label) as UploadFieldName;
-    const storedFile = uploadedFiles[inputName];
-
-    return storedFile instanceof File && storedFile.size > 0;
+    return Boolean(selectedFiles[label]?.trim());
   });
   const nonSaIdentityPreview = [clientDetails.passportNumber, clientDetails.trnNumber]
     .filter((value) => value.trim().length > 0)
@@ -1158,12 +1153,7 @@ export function ClientIntakeFlow({
                                 ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
                                 : "image/jpeg,image/png,image/heic,image/heif"
                             }
-                            required={
-                              stepIndex === 6 &&
-                              ["idPhoto", "licenceDiskPhoto", "proofOfAddress", "trafficRegisterDocument", "passportDocument"].includes(
-                                uploadInputName(document.label),
-                              )
-                            }
+                            required={stepIndex === 6}
                             className="sr-only"
                             onChange={(event) => {
                               const inputName = uploadInputName(document.label);
@@ -1184,6 +1174,9 @@ export function ClientIntakeFlow({
                               }));
                             }}
                           />
+                          {uploadInputName(document.label) === "supportingDocument" ? (
+                            <input type="hidden" name="supportingDocumentKey" value={document.key} />
+                          ) : null}
                         </label>
                       </div>
                       {selectedFiles[document.label] ? (

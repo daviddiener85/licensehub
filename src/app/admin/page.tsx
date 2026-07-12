@@ -27,6 +27,9 @@ import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/doc
 import {
   clientEntityTypeLabels,
   documentRequirementsForEntityType,
+  supportingDocumentForRequirement,
+  supportingRequirementForDocument,
+  supportingRequirementsForEntityType,
 } from "@/lib/entity-requirements";
 import {
   approveToSupplier,
@@ -285,29 +288,11 @@ function documentRequirementStatus(
   application: Awaited<ReturnType<typeof listAdminApplications>>[number],
 ) {
   if (!requirement.documentType) {
-    const requirements = documentRequirementsForEntityType(application.client.entityType).filter(
-      (item) => item.confirmedForUpload && !item.documentType,
-    );
-    const supportingDocuments = application.documents
-      .filter((document: ApplicationDocumentRecord) => document.type === "OTHER")
-      .sort((first, second) => first.version - second.version);
-    const activeSupportingDocuments = supportingDocuments.slice(-requirements.length);
-
-    const supportingIndexByRequirement: Partial<Record<string, number>> = {
-      "death-certificate": 0,
-      "executor-authority": 1,
-      "registration-or-trust-document": 0,
-      "representative-authority": 1,
-      "traffic-register-document": 0,
-      "passport-document": 1,
-    };
-    const supportingIndex = supportingIndexByRequirement[requirement.key];
-
-    if (typeof supportingIndex !== "number") {
-      return "MISSING";
-    }
-
-    return activeSupportingDocuments[supportingIndex]?.status ?? "MISSING";
+    return supportingDocumentForRequirement(
+      requirement.key,
+      application.client.entityType,
+      application.documents,
+    )?.status ?? "MISSING";
   }
 
   const latestDocument = application.documents.find(
@@ -325,15 +310,11 @@ function supportingDocumentLabel(
     return documentLabel(document.type, document.fileName);
   }
 
-  const requirements = documentRequirementsForEntityType(application.client.entityType).filter(
-    (requirement) => requirement.confirmedForUpload && !requirement.documentType,
+  const requirementForIndex = supportingRequirementForDocument(
+    document,
+    application.client.entityType,
+    application.documents,
   );
-  const supportingDocuments = application.documents
-    .filter((item) => item.type === "OTHER")
-    .sort((first, second) => first.version - second.version);
-  const activeSupportingDocuments = supportingDocuments.slice(-requirements.length);
-  const supportingIndex = activeSupportingDocuments.findIndex((item) => item.id === document.id);
-  const requirementForIndex = supportingIndex >= 0 ? requirements[supportingIndex] : null;
 
   return requirementForIndex?.label ?? documentLabel(document.type, document.fileName);
 }
@@ -1234,7 +1215,13 @@ export default async function AdminPage({
                 );
               })}
             </div>
-            <AdminDocumentUploadForm applicationId={selectedApplication.id} action={adminUploadDocument} />
+            <AdminDocumentUploadForm
+              applicationId={selectedApplication.id}
+              action={adminUploadDocument}
+              supportingDocumentTypes={supportingRequirementsForEntityType(selectedApplication.client.entityType).map(
+                (requirement) => ({ key: requirement.key, label: requirement.label }),
+              )}
+            />
             <div className="mt-4 border border-[#e4ded2] bg-[#fffdf8] p-3 text-sm">
               <span className="font-semibold">Mandate capture: </span>
               {selectedApplication.mandateFormSubmission

@@ -11,7 +11,7 @@ import {
   PaymentStatus,
   PaymentType,
 } from "@/generated/prisma/client";
-import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
+import { documentRequirementsForEntityType, supportingDocumentForRequirement } from "@/lib/entity-requirements";
 import { prisma } from "@/lib/prisma";
 
 type SimulationResult = {
@@ -20,14 +20,6 @@ type SimulationResult = {
   otherDocs: number;
   blocker: string | null;
   transitioned: boolean;
-};
-
-const supportingIndexByRequirement: Partial<Record<string, number>> = {
-  "death-certificate": 0,
-  "executor-authority": 1,
-  "registration-or-trust-document": 0,
-  "representative-authority": 1,
-  "passport-or-traffic-register": 0,
 };
 
 function sha256(value: string) {
@@ -97,6 +89,7 @@ async function runForEntity(entityType: ClientEntityType): Promise<SimulationRes
   });
 
   const baseDocs: DocumentType[] = [
+    DocumentType.ID_PHOTO,
     DocumentType.LICENCE_DISK_PHOTO,
     DocumentType.PROOF_OF_ADDRESS,
     DocumentType.MANDATE_FORM,
@@ -125,6 +118,7 @@ async function runForEntity(entityType: ClientEntityType): Promise<SimulationRes
       data: {
         applicationId: application.id,
         type: DocumentType.OTHER,
+        requirementKey: supportingRequirements[index].key,
         status: DocumentStatus.ACCEPTED,
         version,
         fileName: `OTHER-${index + 1}.pdf`,
@@ -175,21 +169,12 @@ async function runForEntity(entityType: ClientEntityType): Promise<SimulationRes
   const blocker = documentRequirementsForEntityType(hydrated.client.entityType)
     .filter((item) => item.confirmedForUpload)
     .find((requirement) => {
-      if (requirement.key === "id-photo") {
-        return !hydrated.mandateFormSubmission;
-      }
-
       if (!requirement.documentType) {
-        const supportingDocuments = hydrated.documents
-          .filter((document) => document.type === DocumentType.OTHER)
-          .sort((first, second) => first.version - second.version);
-        const supportingIndex = supportingIndexByRequirement[requirement.key];
-
-        if (typeof supportingIndex !== "number") {
-          return true;
-        }
-
-        const supportingDocument = supportingDocuments[supportingIndex];
+        const supportingDocument = supportingDocumentForRequirement(
+          requirement.key,
+          hydrated.client.entityType,
+          hydrated.documents,
+        );
         return !supportingDocument || supportingDocument.status !== DocumentStatus.ACCEPTED;
       }
 

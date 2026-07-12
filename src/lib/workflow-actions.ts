@@ -29,7 +29,12 @@ import { initializePaystackTransaction, isPaystackConfigured, paystackCallbackUr
 import { appBaseUrl, requestBaseUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
-import { documentRequirementsForEntityType } from "@/lib/entity-requirements";
+import {
+  documentRequirementsForEntityType,
+  supportingDocumentForRequirement,
+  supportingRequirementForDocument,
+  supportingRequirementsForEntityType,
+} from "@/lib/entity-requirements";
 import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
 import { isMetaProviderEnabled, sendMetaWhatsAppTemplate, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
@@ -347,10 +352,13 @@ async function saveUploadedDocument(
   });
 }
 
-async function saveAdditionalSupportingDocuments(applicationId: string, files: File[]) {
-  const validFiles = files.filter((file) => file instanceof File && file.size > 0);
+async function saveAdditionalSupportingDocuments(
+  applicationId: string,
+  uploads: Array<{ file: File; requirementKey: string }>,
+) {
+  const validUploads = uploads.filter(({ file }) => file instanceof File && file.size > 0);
 
-  if (validFiles.length === 0) {
+  if (validUploads.length === 0) {
     return;
   }
 
@@ -368,7 +376,7 @@ async function saveAdditionalSupportingDocuments(applicationId: string, files: F
   });
   let nextVersion = (existingOtherDocuments[0]?.version ?? 0) + 1;
 
-  for (const file of validFiles) {
+  for (const { file, requirementKey } of validUploads) {
     const fileName = `${randomUUID()}-${safeFileName(file.name || "supporting-document")}`;
     const bytes = Buffer.from(await file.arrayBuffer());
     const storageKey = `/uploads/client-documents/${applicationId}/${fileName}`;
@@ -379,6 +387,7 @@ async function saveAdditionalSupportingDocuments(applicationId: string, files: F
       data: {
         applicationId,
         type: DocumentType.OTHER,
+        requirementKey,
         status: DocumentStatus.PENDING,
         version: nextVersion,
         fileName: file.name || fileName,
@@ -398,6 +407,7 @@ async function saveAdminUploadedDocument(
   type: DocumentType,
   uploadFolder: string,
   proofDocumentDate?: Date,
+  requirementKey?: string | null,
 ) {
   const uploadDirectory = path.join(process.cwd(), "public", "uploads", uploadFolder, applicationId);
   await mkdir(uploadDirectory, { recursive: true });
@@ -422,6 +432,7 @@ async function saveAdminUploadedDocument(
       data: {
         applicationId,
         type,
+        requirementKey: requirementKey ?? null,
         status: DocumentStatus.ACCEPTED,
         version: nextVersion,
         fileName: file.name || fileName,
@@ -846,6 +857,7 @@ async function auditLabelForDocument(applicationId: string, documentId: string) 
       type: true,
       fileName: true,
       version: true,
+      requirementKey: true,
       application: {
         select: {
           client: {
@@ -862,19 +874,19 @@ async function auditLabelForDocument(applicationId: string, documentId: string) 
     return documentLabel(document.type, document.fileName);
   }
 
-  const supportingRequirements = documentRequirementsForEntityType(document.application.client.entityType).filter(
-    (requirement) => requirement.confirmedForUpload && !requirement.documentType,
-  );
   const supportingDocuments = await prisma.document.findMany({
     where: {
       applicationId,
       type: DocumentType.OTHER,
     },
-    select: { id: true, version: true },
+    select: { id: true, type: true, version: true, requirementKey: true },
     orderBy: { version: "asc" },
   });
-  const supportingIndex = supportingDocuments.findIndex((item) => item.id === document.id);
-  const requirementForIndex = supportingIndex >= 0 ? supportingRequirements[supportingIndex] : null;
+  const requirementForIndex = supportingRequirementForDocument(
+    document,
+    document.application.client.entityType,
+    supportingDocuments,
+  );
 
   return requirementForIndex?.label ?? documentLabel(document.type, document.fileName);
 }
@@ -1492,6 +1504,34 @@ export async function createPublicApplicationIntake(
     const supportingDocuments = formData
       .getAll("supportingDocument")
       .filter((value): value is File => value instanceof File && value.size > 0);
+    const supportingDocumentKeys = formData
+      .getAll("supportingDocumentKey")
+      .filter((value): value is string => typeof value === "string" && value.length > 0);
+    const allowedSupportingKeys = new Set(
+      supportingRequirementsForEntityType(entityType).map((requirement) => requirement.key),
+    );
+    if (supportingDocuments.length !== supportingDocumentKeys.length) {
+      throw new Error("Each supporting document must be linked to its required document type.");
+    }
+    const supportingUploads = supportingDocuments.map((file, index) => {
+      const requirementKey = supportingDocumentKeys[index];
+      if (!allowedSupportingKeys.has(requirementKey)) {
+        throw new Error("A supporting document has an invalid requirement type.");
+      }
+
+      return { file, requirementKey };
+    });
+    const submittedRequirementKeys = new Set([
+      ...supportingUploads.map((upload) => upload.requirementKey),
+      ...(trafficRegisterDocument ? ["traffic-register-document"] : []),
+      ...(passportDocument ? ["passport-document"] : []),
+    ]);
+    const missingSupportingRequirement = supportingRequirementsForEntityType(entityType).find(
+      (requirement) => !submittedRequirementKeys.has(requirement.key),
+    );
+    if (missingSupportingRequirement) {
+      throw new Error(`${missingSupportingRequirement.label} is required.`);
+    }
     supportingDocuments.forEach((file) => assertUploadSize(file, "Each supporting document"));
     getRequiredCheckbox(formData, "popiaConsent", "Personal information consent");
     const applicationId = await nextApplicationId();
@@ -1676,10 +1716,12 @@ export async function createPublicApplicationIntake(
 
     await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
     await saveUploadedDocument(applicationId, proofOfAddress, DocumentType.PROOF_OF_ADDRESS, "client-documents");
-    const mandatorySupportingDocuments = [trafficRegisterDocument, passportDocument].filter(
-      (file): file is File => file instanceof File && file.size > 0,
-    );
-    await saveAdditionalSupportingDocuments(applicationId, [...mandatorySupportingDocuments, ...supportingDocuments]);
+    const mandatorySupportingUploads = [
+      trafficRegisterDocument ? { file: trafficRegisterDocument, requirementKey: "traffic-register-document" } : null,
+      passportDocument ? { file: passportDocument, requirementKey: "passport-document" } : null,
+    ].filter((upload): upload is { file: File; requirementKey: string } => upload !== null);
+    const mandatorySupportingDocuments = mandatorySupportingUploads.map((upload) => upload.file);
+    await saveAdditionalSupportingDocuments(applicationId, [...mandatorySupportingUploads, ...supportingUploads]);
     await maybeVerifyUploadedDocumentsWithAi({
       applicationId,
       registrationNumber,
@@ -2419,9 +2461,11 @@ async function restoreReviewAfterDocumentRecovery(applicationId: string, adminId
       documents: {
         orderBy: [{ type: "asc" }, { version: "desc" }],
         select: {
+          id: true,
           type: true,
           status: true,
           version: true,
+          requirementKey: true,
           fileName: true,
           storageKey: true,
         },
@@ -2437,28 +2481,11 @@ async function restoreReviewAfterDocumentRecovery(applicationId: string, adminId
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
       if (!requirement.documentType) {
-        const supportingDocuments = application.documents
-          .filter((document) => document.type === DocumentType.OTHER)
-          .sort((first, second) => first.version - second.version);
-        const supportingRequirements = documentRequirementsForEntityType(application.client.entityType).filter(
-          (item) => item.confirmedForUpload && !item.documentType,
+        const supportingDocument = supportingDocumentForRequirement(
+          requirement.key,
+          application.client.entityType,
+          application.documents,
         );
-        const activeSupportingDocuments = supportingDocuments.slice(-supportingRequirements.length);
-        const supportingIndexByRequirement: Partial<Record<string, number>> = {
-          "death-certificate": 0,
-          "executor-authority": 1,
-          "registration-or-trust-document": 0,
-          "representative-authority": 1,
-          "traffic-register-document": 0,
-          "passport-document": 1,
-        };
-        const supportingIndex = supportingIndexByRequirement[requirement.key];
-
-        if (typeof supportingIndex !== "number") {
-          return true;
-        }
-
-        const supportingDocument = activeSupportingDocuments[supportingIndex];
         return !supportingDocument || supportingDocument.status !== DocumentStatus.ACCEPTED;
       }
 
@@ -2566,7 +2593,9 @@ export async function acceptAllPendingDocuments(formData: FormData) {
 
 export async function adminUploadDocument(formData: FormData) {
   const applicationId = getApplicationId(formData);
-  const documentType = getRequiredString(formData, "documentType", "Document type") as DocumentType;
+  const documentSelection = getRequiredString(formData, "documentType", "Document type");
+  const [documentTypeValue, requirementKey] = documentSelection.split(":", 2);
+  const documentType = documentTypeValue as DocumentType;
   const file = formData.get("documentFile");
   const proofDocumentDateValue = getOptionalString(formData, "proofDocumentDate");
   const adminId = await actorIdFor(UserRole.ADMIN);
@@ -2576,6 +2605,19 @@ export async function adminUploadDocument(formData: FormData) {
       throw new Error("Select a valid document type.");
     }
 
+    if (requirementKey) {
+      const application = await prisma.application.findUniqueOrThrow({
+        where: { id: applicationId },
+        select: { client: { select: { entityType: true } } },
+      });
+      const validRequirement = supportingRequirementsForEntityType(application.client.entityType).some(
+        (requirement) => requirement.key === requirementKey,
+      );
+      if (documentType !== DocumentType.OTHER || !validRequirement) {
+        throw new Error("Select a valid supporting document type.");
+      }
+    }
+
     if (!(file instanceof File) || file.size === 0) {
       throw new Error("Choose a file to upload.");
     }
@@ -2583,7 +2625,7 @@ export async function adminUploadDocument(formData: FormData) {
     const proofDocumentDate =
       documentType === DocumentType.PROOF_OF_ADDRESS && proofDocumentDateValue ? getProofDocumentDate(formData) : undefined;
 
-    await saveAdminUploadedDocument(applicationId, file, documentType, "admin-documents", proofDocumentDate);
+    await saveAdminUploadedDocument(applicationId, file, documentType, "admin-documents", proofDocumentDate, requirementKey);
 
     await appendStatusHistoryNote(
       applicationId,
@@ -2677,9 +2719,11 @@ export async function approveToSupplier(formData: FormData) {
       documents: {
         orderBy: [{ type: "asc" }, { version: "desc" }],
         select: {
+          id: true,
           type: true,
           status: true,
           version: true,
+          requirementKey: true,
           fileName: true,
           storageKey: true,
         },
@@ -2695,24 +2739,11 @@ export async function approveToSupplier(formData: FormData) {
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
       if (!requirement.documentType) {
-        const supportingDocuments = application.documents
-          .filter((document) => document.type === DocumentType.OTHER)
-          .sort((first, second) => first.version - second.version);
-        const supportingIndexByRequirement: Partial<Record<string, number>> = {
-          "death-certificate": 0,
-          "executor-authority": 1,
-          "registration-or-trust-document": 0,
-          "representative-authority": 1,
-          "traffic-register-document": 0,
-          "passport-document": 1,
-        };
-        const supportingIndex = supportingIndexByRequirement[requirement.key];
-
-        if (typeof supportingIndex !== "number") {
-          return true;
-        }
-
-        const supportingDocument = supportingDocuments[supportingIndex];
+        const supportingDocument = supportingDocumentForRequirement(
+          requirement.key,
+          application.client.entityType,
+          application.documents,
+        );
         return !supportingDocument || supportingDocument.status !== DocumentStatus.ACCEPTED;
       }
 
@@ -3029,6 +3060,31 @@ export async function resubmitSupportingDocuments(formData: FormData) {
       },
     },
   });
+  const supportingDocuments = formData
+    .getAll("supportingDocument")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  const supportingDocumentKeys = formData
+    .getAll("supportingDocumentKey")
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  const supportingRequirements = supportingRequirementsForEntityType(application.client.entityType);
+  const allowedSupportingKeys = new Set(supportingRequirements.map((requirement) => requirement.key));
+  if (supportingDocuments.length !== supportingDocumentKeys.length) {
+    throw new Error("Each supporting document must be linked to its required document type.");
+  }
+  const supportingUploads = supportingDocuments.map((file, index) => {
+    const requirementKey = supportingDocumentKeys[index];
+    if (!allowedSupportingKeys.has(requirementKey)) {
+      throw new Error("A supporting document has an invalid requirement type.");
+    }
+    assertUploadSize(file, "Each supporting document");
+    return { file, requirementKey };
+  });
+  const missingSupportingRequirement = supportingRequirements.find(
+    (requirement) => !supportingUploads.some((upload) => upload.requirementKey === requirement.key),
+  );
+  if (missingSupportingRequirement) {
+    throw new Error(`${missingSupportingRequirement.label} is required.`);
+  }
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
   await saveMandateIdPhotoDocument(applicationId, idPhoto, savedIdPhoto);
 
@@ -3040,6 +3096,7 @@ export async function resubmitSupportingDocuments(formData: FormData) {
     "client-documents",
     proofDocumentDate,
   );
+  await saveAdditionalSupportingDocuments(applicationId, supportingUploads);
 
   if (!application.mandateFormSubmission) {
     throw new Error("Mandate form must be submitted before supporting documents can be replaced.");

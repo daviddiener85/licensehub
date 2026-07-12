@@ -51,15 +51,15 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
   [ClientEntityType.DECEASED_ESTATE]: [
     ...baseRequirements,
     {
-      key: "executor-authority",
-      label: "Executor authority document",
-      description: "Letter of executorship or authority document for the estate representative.",
+      key: "death-certificate",
+      label: "Death certificate",
+      description: "Official death certificate for the registered owner.",
       confirmedForUpload: true,
     },
     {
-      key: "death-certificate",
-      label: "Death certificate",
-      description: "Estate supporting document to be confirmed in the final document list.",
+      key: "executor-authority",
+      label: "Executor authority document",
+      description: "Letter of executorship or authority document for the estate representative.",
       confirmedForUpload: true,
     },
   ],
@@ -97,4 +97,57 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
 
 export function documentRequirementsForEntityType(entityType: ClientEntityType) {
   return requirementsByEntityType[entityType] ?? requirementsByEntityType.PRIVATE_OWNER;
+}
+
+export function supportingRequirementsForEntityType(entityType: ClientEntityType) {
+  return documentRequirementsForEntityType(entityType).filter(
+    (requirement) => requirement.confirmedForUpload && !requirement.documentType,
+  );
+}
+
+type SupportingDocumentRecord = {
+  id: string;
+  type: DocumentType;
+  version: number;
+  requirementKey?: string | null;
+};
+
+export function supportingDocumentForRequirement<T extends SupportingDocumentRecord>(
+  requirementKey: string,
+  entityType: ClientEntityType,
+  documents: T[],
+) {
+  const supportingDocuments = documents
+    .filter((document) => document.type === DocumentType.OTHER)
+    .sort((first, second) => first.version - second.version);
+  const keyedDocument = [...supportingDocuments]
+    .reverse()
+    .find((document) => document.requirementKey === requirementKey);
+
+  if (keyedDocument) {
+    return keyedDocument;
+  }
+
+  const requirements = supportingRequirementsForEntityType(entityType);
+  const legacyDocuments = supportingDocuments.filter((document) => !document.requirementKey);
+  const activeLegacyDocuments = legacyDocuments.slice(-requirements.length);
+  const requirementIndex = requirements.findIndex((requirement) => requirement.key === requirementKey);
+
+  return requirementIndex >= 0 ? activeLegacyDocuments[requirementIndex] : undefined;
+}
+
+export function supportingRequirementForDocument<T extends SupportingDocumentRecord>(
+  document: T,
+  entityType: ClientEntityType,
+  documents: T[],
+) {
+  const requirements = supportingRequirementsForEntityType(entityType);
+
+  if (document.requirementKey) {
+    return requirements.find((requirement) => requirement.key === document.requirementKey);
+  }
+
+  return requirements.find(
+    (requirement) => supportingDocumentForRequirement(requirement.key, entityType, documents)?.id === document.id,
+  );
 }
