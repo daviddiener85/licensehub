@@ -6,7 +6,7 @@ import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { SupplierPrintButton } from "@/components/supplier-print-button";
 import { ApplicationStatus, DocumentStatus, DocumentType, SupplierUrgency } from "@/generated/prisma/client";
-import { listSupplierApplications, statusLabel } from "@/lib/applications";
+import { getSupplierApplicationById, listSupplierApplications, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { clientEntityTypeLabels, supportingRequirementForDocument } from "@/lib/entity-requirements";
 import { addSupplierOrderComment, supplierMarkProduced, supplierMarkReturning } from "@/lib/workflow-actions";
@@ -116,12 +116,21 @@ export default async function SupplierPage({
   }
 
   const { order: selectedOrderId } = await searchParams;
-  const selectedOrder = orders.find((order) => order.id === selectedOrderId) ?? orders[0];
+  const selectedOrderSummary = orders.find((order) => order.id === selectedOrderId) ?? orders[0];
+  const selectedOrder = await getSupplierApplicationById(selectedOrderSummary.id).catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+
+  if (!selectedOrder) {
+    return <DatabaseSetup message="The selected supplier order could not be loaded from PostgreSQL." />;
+  }
+
   const approvedDocuments =
-    selectedOrder?.documents.filter(
+    selectedOrder.documents.filter(
       (document) =>
         document.status === DocumentStatus.ACCEPTED && document.type !== DocumentType.PROOF_OF_EFT_PAYMENT,
-    ) ?? [];
+    );
   const atSupplierCount = orders.filter((order) => order.currentStatus === ApplicationStatus.AT_SUPPLIER).length;
   const producedCount = orders.filter((order) => order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED).length;
   const returningCount = orders.filter((order) => order.currentStatus === ApplicationStatus.RETURNING_TO_LICENSE_HUB).length;

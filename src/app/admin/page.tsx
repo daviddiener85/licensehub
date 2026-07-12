@@ -21,7 +21,7 @@ import {
   SupplierUrgency,
 } from "@/generated/prisma/client";
 import type { ApplicationChargeRecord, ApplicationDocumentRecord } from "@/lib/applications";
-import { formatMoney, listAdminApplications, statusLabel } from "@/lib/applications";
+import { formatMoney, getAdminApplicationById, listAdminApplications, statusLabel } from "@/lib/applications";
 import { whatsappTemplates } from "@/lib/communications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import {
@@ -660,8 +660,17 @@ export default async function AdminPage({
     );
   }
 
-  const selectedApplication =
+  const selectedApplicationSummary =
     applications.find((application) => application.id === selectedApplicationId) ?? filteredApplications[0] ?? applications[0];
+  const selectedApplication = await getAdminApplicationById(selectedApplicationSummary.id).catch((error: unknown) => {
+    console.error(error);
+    return null;
+  });
+
+  if (!selectedApplication) {
+    return <DatabaseSetup message="The selected application could not be loaded from PostgreSQL." />;
+  }
+
   const baseAdminParams = {
     q: query,
     status: statusFilter,

@@ -2,6 +2,7 @@ import {
   ApplicationStatus,
   ChargeStatus,
   ClientEntityType,
+  CommunicationChannel,
   DocumentStatus,
   DocumentType,
   CommunicationDirection,
@@ -168,6 +169,12 @@ export type ApplicationRecord = {
   dispatch: ApplicationDispatchRecord | null;
 };
 
+type ApplicationAdminListRecord = Omit<ApplicationRecord, "charges" | "orderComments" | "statusHistory" | "dispatch" | "mandateFormSubmission">;
+type ApplicationSupplierListRecord = Omit<
+  ApplicationRecord,
+  "documents" | "payments" | "charges" | "communications" | "orderComments" | "statusHistory" | "dispatch" | "mandateFormSubmission"
+>;
+
 function addMissingApplicationEntityFields<T extends object>(application: T) {
   return {
     ...application,
@@ -242,6 +249,20 @@ const applicationPaymentSelect = {
   providerReference: true,
 };
 
+const applicationAdminCommunicationSelect = {
+  id: true,
+  direction: true,
+  recipientName: true,
+  recipientAddress: true,
+  body: true,
+  status: true,
+  errorMessage: true,
+  createdAt: true,
+  receivedAt: true,
+  sentAt: true,
+  adminSeenAt: true,
+};
+
 const applicationChargeSelect = {
   id: true,
   status: true,
@@ -285,6 +306,116 @@ const applicationMandateFormSubmissionSelect = {
   submittedAt: true,
 };
 
+const applicationDocumentOrderBy: Prisma.DocumentOrderByWithRelationInput[] = [
+  { type: "asc" },
+  { version: "desc" },
+];
+
+const applicationCreatedAtDescOrderBy = { createdAt: "desc" } as const;
+const applicationSubmittedAtDescOrderBy = [{ submittedAt: "desc" }, { createdAt: "desc" }] as Prisma.ApplicationOrderByWithRelationInput[];
+const applicationApprovedAtAscOrderBy = [{ approvedAt: "asc" }, { createdAt: "asc" }] as Prisma.ApplicationOrderByWithRelationInput[];
+
+const applicationAdminListSelect = {
+  ...applicationBaseSelect,
+  client: {
+    select: applicationClientSelect,
+  },
+  service: {
+    select: applicationServiceSelect,
+  },
+  documents: {
+    orderBy: applicationDocumentOrderBy,
+    select: applicationDocumentSelect,
+  },
+  payments: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    take: 1,
+    select: applicationPaymentSelect,
+  },
+  communications: {
+    where: {
+      channel: CommunicationChannel.WHATSAPP,
+      direction: CommunicationDirection.INBOUND,
+      status: CommunicationStatus.RECEIVED,
+    },
+    orderBy: applicationCreatedAtDescOrderBy,
+    take: 1,
+    select: applicationAdminCommunicationSelect,
+  },
+};
+
+const applicationAdminDetailSelect = {
+  ...applicationBaseSelect,
+  client: {
+    select: applicationClientSelect,
+  },
+  service: {
+    select: applicationServiceSelect,
+  },
+  documents: {
+    orderBy: applicationDocumentOrderBy,
+    select: applicationDocumentSelect,
+  },
+  payments: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    select: applicationPaymentSelect,
+  },
+  charges: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    select: applicationChargeSelect,
+  },
+  communications: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    select: applicationCommunicationSelect,
+  },
+  orderComments: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    select: applicationCommentSelect,
+  },
+  mandateFormSubmission: {
+    select: applicationMandateFormSubmissionSelect,
+  },
+  statusHistory: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    take: 12,
+    select: applicationStatusHistorySelect,
+  },
+  dispatch: {
+    select: applicationDispatchSelect,
+  },
+};
+
+const applicationSupplierListSelect = {
+  ...applicationBaseSelect,
+  client: {
+    select: applicationClientSelect,
+  },
+  service: {
+    select: applicationServiceSelect,
+  },
+};
+
+const applicationSupplierDetailSelect = {
+  ...applicationBaseSelect,
+  client: {
+    select: applicationClientSelect,
+  },
+  service: {
+    select: applicationServiceSelect,
+  },
+  documents: {
+    where: {
+      type: { not: DocumentType.PROOF_OF_EFT_PAYMENT },
+    },
+    orderBy: applicationDocumentOrderBy,
+    select: applicationDocumentSelect,
+  },
+  orderComments: {
+    orderBy: applicationCreatedAtDescOrderBy,
+    select: applicationCommentSelect,
+  },
+};
+
 export function statusLabel(status: string) {
   return applicationPipeline.find((stage) => stage.status === status)?.label ?? status.replaceAll("_", " ");
 }
@@ -296,114 +427,49 @@ export function formatMoney(amount: { toString: () => string }, currency = "ZAR"
   }).format(Number(amount.toString()));
 }
 
-export async function listAdminApplications(): Promise<ApplicationRecord[]> {
+export async function listAdminApplications(): Promise<ApplicationAdminListRecord[]> {
   const now = new Date();
   const rows = await prisma.application.findMany({
     where: {
       OR: [{ retentionEligibleAt: null }, { retentionEligibleAt: { gt: now } }],
     },
-    orderBy: [{ submittedAt: "desc" }, { createdAt: "desc" }],
-    select: {
-      ...applicationBaseSelect,
-      client: {
-        select: applicationClientSelect,
-      },
-      service: {
-        select: applicationServiceSelect,
-      },
-      documents: {
-        orderBy: [{ type: "asc" }, { version: "desc" }],
-        select: applicationDocumentSelect,
-      },
-      payments: {
-        orderBy: { createdAt: "desc" },
-        select: applicationPaymentSelect,
-      },
-      charges: {
-        orderBy: { createdAt: "desc" },
-        select: applicationChargeSelect,
-      },
-      communications: {
-        orderBy: { createdAt: "desc" },
-        select: applicationCommunicationSelect,
-      },
-      orderComments: {
-        orderBy: { createdAt: "desc" },
-        select: applicationCommentSelect,
-      },
-      mandateFormSubmission: {
-        select: applicationMandateFormSubmissionSelect,
-      },
-      dispatch: {
-        select: applicationDispatchSelect,
-      },
-      statusHistory: {
-        orderBy: { createdAt: "desc" },
-        take: 12,
-        select: applicationStatusHistorySelect,
-      },
-    },
+    orderBy: applicationSubmittedAtDescOrderBy,
+    select: applicationAdminListSelect,
   });
 
-  return rows.map((application) => addMissingApplicationEntityFields(application)) as ApplicationRecord[];
+  return rows.map((application) => addMissingApplicationEntityFields(application)) as ApplicationAdminListRecord[];
 }
 
-export async function listSupplierApplications(): Promise<ApplicationRecord[]> {
+export async function getAdminApplicationById(applicationId: string): Promise<ApplicationRecord | null> {
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    select: applicationAdminDetailSelect,
+  });
+
+  return application ? (addMissingApplicationEntityFields(application) as ApplicationRecord) : null;
+}
+
+export async function listSupplierApplications(): Promise<ApplicationSupplierListRecord[]> {
   const rows = await prisma.application.findMany({
     where: {
       currentStatus: {
         in: supplierVisibleStatuses,
       },
     },
-    orderBy: [{ approvedAt: "asc" }, { createdAt: "asc" }],
-    select: {
-      ...applicationBaseSelect,
-      client: {
-        select: applicationClientSelect,
-      },
-      service: {
-        select: applicationServiceSelect,
-      },
-      documents: {
-        where: {
-          type: { not: DocumentType.PROOF_OF_EFT_PAYMENT },
-        },
-        orderBy: [{ type: "asc" }, { version: "desc" }],
-        select: applicationDocumentSelect,
-      },
-      payments: {
-        where: {
-          status: PaymentStatus.CONFIRMED,
-        },
-        select: applicationPaymentSelect,
-      },
-      charges: {
-        orderBy: { createdAt: "desc" },
-        select: applicationChargeSelect,
-      },
-      communications: {
-        orderBy: { createdAt: "desc" },
-        select: applicationCommunicationSelect,
-      },
-      orderComments: {
-        orderBy: { createdAt: "desc" },
-        select: applicationCommentSelect,
-      },
-      statusHistory: {
-        orderBy: { createdAt: "desc" },
-        take: 12,
-        select: applicationStatusHistorySelect,
-      },
-      dispatch: {
-        select: applicationDispatchSelect,
-      },
-      mandateFormSubmission: {
-        select: applicationMandateFormSubmissionSelect,
-      },
-    },
+    orderBy: applicationApprovedAtAscOrderBy,
+    select: applicationSupplierListSelect,
   });
 
-  return rows.map((application) => addMissingApplicationEntityFields(application)) as ApplicationRecord[];
+  return rows.map((application) => addMissingApplicationEntityFields(application)) as ApplicationSupplierListRecord[];
+}
+
+export async function getSupplierApplicationById(applicationId: string): Promise<ApplicationRecord | null> {
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    select: applicationSupplierDetailSelect,
+  });
+
+  return application ? (addMissingApplicationEntityFields(application) as ApplicationRecord) : null;
 }
 
 export async function getClientApplicationByToken(publicToken: string): Promise<ApplicationRecord | null> {
@@ -418,23 +484,23 @@ export async function getClientApplicationByToken(publicToken: string): Promise<
         select: applicationServiceSelect,
       },
       documents: {
-        orderBy: [{ type: "asc" }, { version: "desc" }],
+        orderBy: applicationDocumentOrderBy,
         select: applicationDocumentSelect,
       },
       payments: {
-        orderBy: { createdAt: "desc" },
+        orderBy: applicationCreatedAtDescOrderBy,
         select: applicationPaymentSelect,
       },
       charges: {
-        orderBy: { createdAt: "desc" },
+        orderBy: applicationCreatedAtDescOrderBy,
         select: applicationChargeSelect,
       },
       communications: {
-        orderBy: { createdAt: "desc" },
+        orderBy: applicationCreatedAtDescOrderBy,
         select: applicationCommunicationSelect,
       },
       orderComments: {
-        orderBy: { createdAt: "desc" },
+        orderBy: applicationCreatedAtDescOrderBy,
         select: applicationCommentSelect,
       },
       dispatch: {
@@ -444,7 +510,7 @@ export async function getClientApplicationByToken(publicToken: string): Promise<
         select: applicationMandateFormSubmissionSelect,
       },
       statusHistory: {
-        orderBy: { createdAt: "desc" },
+        orderBy: applicationCreatedAtDescOrderBy,
         take: 12,
         select: applicationStatusHistorySelect,
       },
