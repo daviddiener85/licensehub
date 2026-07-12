@@ -79,6 +79,10 @@ type ApplicationBaseRowInput = {
   referralSource?: string | null;
   referralContact?: string | null;
   sendCompletedDocumentsToReferrer?: boolean;
+  entityDisplayName?: string | null;
+  entityRegistrationNumber?: string | null;
+  representativeFullName?: string | null;
+  representativeCapacity?: string | null;
 };
 
 const mandatePdfApplicationSelect = {
@@ -154,6 +158,10 @@ async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
       "referralSource",
       "referralContact",
       "sendCompletedDocumentsToReferrer",
+      "entityDisplayName",
+      "entityRegistrationNumber",
+      "representativeFullName",
+      "representativeCapacity",
       "createdAt",
       "updatedAt"
     )
@@ -172,6 +180,10 @@ async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
       ${input.referralSource ?? null},
       ${input.referralContact ?? null},
       ${input.sendCompletedDocumentsToReferrer ?? false},
+      ${input.entityDisplayName ?? null},
+      ${input.entityRegistrationNumber ?? null},
+      ${input.representativeFullName ?? null},
+      ${input.representativeCapacity ?? null},
       ${now},
       ${now}
     )
@@ -1454,6 +1466,8 @@ export async function createPublicApplicationIntake(
     const deliveryRequired = getDeliveryRequired(formData);
     const entityDisplayName = getOptionalString(formData, "entityDisplayName");
     const entityRegistrationNumber = getOptionalString(formData, "entityRegistrationNumber");
+    const representativeFullName = getOptionalString(formData, "representativeFullName");
+    const representativeCapacity = getOptionalString(formData, "representativeCapacity");
     const paymentDeliveryAddressLine1 = deliveryRequired
       ? getRequiredString(formData, "paymentDeliveryAddressLine1", "Payment delivery address line 1")
       : deliveryAddressLine1;
@@ -1631,6 +1645,10 @@ export async function createPublicApplicationIntake(
       referralSource,
       referralContact,
       sendCompletedDocumentsToReferrer,
+      entityDisplayName,
+      entityRegistrationNumber,
+      representativeFullName,
+      representativeCapacity,
     });
     await prisma.statusHistory.create({
       data: {
