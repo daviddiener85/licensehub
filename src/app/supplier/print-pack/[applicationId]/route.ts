@@ -129,8 +129,16 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
       }
 
       await addPlaceholderPage(outputPdf, label, "Open this document separately. This file type cannot be merged into the print pack.");
-    } catch {
-      await addPlaceholderPage(outputPdf, label, "This document file is missing from storage.");
+    } catch (error) {
+      const missingFile =
+        typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+      await addPlaceholderPage(
+        outputPdf,
+        label,
+        missingFile
+          ? "This document file is missing from storage. Ask The License Hub to re-upload it."
+          : "This document could not be rendered. Ask The License Hub to re-upload it as a JPG, PNG, or PDF.",
+      );
     }
   }
 

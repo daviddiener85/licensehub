@@ -1,6 +1,6 @@
 "use server";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 
@@ -2422,6 +2422,8 @@ async function restoreReviewAfterDocumentRecovery(applicationId: string, adminId
           type: true,
           status: true,
           version: true,
+          fileName: true,
+          storageKey: true,
         },
       },
     },
@@ -2678,6 +2680,8 @@ export async function approveToSupplier(formData: FormData) {
           type: true,
           status: true,
           version: true,
+          fileName: true,
+          storageKey: true,
         },
       },
       mandateFormSubmission: {
@@ -2719,6 +2723,21 @@ export async function approveToSupplier(formData: FormData) {
 
   if (incompleteRequirement) {
     throw new Error(`${incompleteRequirement.label} must be uploaded and accepted before approval.`);
+  }
+
+  const supplierDocuments = application.documents.filter(
+    (document) =>
+      document.status === DocumentStatus.ACCEPTED && document.type !== DocumentType.PROOF_OF_EFT_PAYMENT,
+  );
+
+  for (const document of supplierDocuments) {
+    try {
+      await access(storageKeyPath(document.storageKey));
+    } catch {
+      throw new Error(
+        `${documentLabel(document.type, document.fileName)} is missing from storage. Re-upload it before sending this application to the supplier.`,
+      );
+    }
   }
 
   await transitionApplication(applicationId, ApplicationStatus.AT_SUPPLIER, {
