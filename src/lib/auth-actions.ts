@@ -16,17 +16,17 @@ export async function loginWithRolePasscode(formData: FormData) {
   const nextPath = stringField(formData, "nextPath") || (role === "SUPPLIER" ? "/supplier" : "/admin");
 
   if (!isValidRole(role)) {
-    throw new Error("Invalid role selected.");
+    return { error: "Invalid role selected." };
   }
 
   const expectedPasscode = rolePasscodeFor(role);
 
   if (!expectedPasscode) {
-    throw new Error(`No ${role} access key has been configured on the server.`);
+    return { error: `No ${role} access key has been configured on the server.` };
   }
 
   if (passcode !== expectedPasscode) {
-    throw new Error("Incorrect access key.");
+    return { error: "Incorrect access key." };
   }
 
   const cookieStore = await cookies();
