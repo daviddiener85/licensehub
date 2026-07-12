@@ -1,5 +1,6 @@
 import { ApplicationStatus, PaymentStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
+import { markChargesPaidForConfirmedPayment } from "@/lib/payment-confirmation";
 import {
   extractPaystackChargeSuccess,
   verifyPaystackWebhookSignature,
@@ -40,7 +41,13 @@ export async function POST(request: Request) {
   for (const item of items) {
     const payment = await prisma.payment.findFirst({
       where: { reference: item.reference },
-      include: {
+      select: {
+        id: true,
+        applicationId: true,
+        chargeId: true,
+        method: true,
+        providerReference: true,
+        status: true,
         application: {
           select: {
             id: true,
@@ -66,6 +73,12 @@ export async function POST(request: Request) {
           return "id" in rawData && rawData.id !== null ? String(rawData.id) : payment.providerReference;
         })(),
       },
+    });
+
+    await markChargesPaidForConfirmedPayment({
+      applicationId: payment.application.id,
+      chargeId: payment.chargeId,
+      status: PaymentStatus.CONFIRMED,
     });
 
     const nextStatus = nextStatusAfterPaymentConfirmation(payment.application);

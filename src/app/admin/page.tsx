@@ -321,6 +321,21 @@ function supportingDocumentLabel(
 }
 
 function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  const entityFieldsRequired =
+    application.client.entityType === "COMPANY_OR_TRUST" || application.client.entityType === "DECEASED_ESTATE";
+
+  if (
+    entityFieldsRequired &&
+    !(
+      application.entityDisplayName &&
+      application.entityRegistrationNumber &&
+      application.representativeFullName &&
+      application.representativeCapacity
+    )
+  ) {
+    return "Entity and representative details must be captured before approval.";
+  }
+
   const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {

@@ -28,6 +28,7 @@ import { createMandatePdf } from "@/lib/mandate-pdf";
 import { initializePaystackTransaction, isPaystackConfigured, paystackCallbackUrl } from "@/lib/paystack";
 import { appBaseUrl, requestBaseUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
+import { markChargesPaidForConfirmedPayment } from "@/lib/payment-confirmation";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { deleteQueuedFiles, storagePathsForApplication } from "@/lib/retention-purge";
 import {
@@ -2314,6 +2315,23 @@ export async function confirmEftPayment(formData: FormData) {
       confirmedAt: new Date(),
     },
   });
+
+  const confirmedPayments = await prisma.payment.findMany({
+    where: {
+      applicationId,
+      method: "EFT",
+      status: PaymentStatus.CONFIRMED,
+    },
+    select: {
+      applicationId: true,
+      chargeId: true,
+      status: true,
+    },
+  });
+
+  for (const payment of confirmedPayments) {
+    await markChargesPaidForConfirmedPayment(payment);
+  }
 
   await transitionApplication(applicationId, nextStatus, {
     actorId: adminId,
