@@ -5,11 +5,24 @@ import { ArrowLeft, Clock3, FileText, PackageCheck, Truck } from "lucide-react";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
 import { DatabaseSetup } from "@/components/database-setup";
 import { SupplierPrintButton } from "@/components/supplier-print-button";
+import { SupplierReturnEvidenceUploadForm } from "@/components/supplier-return-evidence-upload-form";
 import { ApplicationStatus, DocumentStatus, DocumentType, SupplierUrgency } from "@/generated/prisma/client";
 import { getSupplierApplicationById, listSupplierApplications, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import { clientEntityTypeLabels, supportingRequirementForDocument } from "@/lib/entity-requirements";
-import { addSupplierOrderComment, supplierMarkProduced, supplierMarkReturning } from "@/lib/workflow-actions";
+import {
+  addSupplierOrderComment,
+  supplierMarkProduced,
+  supplierMarkReturning,
+  uploadSupplierReturnEvidence,
+} from "@/lib/workflow-actions";
+import {
+  hasSupplierReturnEvidence,
+  isSupplierReturnEvidenceDocument,
+  producedDocumentEvidence,
+  supplierReturnEvidenceDescriptions,
+  supplierReturnEvidenceLabel,
+} from "@/lib/supplier-evidence";
 import { logout } from "@/lib/auth-actions";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +86,7 @@ function urgencyLabel(urgency: SupplierUrgency) {
   return "Normal";
 }
 
-function visibleActions(order: SupplierOrder) {
+function visibleActions(order: SupplierOrder, returnEvidenceReady = false) {
   if (order.currentStatus === ApplicationStatus.AT_SUPPLIER) {
     return [
       {
@@ -86,7 +99,7 @@ function visibleActions(order: SupplierOrder) {
     ];
   }
 
-  if (order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED) {
+  if (order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && returnEvidenceReady) {
     return [
       {
         action: supplierMarkReturning,
@@ -130,10 +143,14 @@ export default async function SupplierPage({
 
   const approvedDocuments = selectedOrder
     ? selectedOrder.documents.filter(
-        (document) =>
-          document.status === DocumentStatus.ACCEPTED && document.type !== DocumentType.PROOF_OF_EFT_PAYMENT,
+      (document) =>
+          document.status === DocumentStatus.ACCEPTED &&
+          document.type !== DocumentType.PROOF_OF_EFT_PAYMENT &&
+          !isSupplierReturnEvidenceDocument(document),
       )
     : [];
+  const returnEvidenceReady = selectedOrder ? hasSupplierReturnEvidence(selectedOrder.documents) : false;
+  const producedDocument = selectedOrder ? producedDocumentEvidence(selectedOrder.documents) ?? null : null;
   const atSupplierCount = orders.filter((order) => order.currentStatus === ApplicationStatus.AT_SUPPLIER).length;
   const producedCount = orders.filter((order) => order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED).length;
   const returningCount = orders.filter((order) => order.currentStatus === ApplicationStatus.RETURNING_TO_LICENSE_HUB).length;
@@ -353,6 +370,41 @@ export default async function SupplierPage({
                     ) : null}
                   </section>
 
+                  {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED ? (
+                    <SupplierReturnEvidenceUploadForm
+                      applicationId={selectedOrder.id}
+                      action={uploadSupplierReturnEvidence}
+                    />
+                  ) : null}
+
+                  {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && !returnEvidenceReady ? (
+                    <p className="mt-4 border border-[#d8b267] bg-[#fff8df] p-4 text-sm leading-6 text-[#6b5e4f]">
+                      Upload the produced document photo and barcode photo before you mark this order as returning.
+                    </p>
+                  ) : null}
+
+                  {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && producedDocument ? (
+                    <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4 text-sm">
+                      <p className="font-semibold">Recorded produced document</p>
+                      <p className="mt-1 text-[#52615b]">
+                        {supplierReturnEvidenceLabel(producedDocument.requirementKey, "Produced document photo")}
+                      </p>
+                      {producedDocument.storageKey ? (
+                        <a
+                          href={documentHref(producedDocument.storageKey) ?? undefined}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-3 inline-flex border border-[#1f2724] px-3 py-2 text-sm font-semibold text-[#1f2724]"
+                        >
+                          View upload
+                        </a>
+                      ) : null}
+                      <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
+                        {supplierReturnEvidenceDescriptions.producedDocumentPhoto}
+                      </p>
+                    </div>
+                  ) : null}
+
                   <section className="mt-6 border-t border-[#d6d0c1] pt-5 tlh-print-hide">
                     <h3 className="font-semibold">Order Comments</h3>
                     <div className="mt-3 space-y-2">
@@ -389,7 +441,7 @@ export default async function SupplierPage({
                   <section className="mt-6 border-t border-[#d6d0c1] pt-5 tlh-print-hide">
                     <h3 className="font-semibold">Supplier Actions</h3>
                     <div className="mt-3 flex flex-wrap gap-3">
-                      {visibleActions(selectedOrder).map((action) => {
+                      {visibleActions(selectedOrder, returnEvidenceReady).map((action) => {
                         const Icon = action.icon;
 
                         return (
@@ -405,9 +457,11 @@ export default async function SupplierPage({
                           </ConfirmActionForm>
                         );
                       })}
-                      {visibleActions(selectedOrder).length === 0 ? (
+                      {visibleActions(selectedOrder, returnEvidenceReady).length === 0 ? (
                         <p className="border border-[#d8b267] bg-[#fff8df] px-4 py-2 text-sm font-semibold text-[#6b5e4f]">
-                          Waiting for The License Hub to receive this pack back.
+                          {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && !returnEvidenceReady
+                            ? "Upload produced document evidence to enable the return action."
+                            : "Waiting for The License Hub to receive this pack back."}
                         </p>
                       ) : null}
                     </div>

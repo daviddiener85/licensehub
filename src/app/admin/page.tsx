@@ -52,6 +52,11 @@ import {
 } from "@/lib/workflow-actions";
 import { prisma } from "@/lib/prisma";
 import { isPaystackConfigured } from "@/lib/paystack";
+import {
+  isSupplierReturnEvidenceDocument,
+  supplierReturnEvidenceDescriptions,
+  supplierReturnEvidenceLabel,
+} from "@/lib/supplier-evidence";
 import { logout } from "@/lib/auth-actions";
 
 const dayInMs = 1000 * 60 * 60 * 24;
@@ -309,6 +314,10 @@ function supportingDocumentLabel(
 ) {
   if (document.type !== "OTHER") {
     return documentLabel(document.type, document.fileName);
+  }
+
+  if (isSupplierReturnEvidenceDocument(document)) {
+    return supplierReturnEvidenceLabel(document.requirementKey, document.fileName);
   }
 
   const requirementForIndex = supportingRequirementForDocument(
@@ -1198,6 +1207,10 @@ export default async function AdminPage({
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               {selectedApplication.documents.map((document: ApplicationDocumentRecord) => {
                 const href = document.storageKey ? documentHref(document.storageKey) : null;
+                const supplierEvidenceDescription =
+                  document.type === "OTHER" && isSupplierReturnEvidenceDocument(document)
+                    ? supplierReturnEvidenceDescriptions[document.requirementKey ?? ""]
+                    : null;
 
                 return (
                   <div key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
@@ -1205,6 +1218,9 @@ export default async function AdminPage({
                     <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
                       {formatDocumentStatus(document.status)}
                     </span>
+                    {supplierEvidenceDescription ? (
+                      <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">{supplierEvidenceDescription}</span>
+                    ) : null}
                     {documentTypeDescriptions[document.type] ? (
                       <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
                         {documentTypeDescriptions[document.type]}

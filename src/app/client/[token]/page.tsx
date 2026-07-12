@@ -4,12 +4,18 @@ import { MandateCaptureForm } from "@/components/mandate-capture-form";
 import { PublicFooter } from "@/components/public-footer";
 import { ApplicationStatus, ChargeStatus, DocumentStatus, PaymentStatus } from "@/generated/prisma/client";
 import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
-import { documentLabel } from "@/lib/documents";
+import { documentHref, documentLabel } from "@/lib/documents";
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
 import { isPaystackConfigured } from "@/lib/paystack";
 import { listActiveServices } from "@/lib/services";
 import { applicationPipeline } from "@/lib/workflow";
 import { supportingRequirementsForEntityType } from "@/lib/entity-requirements";
+import {
+  isSupplierReturnEvidenceDocument,
+  producedDocumentEvidence,
+  supplierReturnEvidenceDescriptions,
+} from "@/lib/supplier-evidence";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +39,17 @@ export default async function ClientApplicationPage({
     const latestPayment = application.payments[0] ?? null;
     const pendingCharges = application.charges.filter((charge) => charge.status === ChargeStatus.PENDING);
     const latestHistory = application.statusHistory.slice(0, 5);
-    const rejectedDocuments = application.documents.filter((document) => document.status === DocumentStatus.REJECTED);
-    const pendingDocuments = application.documents.filter((document) => document.status === DocumentStatus.PENDING);
+    const retentionSetting = await prisma.retentionSetting.findUnique({
+      where: { id: "default" },
+      select: {
+        clientCanViewSupplierEvidence: true,
+      },
+    });
+    const visibleDocuments = application.documents.filter((document) => !isSupplierReturnEvidenceDocument(document));
+    const rejectedDocuments = visibleDocuments.filter((document) => document.status === DocumentStatus.REJECTED);
+    const pendingDocuments = visibleDocuments.filter((document) => document.status === DocumentStatus.PENDING);
+    const producedDocument = producedDocumentEvidence(application.documents);
+    const canViewProducedDocument = retentionSetting?.clientCanViewSupplierEvidence && Boolean(producedDocument);
     const nextAction = clientNextAction(application.currentStatus, application.id);
 
     return (
@@ -162,13 +177,30 @@ export default async function ClientApplicationPage({
               <section className="border border-[#d8d1c3] bg-white p-5">
                 <h2 className="text-lg font-semibold">Documents</h2>
                 <div className="mt-3 space-y-2 text-sm">
-                  {application.documents.slice(0, 6).map((document) => (
+                  {visibleDocuments.slice(0, 6).map((document) => (
                     <div key={document.id} className="flex items-start justify-between gap-3 border border-[#eee8dc] p-2">
                       <span>{documentLabel(document.type, document.fileName)}</span>
                       <span className={documentStatusClass(document.status)}>{document.status.toLowerCase()}</span>
                     </div>
                   ))}
                 </div>
+                {canViewProducedDocument && producedDocument?.storageKey ? (
+                  <div className="mt-4 border border-[#c7dfd4] bg-[#f4fbf7] p-3 text-sm">
+                    <p className="text-xs font-semibold uppercase text-[#1f7a4d]">Produced document</p>
+                    <p className="mt-1 text-[#52615b]">Your produced document is available to view.</p>
+                    <a
+                      href={documentHref(producedDocument.storageKey) ?? undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-3 inline-flex border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
+                    >
+                      View produced document
+                    </a>
+                    <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
+                      {supplierReturnEvidenceDescriptions.producedDocumentPhoto}
+                    </p>
+                  </div>
+                ) : null}
                 {rejectedDocuments.length > 0 || pendingDocuments.length > 0 ? (
                   <p className="mt-3 text-xs leading-5 text-[#6b5e4f]">
                     {rejectedDocuments.length > 0

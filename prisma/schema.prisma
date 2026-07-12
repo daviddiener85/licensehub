@@ -203,6 +203,7 @@ model RetentionSetting {
   adminAutoRefreshEnabled       Boolean  @default(true)
   adminRefreshIntervalSeconds   Int      @default(30)
   aiDocumentVerificationEnabled Boolean  @default(false)
+  clientCanViewSupplierEvidence Boolean  @default(false)
   eftBankName                   String?
   eftAccountNumber              String?
   eftBranchCode                 String?

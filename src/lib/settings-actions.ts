@@ -133,6 +133,7 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
   const safeInterval = Math.max(5, Math.min(600, interval));
   const autoRefreshEnabled = formData.get("adminAutoRefreshEnabled") === "on";
   const aiDocumentVerificationEnabled = formData.get("aiDocumentVerificationEnabled") === "on";
+  const clientCanViewSupplierEvidence = formData.get("clientCanViewSupplierEvidence") === "on";
   const eftBankName = stringField(formData, "eftBankName");
   const eftAccountNumber = stringField(formData, "eftAccountNumber");
   const eftBranchCode = stringField(formData, "eftBranchCode");
@@ -146,6 +147,7 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
       adminAutoRefreshEnabled: autoRefreshEnabled,
       adminRefreshIntervalSeconds: safeInterval,
       aiDocumentVerificationEnabled,
+      clientCanViewSupplierEvidence,
       eftBankName: eftBankName || null,
       eftAccountNumber: eftAccountNumber || null,
       eftBranchCode: eftBranchCode || null,
@@ -159,6 +161,7 @@ export async function updateAdminWorkspaceSetting(formData: FormData) {
       adminAutoRefreshEnabled: autoRefreshEnabled,
       adminRefreshIntervalSeconds: safeInterval,
       aiDocumentVerificationEnabled,
+      clientCanViewSupplierEvidence,
       eftBankName: eftBankName || null,
       eftAccountNumber: eftAccountNumber || null,
       eftBranchCode: eftBranchCode || null,

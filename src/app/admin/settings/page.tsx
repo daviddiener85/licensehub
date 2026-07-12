@@ -269,6 +269,14 @@ export default async function AdminSettingsPage({
                 />
                 Enable OpenAI document verification
               </label>
+              <label className="flex h-10 items-center gap-2 text-sm font-semibold">
+                <input
+                  defaultChecked={data.retentionSetting?.clientCanViewSupplierEvidence ?? false}
+                  name="clientCanViewSupplierEvidence"
+                  type="checkbox"
+                />
+                Allow client to view produced document
+              </label>
               <label className="block w-full max-w-sm text-sm font-semibold">
                 Refresh interval in seconds
                 <input

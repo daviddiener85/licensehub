@@ -39,6 +39,10 @@ import {
 } from "@/lib/entity-requirements";
 import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
+import {
+  hasSupplierReturnEvidence,
+  supplierReturnEvidenceRequirementKeys,
+} from "@/lib/supplier-evidence";
 import { isMetaProviderEnabled, sendMetaWhatsAppTemplate, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
 
 export type PublicIntakeSubmissionState = {
@@ -413,6 +417,73 @@ async function saveAdditionalSupportingDocuments(
 
     nextVersion += 1;
   }
+}
+
+async function saveSupplierReturnEvidenceDocument(
+  applicationId: string,
+  file: File,
+  requirementKey: string,
+) {
+  const uploadDirectory = path.join(process.cwd(), "public", "uploads", "supplier-evidence", applicationId);
+  await mkdir(uploadDirectory, { recursive: true });
+
+  const fileName = `${randomUUID()}-${safeFileName(file.name || "supplier-evidence")}`;
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const storageKey = `/uploads/supplier-evidence/${applicationId}/${fileName}`;
+
+  await writeFile(path.join(uploadDirectory, fileName), bytes);
+
+  const existingEvidence = await prisma.document.findFirst({
+    where: {
+      applicationId,
+      type: DocumentType.OTHER,
+      requirementKey,
+    },
+    select: { id: true },
+  });
+
+  if (existingEvidence) {
+    await prisma.document.update({
+      where: { id: existingEvidence.id },
+      data: {
+        status: DocumentStatus.ACCEPTED,
+        fileName: file.name || fileName,
+        mimeType: file.type || "application/octet-stream",
+        fileSizeBytes: bytes.length,
+        storageKey,
+        rejectionReason: null,
+        reviewedById: null,
+        reviewedAt: null,
+      },
+    });
+    return;
+  }
+
+  const latestOtherDocument = await prisma.document.findFirst({
+    where: {
+      applicationId,
+      type: DocumentType.OTHER,
+    },
+    orderBy: { version: "desc" },
+    select: { version: true },
+  });
+  const nextVersion = (latestOtherDocument?.version ?? 0) + 1;
+
+  await prisma.document.create({
+    data: {
+      applicationId,
+      type: DocumentType.OTHER,
+      requirementKey,
+      status: DocumentStatus.ACCEPTED,
+      version: nextVersion,
+      fileName: file.name || fileName,
+      mimeType: file.type || "application/octet-stream",
+      fileSizeBytes: bytes.length,
+      storageKey,
+      reviewedById: null,
+      reviewedAt: null,
+    },
+  });
 }
 
 async function saveAdminUploadedDocument(
@@ -2376,6 +2447,57 @@ export async function uploadEftProof(formData: FormData) {
   redirect(`/apply/submitted?application=${encodeURIComponent(applicationId)}&eftUploaded=1`);
 }
 
+export async function uploadSupplierReturnEvidence(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const supplierId = await actorIdFor(UserRole.SUPPLIER);
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: { currentStatus: true },
+  });
+
+  if (application.currentStatus !== ApplicationStatus.SUPPLIER_PRODUCED) {
+    return {
+      status: "error",
+      message: "Produced document evidence can only be uploaded once the document is marked as produced.",
+    } as const;
+  }
+
+  try {
+    const producedDocumentPhoto = getRequiredFile(formData, "producedDocumentPhoto", "Produced document photo", [
+      ...imageUploadTypes,
+    ]);
+    const barcodePhoto = getRequiredFile(formData, "barcodePhoto", "Barcode photo", [...imageUploadTypes]);
+
+    await saveSupplierReturnEvidenceDocument(
+      applicationId,
+      producedDocumentPhoto,
+      supplierReturnEvidenceRequirementKeys.producedDocumentPhoto,
+    );
+    await saveSupplierReturnEvidenceDocument(
+      applicationId,
+      barcodePhoto,
+      supplierReturnEvidenceRequirementKeys.barcodePhoto,
+    );
+
+    await appendStatusHistoryNote(applicationId, supplierId, "Supplier uploaded produced document and barcode photos before returning the order.");
+
+    refreshWorkflowPages();
+    revalidatePath("/supplier");
+
+    return {
+      status: "success",
+      message: "Produced document evidence uploaded.",
+    } as const;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to upload produced document evidence.";
+
+    return {
+      status: "error",
+      message,
+    } as const;
+  }
+}
+
 export async function requestResubmission(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const adminId = await actorIdFor(UserRole.ADMIN);
@@ -3299,6 +3421,26 @@ export async function supplierMarkProduced(formData: FormData) {
 export async function supplierMarkReturning(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const supplierId = await actorIdFor(UserRole.SUPPLIER);
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: {
+      currentStatus: true,
+      documents: {
+        select: {
+          requirementKey: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (application.currentStatus !== ApplicationStatus.SUPPLIER_PRODUCED) {
+    throw new Error("The document must be marked as produced before it can be returned.");
+  }
+
+  if (!hasSupplierReturnEvidence(application.documents)) {
+    throw new Error("Please upload the produced document photo and barcode photo before returning the order.");
+  }
 
   await transitionApplication(applicationId, ApplicationStatus.RETURNING_TO_LICENSE_HUB, {
     actorId: supplierId,
