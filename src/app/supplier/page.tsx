@@ -116,21 +116,24 @@ export default async function SupplierPage({
   }
 
   const { order: selectedOrderId } = await searchParams;
-  const selectedOrderSummary = orders.find((order) => order.id === selectedOrderId) ?? orders[0];
-  const selectedOrder = await getSupplierApplicationById(selectedOrderSummary.id).catch((error: unknown) => {
-    console.error(error);
-    return null;
-  });
+  const selectedOrderSummary = orders.find((order) => order.id === selectedOrderId) ?? orders[0] ?? null;
+  const selectedOrder = selectedOrderSummary
+    ? await getSupplierApplicationById(selectedOrderSummary.id).catch((error: unknown) => {
+        console.error(error);
+        return null;
+      })
+    : null;
 
-  if (!selectedOrder) {
+  if (selectedOrderSummary && !selectedOrder) {
     return <DatabaseSetup message="The selected supplier order could not be loaded from PostgreSQL." />;
   }
 
-  const approvedDocuments =
-    selectedOrder.documents.filter(
-      (document) =>
-        document.status === DocumentStatus.ACCEPTED && document.type !== DocumentType.PROOF_OF_EFT_PAYMENT,
-    );
+  const approvedDocuments = selectedOrder
+    ? selectedOrder.documents.filter(
+        (document) =>
+          document.status === DocumentStatus.ACCEPTED && document.type !== DocumentType.PROOF_OF_EFT_PAYMENT,
+      )
+    : [];
   const atSupplierCount = orders.filter((order) => order.currentStatus === ApplicationStatus.AT_SUPPLIER).length;
   const producedCount = orders.filter((order) => order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED).length;
   const returningCount = orders.filter((order) => order.currentStatus === ApplicationStatus.RETURNING_TO_LICENSE_HUB).length;
@@ -413,7 +416,8 @@ export default async function SupplierPage({
               </>
             ) : (
               <div className="p-10 text-sm leading-6 text-[#52615b]">
-                No order selected. Once The License Hub approves an application to supplier, its print pack appears here.
+                No supplier-visible orders are available right now. Once The License Hub approves an application to
+                supplier, its print pack appears here.
               </div>
             )}
           </article>
