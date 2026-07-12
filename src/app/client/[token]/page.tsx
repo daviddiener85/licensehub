@@ -114,9 +114,9 @@ export default async function ClientApplicationPage({
                       ].join(" ")}
                     >
                       <span className="font-semibold">{stage.label}</span>
-                      <span className="text-xs font-semibold uppercase text-[#6b5e4f]">
-                        {isCurrent ? "Now" : isComplete ? "Done" : stage.owner}
-                      </span>
+                      {isComplete ? (
+                        <span className="text-xs font-semibold uppercase text-[#6b5e4f]">Done</span>
+                      ) : null}
                     </div>
                   );
                 })}
