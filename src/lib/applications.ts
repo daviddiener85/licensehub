@@ -177,9 +177,9 @@ type ApplicationSupplierListRecord = Omit<
 
 function addMissingApplicationEntityFields<T extends object>(application: T) {
   return {
-    ...application,
     ...missingApplicationEntityFields,
     ...missingApplicationQuoteFields,
+    ...application,
   };
 }
 
@@ -196,6 +196,10 @@ const applicationBaseSelect = {
   vehicleYear: true,
   vehicleColour: true,
   vin: true,
+  entityDisplayName: true,
+  entityRegistrationNumber: true,
+  representativeFullName: true,
+  representativeCapacity: true,
   referralSource: true,
   referralContact: true,
   sendCompletedDocumentsToReferrer: true,
