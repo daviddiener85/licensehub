@@ -48,7 +48,7 @@ function relativeUploadPath(storageKey: string) {
   return normalized;
 }
 
-function storagePathsForApplication(
+export function storagePathsForApplication(
   applicationId: string,
   documentStorageKeys: string[],
   mandateStorageKey: string | null,
@@ -84,7 +84,7 @@ function jsonStoragePaths(value: Prisma.JsonValue) {
   return value.filter((entry): entry is string => typeof entry === "string" && entry.length > 0);
 }
 
-async function deleteQueuedFiles(record: { id: string; applicationId: string; storagePaths: Prisma.JsonValue }) {
+export async function deleteQueuedFiles(record: { id: string; applicationId: string; storagePaths: Prisma.JsonValue }) {
   try {
     for (const relativePath of jsonStoragePaths(record.storagePaths)) {
       await rm(absoluteUploadPath(relativePath), { recursive: true, force: true });

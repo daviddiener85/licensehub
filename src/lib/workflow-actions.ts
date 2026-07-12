@@ -29,6 +29,7 @@ import { initializePaystackTransaction, isPaystackConfigured, paystackCallbackUr
 import { appBaseUrl, requestBaseUrl } from "@/lib/app-url";
 import { prisma } from "@/lib/prisma";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
+import { deleteQueuedFiles, storagePathsForApplication } from "@/lib/retention-purge";
 import {
   documentRequirementsForEntityType,
   supportingDocumentForRequirement,
@@ -2853,6 +2854,79 @@ export async function cancelApplication(formData: FormData) {
       ),
     },
   });
+
+  refreshWorkflowPages();
+}
+
+export async function deleteApplication(formData: FormData) {
+  const applicationId = getApplicationId(formData);
+  const confirmed = formData.get("confirmed") === "true";
+
+  if (!confirmed) {
+    throw new Error("Please confirm the deletion checkbox before proceeding.");
+  }
+
+  const application = await prisma.application.findUniqueOrThrow({
+    where: { id: applicationId },
+    select: {
+      id: true,
+      clientId: true,
+      documents: {
+        select: { storageKey: true },
+      },
+      mandateFormSubmission: {
+        select: { idPhotoStorageKey: true },
+      },
+    },
+  });
+
+  const storagePaths = storagePathsForApplication(
+    application.id,
+    application.documents.map((document) => document.storageKey),
+    application.mandateFormSubmission?.idPhotoStorageKey ?? null,
+  );
+  const queuedAt = new Date();
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.retentionPurge.upsert({
+      where: { applicationId: application.id },
+      update: {
+        clientId: application.clientId,
+        storagePaths,
+        databaseDeletedAt: queuedAt,
+        lastError: null,
+      },
+      create: {
+        applicationId: application.id,
+        clientId: application.clientId,
+        storagePaths,
+        databaseDeletedAt: queuedAt,
+      },
+    });
+
+    await transaction.auditLog.deleteMany({ where: { applicationId: application.id } });
+    const deletedApplication = await transaction.application.deleteMany({
+      where: { id: application.id },
+    });
+
+    if (deletedApplication.count !== 1) {
+      throw new Error("Application could not be deleted.");
+    }
+
+    await transaction.client.deleteMany({
+      where: {
+        id: application.clientId,
+        applications: { none: {} },
+      },
+    });
+  });
+
+  const queuedRecord = await prisma.retentionPurge.findUniqueOrThrow({
+    where: { applicationId: application.id },
+    select: { id: true, applicationId: true, storagePaths: true },
+  });
+
+  await deleteQueuedFiles(queuedRecord);
 
   refreshWorkflowPages();
 }

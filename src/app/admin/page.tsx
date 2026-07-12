@@ -34,6 +34,7 @@ import {
 import {
   approveToSupplier,
   cancelApplication,
+  deleteApplication,
   confirmEftPayment,
   adminUploadDocument,
   acceptDocument,
@@ -476,9 +477,12 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
   const actions: {
     label: string;
     action: (formData: FormData) => void | Promise<void>;
-    variant: "primary" | "secondary" | "quiet";
+    variant: "primary" | "secondary" | "quiet" | "danger";
     message: string;
     type?: "resubmission";
+    title?: string;
+    confirmLabel?: string;
+    confirmationCheckboxLabel?: string;
   }[] = [];
 
   if (
@@ -540,6 +544,16 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
       message: `Cancel ${application.id}? This will remove it from the active workflow.`,
     });
   }
+
+  actions.push({
+    label: "Delete",
+    action: deleteApplication,
+    variant: "danger",
+    title: "Delete application",
+    confirmLabel: "Proceed",
+    confirmationCheckboxLabel: "I understand this will permanently delete the application and all stored documents.",
+    message: "Are you sure you want to completely delete this record?",
+  });
 
   return actions;
 }
@@ -956,13 +970,19 @@ export default async function AdminPage({
                       action={item.action}
                       applicationId={application.id}
                       message={item.message}
+                      title={item.title}
+                      confirmLabel={item.confirmLabel}
+                      confirmationCheckboxLabel={item.confirmationCheckboxLabel}
+                      destructive={item.variant === "danger"}
                       className={[
                         "border px-2 py-1 text-xs font-semibold",
                         item.variant === "primary"
                           ? "border-[#1f2724] bg-[#1f2724] text-white"
                           : item.variant === "secondary"
                             ? "border-[#8a6a2a] text-[#6b5e4f]"
-                            : "border-[#d8d1c3] text-[#6b5e4f]",
+                            : item.variant === "danger"
+                              ? "border-[#b3261e] bg-[#fff1ef] text-[#b3261e]"
+                              : "border-[#d8d1c3] text-[#6b5e4f]",
                       ].join(" ")}
                     >
                       {item.label}
