@@ -296,6 +296,22 @@ function getRequiredFile(formData: FormData, fieldName: string, label: string, a
   return file;
 }
 
+function getOptionalFile(formData: FormData, fieldName: string, label: string, allowedTypes: string[]) {
+  const file = formData.get(fieldName);
+
+  if (!(file instanceof File) || file.size === 0) {
+    return null;
+  }
+
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(`${label} must be one of the accepted file types.`);
+  }
+
+  assertUploadSize(file, label);
+
+  return file;
+}
+
 function isNextRedirectError(error: unknown) {
   if (typeof error !== "object" || error === null || !("digest" in error)) {
     return false;
@@ -1560,12 +1576,14 @@ export async function createPublicApplicationIntake(
     const vin = getOptionalString(formData, "vin");
     const vehicleMake = getOptionalString(formData, "vehicleMake");
     const vehicleModel = getOptionalString(formData, "vehicleModel");
+    const selectedServiceSlug = getSelectedServiceSlug(formData);
+    const isChangeOfOwnership = selectedServiceSlug === "change-of-ownership";
     const signatureDataUrl = getSignatureDataUrl(formData);
     const idPhoto = getOptionalIdPhoto(formData);
     const licenceDiskPhoto = getRequiredFile(formData, "licenceDiskPhoto", "Licence disk photo", [...imageUploadTypes]);
-    const proofOfAddress = getRequiredFile(formData, "proofOfAddress", "Proof of address", [
-      ...documentUploadTypes,
-    ]);
+    const proofOfAddress = isChangeOfOwnership
+      ? getOptionalFile(formData, "proofOfAddress", "Proof of address", [...documentUploadTypes])
+      : getRequiredFile(formData, "proofOfAddress", "Proof of address", [...documentUploadTypes]);
     const trafficRegisterDocument =
       entityType === ClientEntityType.NON_SA_CITIZEN
         ? getRequiredFile(formData, "trafficRegisterDocument", "Traffic register document (TRN)", [
@@ -1578,33 +1596,23 @@ export async function createPublicApplicationIntake(
             ...documentUploadTypes,
           ])
         : null;
-    const identityPhotoForMandate =
-      entityType === ClientEntityType.NON_SA_CITIZEN
-        ? isImageFile(passportDocument)
-          ? passportDocument
-          : isImageFile(trafficRegisterDocument)
-            ? trafficRegisterDocument
-            : idPhoto
-        : idPhoto;
-    if (!identityPhotoForMandate && entityType !== ClientEntityType.NON_SA_CITIZEN) {
-      throw new Error("An ID photo is required before submitting the mandate form.");
-    }
-    const identityDocumentForStorage =
-      entityType === ClientEntityType.NON_SA_CITIZEN
-        ? passportDocument ?? trafficRegisterDocument ?? idPhoto
-        : identityPhotoForMandate;
-    if (!identityDocumentForStorage) {
-      throw new Error("A valid identity document is required before submitting the mandate form.");
-    }
     const supportingDocuments = formData
       .getAll("supportingDocument")
       .filter((value): value is File => value instanceof File && value.size > 0);
     const supportingDocumentKeys = formData
       .getAll("supportingDocumentKey")
       .filter((value): value is string => typeof value === "string" && value.length > 0);
-    const allowedSupportingKeys = new Set(
-      supportingRequirementsForEntityType(entityType).map((requirement) => requirement.key),
-    );
+    const changeOfOwnershipRequirements = [
+      { key: "rc1", label: "Registration document (Original RC1)" },
+      { key: "current-owner-id", label: "Current owner ID" },
+      { key: "current-owner-proof-of-address", label: "Current owner proof of address" },
+      { key: "new-owner-id", label: "New owner ID" },
+      { key: "new-owner-proof-of-address", label: "New owner proof of address" },
+    ];
+    const supportingRequirements = isChangeOfOwnership
+      ? changeOfOwnershipRequirements
+      : supportingRequirementsForEntityType(entityType);
+    const allowedSupportingKeys = new Set(supportingRequirements.map((requirement) => requirement.key));
     if (supportingDocuments.length !== supportingDocumentKeys.length) {
       throw new Error("Each supporting document must be linked to its required document type.");
     }
@@ -1621,45 +1629,43 @@ export async function createPublicApplicationIntake(
       ...(trafficRegisterDocument ? ["traffic-register-document"] : []),
       ...(passportDocument ? ["passport-document"] : []),
     ]);
-    const missingSupportingRequirement = supportingRequirementsForEntityType(entityType).find(
+    const missingSupportingRequirement = supportingRequirements.find(
       (requirement) => !submittedRequirementKeys.has(requirement.key),
     );
     if (missingSupportingRequirement) {
       throw new Error(`${missingSupportingRequirement.label} is required.`);
     }
     supportingDocuments.forEach((file) => assertUploadSize(file, "Each supporting document"));
+    const currentOwnerId = supportingUploads.find((upload) => upload.requirementKey === "current-owner-id")?.file ?? null;
+    const identityPhotoForMandate =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? isImageFile(passportDocument)
+          ? passportDocument
+          : isImageFile(trafficRegisterDocument)
+            ? trafficRegisterDocument
+            : idPhoto
+        : isImageFile(currentOwnerId)
+          ? currentOwnerId
+          : idPhoto;
+    if (!identityPhotoForMandate && entityType !== ClientEntityType.NON_SA_CITIZEN) {
+      throw new Error("An ID photo is required before submitting the mandate form.");
+    }
+    const identityDocumentForStorage =
+      entityType === ClientEntityType.NON_SA_CITIZEN
+        ? passportDocument ?? trafficRegisterDocument ?? idPhoto
+        : currentOwnerId ?? identityPhotoForMandate;
+    if (!identityDocumentForStorage) {
+      throw new Error("A valid identity document is required before submitting the mandate form.");
+    }
     getRequiredCheckbox(formData, "popiaConsent", "Personal information consent");
     const applicationId = await nextApplicationId();
     const publicToken = randomUUID();
     const identifierHash = clientIdHash(identityNumber);
-    const selectedServiceSlug = getSelectedServiceSlug(formData);
     const service = await findActiveServiceBySlug(selectedServiceSlug).catch((error) => {
       console.error(`Service load for intake failed for slug "${selectedServiceSlug}":`, error);
       throw new Error("The selected service is not available right now. Please refresh the page and try again.");
     });
-    const baseAmount = Number(service.basePrice);
-    const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
-    const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
-    const startAwaitingPayment = Number(totalAmount) > 0;
-    const paymentReference = `PAY-${applicationId}-Q1`;
-    const requestedPaymentMethodValue = requestedPaymentMethod(formData);
-    const paymentMethod =
-      requestedPaymentMethodValue === PaymentMethod.PAYSTACK && isPaystackConfigured()
-        ? PaymentMethod.PAYSTACK
-        : PaymentMethod.EFT;
-    const paymentRequest = startAwaitingPayment
-      ? await buildPaymentRequest({
-          applicationId,
-          email,
-          amount: totalAmount,
-          reference: paymentReference,
-          paymentMethod,
-        })
-      : null;
-    const paymentMethodLabel = paymentMethod === PaymentMethod.PAYSTACK ? "Paystack" : "EFT";
-    const initialStatus = startAwaitingPayment
-      ? ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT
-      : ApplicationStatus.AWAITING_ADMIN_QUOTE;
+    const initialStatus = ApplicationStatus.AWAITING_ADMIN_QUOTE;
     const referralSource = getRequiredString(formData, "referralSource", "Referral source");
     const referralContact = getOptionalString(formData, "referralContact");
     const sendCompletedDocumentsToReferrer = formData.get("sendCompletedDocumentsToReferrer") === "yes";
@@ -1734,9 +1740,7 @@ export async function createPublicApplicationIntake(
         applicationId,
         fromStatus: null,
         toStatus: initialStatus,
-        note: startAwaitingPayment
-          ? `Client started application from the public website and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
-          : `Client started application from the public website. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
+        note: `Client submitted an application for admin quote preparation. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
       },
     });
     const application: MandatePdfApplication = {
@@ -1759,30 +1763,6 @@ export async function createPublicApplicationIntake(
       },
     };
     const adminId = await actorIdFor(UserRole.ADMIN);
-    if (startAwaitingPayment) {
-      await prisma.charge.create({
-        data: {
-          applicationId,
-          description: `${service.name}${deliveryRequired && deliveryAmount > 0 ? " (including delivery)" : ""}`,
-          reason: "QUOTE_V1",
-          amount: totalAmount,
-        },
-      });
-
-      await prisma.payment.create({
-        data: {
-          applicationId,
-          method: paymentMethod,
-          type: PaymentType.BASE_FEE,
-          amount: totalAmount,
-          reference: paymentReference,
-          status: PaymentStatus.PENDING,
-          checkoutUrl: paymentRequest?.checkoutUrl ?? null,
-          providerReference: paymentRequest?.providerReference ?? null,
-        },
-      });
-    }
-
     const whatsappConfirmationTemplateKey = "application_received";
     const whatsappConfirmationTemplateName = "account_creation_confirmation_3";
     const whatsappConfirmationTemplateParameters = applicationReceivedTemplateParameters(firstName, publicToken);
@@ -1817,7 +1797,9 @@ export async function createPublicApplicationIntake(
     await saveMandateIdPhotoDocument(applicationId, identityDocumentForStorage, savedIdPhoto);
 
     await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
-    await saveUploadedDocument(applicationId, proofOfAddress, DocumentType.PROOF_OF_ADDRESS, "client-documents");
+    if (proofOfAddress) {
+      await saveUploadedDocument(applicationId, proofOfAddress, DocumentType.PROOF_OF_ADDRESS, "client-documents");
+    }
     const mandatorySupportingUploads = [
       trafficRegisterDocument ? { file: trafficRegisterDocument, requirementKey: "traffic-register-document" } : null,
       passportDocument ? { file: passportDocument, requirementKey: "passport-document" } : null,
