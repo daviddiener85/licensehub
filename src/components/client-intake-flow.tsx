@@ -1237,6 +1237,13 @@ export function ClientIntakeFlow({
                           </>
                         )}
                       </p>
+                      {selectedService.slug === "change-of-ownership" ? (
+                        <p className="mt-3">
+                          I confirm that the vehicle&apos;s license fees are fully paid up to date. I understand that if
+                          any outstanding license fees exist, this may result in additional charges to renew the license
+                          before the change of ownership can proceed.
+                        </p>
+                      ) : null}
                       <p className="mt-3">
                         I request The License Hub&apos;s assistance in preparing and submitting the required vehicle
                         administration documents on my behalf, using the details I have provided and confirmed in this

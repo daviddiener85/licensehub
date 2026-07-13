@@ -35,6 +35,10 @@ function mandateDeclarationText(input: MandatePdfInput) {
     return `I, ${input.clientName}, acting on behalf of ${entityName || "the deceased estate"}, hereby request The License Hub's assistance with ${input.serviceName}.`;
   }
 
+  if (input.serviceName.toLowerCase() === "change of ownership") {
+    return `I hereby state that I require assistance with ${input.serviceName} and request The License Hub's assistance in preparing and submitting the required vehicle administration documents on my behalf. I confirm that the vehicle's license fees are fully paid up to date. I understand that if any outstanding license fees exist, this may result in additional charges to renew the license before the change of ownership can proceed.`;
+  }
+
   return `I hereby state that I require assistance with ${input.serviceName} and request The License Hub's assistance in preparing and submitting the required vehicle administration documents on my behalf.`;
 }
 
