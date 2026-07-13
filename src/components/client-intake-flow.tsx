@@ -120,7 +120,6 @@ const ownershipOptions: {
 const ownershipDocumentsByType: Record<OwnershipType, { key: string; label: string; description: string }[]> = {
   "private-owner": [
     { key: "rc1", label: "Registration document (Original RC1)", description: "The original registration certificate for the vehicle." },
-    { key: "licence-disk", label: "License disc pic", description: "Must be valid." },
     { key: "current-owner-id", label: "Current owner ID", description: "A clear copy of the current owner's ID." },
     {
       key: "current-owner-proof-of-address",
