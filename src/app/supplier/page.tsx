@@ -17,7 +17,6 @@ import {
   uploadSupplierReturnEvidence,
 } from "@/lib/workflow-actions";
 import {
-  hasSupplierReturnEvidence,
   isSupplierReturnEvidenceDocument,
   producedDocumentEvidence,
   supplierReturnEvidenceDescriptions,
@@ -86,7 +85,7 @@ function urgencyLabel(urgency: SupplierUrgency) {
   return "Normal";
 }
 
-function visibleActions(order: SupplierOrder, returnEvidenceReady = false) {
+function visibleActions(order: SupplierOrder) {
   if (order.currentStatus === ApplicationStatus.AT_SUPPLIER) {
     return [
       {
@@ -99,7 +98,7 @@ function visibleActions(order: SupplierOrder, returnEvidenceReady = false) {
     ];
   }
 
-  if (order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && returnEvidenceReady) {
+  if (order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED) {
     return [
       {
         action: supplierMarkReturning,
@@ -149,7 +148,6 @@ export default async function SupplierPage({
           !isSupplierReturnEvidenceDocument(document),
       )
     : [];
-  const returnEvidenceReady = selectedOrder ? hasSupplierReturnEvidence(selectedOrder.documents) : false;
   const producedDocument = selectedOrder ? producedDocumentEvidence(selectedOrder.documents) ?? null : null;
   const atSupplierCount = orders.filter((order) => order.currentStatus === ApplicationStatus.AT_SUPPLIER).length;
   const producedCount = orders.filter((order) => order.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED).length;
@@ -377,9 +375,9 @@ export default async function SupplierPage({
                     />
                   ) : null}
 
-                  {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && !returnEvidenceReady ? (
+                  {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED ? (
                     <p className="mt-4 border border-[#d8b267] bg-[#fff8df] p-4 text-sm leading-6 text-[#6b5e4f]">
-                      Upload the produced document photo and barcode photo before you mark this order as returning.
+                      Optional: upload a produced document photo and barcode photo before you send the order back.
                     </p>
                   ) : null}
 
@@ -441,7 +439,7 @@ export default async function SupplierPage({
                   <section className="mt-6 border-t border-[#d6d0c1] pt-5 tlh-print-hide">
                     <h3 className="font-semibold">Supplier Actions</h3>
                     <div className="mt-3 flex flex-wrap gap-3">
-                      {visibleActions(selectedOrder, returnEvidenceReady).map((action) => {
+                      {visibleActions(selectedOrder).map((action) => {
                         const Icon = action.icon;
 
                         return (
@@ -457,11 +455,9 @@ export default async function SupplierPage({
                           </ConfirmActionForm>
                         );
                       })}
-                      {visibleActions(selectedOrder, returnEvidenceReady).length === 0 ? (
+                      {visibleActions(selectedOrder).length === 0 ? (
                         <p className="border border-[#d8b267] bg-[#fff8df] px-4 py-2 text-sm font-semibold text-[#6b5e4f]">
-                          {selectedOrder.currentStatus === ApplicationStatus.SUPPLIER_PRODUCED && !returnEvidenceReady
-                            ? "Upload produced document evidence to enable the return action."
-                            : "Waiting for The License Hub to receive this pack back."}
+                          Waiting for The License Hub to receive this pack back.
                         </p>
                       ) : null}
                     </div>

@@ -40,7 +40,6 @@ import {
 import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
 import {
-  hasSupplierReturnEvidence,
   supplierReturnEvidenceRequirementKeys,
 } from "@/lib/supplier-evidence";
 import { isMetaProviderEnabled, sendMetaWhatsAppTemplate, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
@@ -3425,21 +3424,11 @@ export async function supplierMarkReturning(formData: FormData) {
     where: { id: applicationId },
     select: {
       currentStatus: true,
-      documents: {
-        select: {
-          requirementKey: true,
-          status: true,
-        },
-      },
     },
   });
 
   if (application.currentStatus !== ApplicationStatus.SUPPLIER_PRODUCED) {
     throw new Error("The document must be marked as produced before it can be returned.");
-  }
-
-  if (!hasSupplierReturnEvidence(application.documents)) {
-    throw new Error("Please upload the produced document photo and barcode photo before returning the order.");
   }
 
   await transitionApplication(applicationId, ApplicationStatus.RETURNING_TO_LICENSE_HUB, {
