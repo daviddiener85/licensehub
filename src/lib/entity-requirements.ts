@@ -131,8 +131,73 @@ const supportingRequirementsByServiceSlug: Record<string, ServiceSupportingRequi
   ],
 };
 
+const changeOfOwnershipDocumentRequirements: EntityDocumentRequirement[] = [
+  {
+    key: "rc1",
+    label: "Registration document (Original RC1)",
+    description: "Original vehicle registration document provided for the ownership transfer.",
+    confirmedForUpload: true,
+  },
+  {
+    key: "licence-disk",
+    label: "Licence disk photo",
+    description: "JPG or PNG with the registration details visible.",
+    documentType: DocumentType.LICENCE_DISK_PHOTO,
+    confirmedForUpload: true,
+  },
+  {
+    key: "current-owner-id",
+    label: "Current owner ID",
+    description: "Identification document supplied for the current owner.",
+    confirmedForUpload: true,
+  },
+  {
+    key: "current-owner-proof-of-address",
+    label: "Current owner proof of address",
+    description: "Must not be older than three months.",
+    confirmedForUpload: true,
+  },
+  {
+    key: "new-owner-id",
+    label: "New owner ID",
+    description: "Identification document supplied for the new owner.",
+    confirmedForUpload: true,
+  },
+  {
+    key: "new-owner-proof-of-address",
+    label: "New owner proof of address",
+    description: "Must not be older than three months.",
+    confirmedForUpload: true,
+  },
+  {
+    key: "id-photo",
+    label: "ID photo",
+    description: "Captured with the mandate form and embedded in the traffic-department PDF.",
+    documentType: DocumentType.ID_PHOTO,
+    confirmedForUpload: true,
+  },
+  {
+    key: "mandate-form",
+    label: "Completed mandate form",
+    description: "Generated after the client signs on the phone.",
+    documentType: DocumentType.MANDATE_FORM,
+    confirmedForUpload: true,
+  },
+];
+
 export function documentRequirementsForEntityType(entityType: ClientEntityType) {
   return requirementsByEntityType[entityType] ?? requirementsByEntityType.PRIVATE_OWNER;
+}
+
+export function documentRequirementsForApplication(
+  serviceSlug: string | null | undefined,
+  entityType: ClientEntityType,
+) {
+  if (serviceSlug === "change-of-ownership") {
+    return changeOfOwnershipDocumentRequirements;
+  }
+
+  return documentRequirementsForEntityType(entityType);
 }
 
 export function supportingRequirementsForEntityType(entityType: ClientEntityType) {

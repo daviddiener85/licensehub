@@ -26,6 +26,7 @@ import { whatsappTemplates } from "@/lib/communications";
 import { documentHref, documentLabel, documentTypeDescriptions } from "@/lib/documents";
 import {
   clientEntityTypeLabels,
+  documentRequirementsForApplication,
   documentRequirementsForEntityType,
   supportingDocumentForRequirement,
   supportingRequirementForDocument,
@@ -185,7 +186,7 @@ function workflowStatusSummary(application: Awaited<ReturnType<typeof listAdminA
 }
 
 function documentSummary(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
-  const requirements = documentRequirementsForEntityType(application.client.entityType).filter(
+  const requirements = documentRequirementsForApplication(application.service.slug, application.client.entityType).filter(
     (requirement) => requirement.confirmedForUpload,
   );
   const requirementStates = requirements.map((requirement) => {
@@ -346,7 +347,7 @@ function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApp
     return "Entity and representative details must be captured before approval.";
   }
 
-  const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
+  const incompleteRequirement = documentRequirementsForApplication(application.service.slug, application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
       return documentRequirementStatus(requirement, application) !== "ACCEPTED";
@@ -375,7 +376,7 @@ function adminChecklist(
   application: Awaited<ReturnType<typeof listAdminApplications>>[number],
 ) : AdminChecklistItem[] {
   const latestPayment = application.payments[0] ?? null;
-  const requiredRequirements = documentRequirementsForEntityType(application.client.entityType).filter(
+  const requiredRequirements = documentRequirementsForApplication(application.service.slug, application.client.entityType).filter(
     (requirement) => requirement.confirmedForUpload,
   );
   const allRequiredDocsAccepted = requiredRequirements.every(
@@ -1168,7 +1169,7 @@ export default async function AdminPage({
             {selectedView === "documents" ? (
               <>
             <div className="mt-4 grid gap-2 md:grid-cols-2">
-              {documentRequirementsForEntityType(selectedApplication.client.entityType).map((requirement) => (
+              {documentRequirementsForApplication(selectedApplication.service.slug, selectedApplication.client.entityType).map((requirement) => (
                 <div key={requirement.key} className="border border-[#eee8dc] bg-white p-3 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <span className="font-semibold">{requirement.label}</span>

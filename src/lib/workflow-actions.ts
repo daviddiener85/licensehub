@@ -32,6 +32,7 @@ import { markChargesPaidForConfirmedPayment } from "@/lib/payment-confirmation";
 import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { deleteQueuedFiles, storagePathsForApplication } from "@/lib/retention-purge";
 import {
+  documentRequirementsForApplication,
   documentRequirementsForEntityType,
   supportingDocumentForRequirement,
   supportingRequirementForDocument,
@@ -2604,6 +2605,11 @@ async function restoreReviewAfterDocumentRecovery(applicationId: string, adminId
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      service: {
+        select: {
+          slug: true,
+        },
+      },
       currentStatus: true,
       client: {
         select: {
@@ -2629,7 +2635,7 @@ async function restoreReviewAfterDocumentRecovery(applicationId: string, adminId
     return;
   }
 
-  const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
+  const incompleteRequirement = documentRequirementsForApplication(application.service.slug, application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
       if (!requirement.documentType) {
@@ -2863,6 +2869,11 @@ export async function approveToSupplier(formData: FormData) {
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      service: {
+        select: {
+          slug: true,
+        },
+      },
       client: {
         select: {
           entityType: true,
@@ -2887,7 +2898,7 @@ export async function approveToSupplier(formData: FormData) {
       },
     },
   });
-  const incompleteRequirement = documentRequirementsForEntityType(application.client.entityType)
+  const incompleteRequirement = documentRequirementsForApplication(application.service.slug, application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {
       if (!requirement.documentType) {
