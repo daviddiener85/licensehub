@@ -721,7 +721,8 @@ export function MandateCaptureForm({
       <div className="mt-5">
         {!canSubmit ? (
           <p className="mb-3 text-xs font-semibold text-[#8a6a2a]">
-            Complete all uploads, enter a valid proof-of-address date, and sign before submitting.
+            Complete all uploads, make sure the proof of address is not older than three months, and sign before
+            submitting.
           </p>
         ) : null}
         <button

@@ -60,8 +60,8 @@ const fallbackServices: IntakeService[] = [
   },
   {
     slug: "licence-renewal",
-    name: "Licence Renewal",
-    description: "Vehicle licence renewal assistance. Available in Gauteng only.",
+    name: "Licence Fee Renewal",
+    description: "Vehicle licence fee renewal assistance. Available in Gauteng only.",
     basePrice: "0",
     deliveryFee: "0",
   },
@@ -117,11 +117,22 @@ const ownershipOptions: {
   },
 ];
 
-const documentsByOwnership: Record<OwnershipType, { key: string; label: string; description: string }[]> = {
+const ownershipDocumentsByType: Record<OwnershipType, { key: string; label: string; description: string }[]> = {
   "private-owner": [
-    { key: "id-photo", label: "Owner ID photo", description: "A clear photo of the South African ID document or card." },
-    { key: "licence-disk", label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
-    { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
+    { key: "rc1", label: "Registration document (Original RC1)", description: "The original registration certificate for the vehicle." },
+    { key: "licence-disk", label: "License disc pic", description: "Must be valid." },
+    { key: "current-owner-id", label: "Current owner ID", description: "A clear copy of the current owner's ID." },
+    {
+      key: "current-owner-proof-of-address",
+      label: "Current owner proof of address",
+      description: "Must not be older than three months.",
+    },
+    { key: "new-owner-id", label: "New owner ID", description: "A clear copy of the new owner's ID." },
+    {
+      key: "new-owner-proof-of-address",
+      label: "New owner proof of address",
+      description: "Must not be older than three months.",
+    },
   ],
   "deceased-estate": [
     { key: "id-photo", label: "Executor or representative ID", description: "A clear photo of the person handling the estate request." },
@@ -144,6 +155,11 @@ const documentsByOwnership: Record<OwnershipType, { key: string; label: string; 
     { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
 };
+
+const licenceFeeRenewalDocuments = [
+  { key: "id-photo", label: "ID photo", description: "A clear photo of the owner's ID." },
+  { key: "proof-of-address", label: "Proof of address", description: "Must not be older than three months." },
+] as const;
 
 const steps = [
   "Service",
@@ -318,7 +334,13 @@ export function ClientIntakeFlow({
   const effectiveOwnershipType: OwnershipType =
     ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
-  const requiredDocuments = useMemo(() => documentsByOwnership[effectiveOwnershipType], [effectiveOwnershipType]);
+  const requiredDocuments = useMemo(() => {
+    if (selectedService.slug === "licence-renewal") {
+      return licenceFeeRenewalDocuments;
+    }
+
+    return ownershipDocumentsByType[effectiveOwnershipType];
+  }, [effectiveOwnershipType, selectedService.slug]);
   const licenceDiskScanResultApplies =
     !licenceDiskScanResultInvalidated &&
     (licenceDiskScanState.status === "success" || licenceDiskScanState.status === "needs-review");
@@ -369,6 +391,7 @@ export function ClientIntakeFlow({
   const requiredUploadsReady = requiredUploadLabels.every((label) => {
     return Boolean(selectedFiles[label]?.trim());
   });
+  const showLicenceRenewalDisclaimer = selectedService.slug === "licence-renewal";
   const nonSaIdentityPreview = [clientDetails.passportNumber, clientDetails.trnNumber]
     .filter((value) => value.trim().length > 0)
     .join(" / ");
@@ -610,6 +633,12 @@ export function ClientIntakeFlow({
             <aside className="border border-[#eee8dc] bg-[#fffdf8] p-4 text-sm">
               <p className="font-semibold">Selected service</p>
               <p className="mt-2 text-sm leading-5 text-[#52615b]">{selectedService.name}</p>
+              {showLicenceRenewalDisclaimer ? (
+                <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs leading-5 text-[#6b5e4f]">
+                  If any other vehicle license discs are outstanding, this license disc will not print and only an
+                  MVLX will be supplied. The license fee will still be paid up to date.
+                </p>
+              ) : null}
               {reference ? <p className="mt-2 break-all text-xs leading-5 text-[#6b5e4f]">Reference: {reference}</p> : null}
             </aside>
           </div>
@@ -1132,7 +1161,7 @@ export function ClientIntakeFlow({
                 <div>
                   <h2 className="text-2xl font-semibold">Review and sign</h2>
                   <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                    Upload the files, then sign the populated mandate form.
+                    Upload the supporting documents, then sign the populated mandate form.
                   </p>
                 </div>
                 <div className="grid gap-3">

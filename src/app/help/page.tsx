@@ -9,10 +9,13 @@ const processSteps = [
 ];
 
 const documents = [
-  "ID, passport or traffic register document",
-  "Vehicle licence disk photo",
-  "Proof of address dated within the last 3 months",
-  "Extra ownership documents when the vehicle is owned by an estate, company or trust",
+  "Registration document (Original RC1)",
+  "License disc pic (must be valid)",
+  "Current owner ID",
+  "Current owner proof of address",
+  "New owner ID",
+  "New owner proof of address, not older than three months",
+  "Mandate form is populated by us",
 ];
 
 export default function HelpPage() {
@@ -76,6 +79,10 @@ export default function HelpPage() {
                 </div>
               ))}
             </div>
+            <p className="mt-5 border border-white/14 bg-white/5 p-3 text-xs leading-5 text-white/70">
+              For licence fee renewal, if any other vehicle licence discs are outstanding, this licence disc will not
+              print and only an MVLX will be supplied. The licence fee will still be paid up to date.
+            </p>
           </aside>
         </div>
       </section>

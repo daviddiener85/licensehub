@@ -31,8 +31,8 @@ const fallbackServices: Record<
     deliveryFee: "150.00",
   },
   "licence-renewal": {
-    name: "Licence Renewal",
-    description: "Vehicle licence renewal assistance. Available in Gauteng only.",
+    name: "Licence Fee Renewal",
+    description: "Vehicle licence fee renewal assistance. Available in Gauteng only.",
     basePrice: "0.00",
     deliveryFee: "150.00",
   },
