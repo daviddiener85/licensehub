@@ -60,8 +60,8 @@ const fallbackServices: IntakeService[] = [
   },
   {
     slug: "licence-renewal",
-    name: "Licence Fee Renewal",
-    description: "Vehicle licence fee renewal assistance. Available in Gauteng only.",
+    name: "License Fees",
+    description: "Vehicle license fee renewal assistance. Available in Gauteng only.",
     basePrice: "0",
     deliveryFee: "0",
   },

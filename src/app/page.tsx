@@ -65,7 +65,7 @@ export default function Home() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/apply?service=duplicate-certificate"
+                  href="/apply?service=change-of-ownership"
                   className="tlh-button-primary inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-wide"
                 >
                   Start here

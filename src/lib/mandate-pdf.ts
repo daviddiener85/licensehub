@@ -2,6 +2,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFP
 import { ClientEntityType } from "@/generated/prisma/client";
 
 type MandatePdfInput = {
+  serviceName: string;
   clientName: string;
   clientIdLabel: string;
   entityType: ClientEntityType;
@@ -27,14 +28,14 @@ function mandateDeclarationText(input: MandatePdfInput) {
       : rawEntityName;
 
   if (input.entityType === ClientEntityType.COMPANY_OR_TRUST) {
-    return `I, ${input.clientName}, acting on behalf of ${entityName || "the company or trust"}, hereby request The License Hub's assistance in obtaining a duplicate vehicle register document.`;
+    return `I, ${input.clientName}, acting on behalf of ${entityName || "the company or trust"}, hereby request The License Hub's assistance with ${input.serviceName}.`;
   }
 
   if (input.entityType === ClientEntityType.DECEASED_ESTATE) {
-    return `I, ${input.clientName}, acting on behalf of ${entityName || "the deceased estate"}, hereby request The License Hub's assistance in obtaining a duplicate vehicle register document.`;
+    return `I, ${input.clientName}, acting on behalf of ${entityName || "the deceased estate"}, hereby request The License Hub's assistance with ${input.serviceName}.`;
   }
 
-  return "I hereby state that I have lost my vehicle's register document and request The License Hub's assistance in obtaining a duplicate vehicle register document on my behalf.";
+  return `I hereby state that I require assistance with ${input.serviceName} and request The License Hub's assistance in preparing and submitting the required vehicle administration documents on my behalf.`;
 }
 
 const pageWidth = 595.28;
@@ -199,8 +200,8 @@ export async function createMandatePdf(input: MandatePdfInput) {
   const fonts = { regular, bold };
 
   page.drawRectangle({ x: 0, y: pageHeight - 82, width: pageWidth, height: 82, color: navy });
-  drawCenteredText(page, "REQUEST LETTER FOR DUPLICATE", 798, 20, bold, rgb(1, 1, 1));
-  drawCenteredText(page, "VEHICLE REGISTRATION DOCUMENT", 772, 20, bold, rgb(1, 1, 1));
+  drawCenteredText(page, "REQUEST LETTER FOR", 798, 20, bold, rgb(1, 1, 1));
+  drawCenteredText(page, input.serviceName.toUpperCase(), 772, 20, bold, rgb(1, 1, 1));
 
   let y = 724;
   drawText(page, "To Whom This May Concern", margin, y, 11, bold);

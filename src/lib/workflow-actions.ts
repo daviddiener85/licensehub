@@ -53,6 +53,9 @@ export type PublicIntakeSubmissionState = {
 type MandatePdfApplication = {
   id: string;
   publicToken: string;
+  service: {
+    name: string;
+  };
   entityDisplayName: string | null;
   registrationNumber: string | null;
   vin: string | null;
@@ -91,6 +94,11 @@ type ApplicationBaseRowInput = {
 const mandatePdfApplicationSelect = {
   id: true,
   publicToken: true,
+  service: {
+    select: {
+      name: true,
+    },
+  },
   entityDisplayName: true,
   registrationNumber: true,
   vin: true,
@@ -743,6 +751,7 @@ async function writeMandatePdf(
   await mkdir(uploadDirectory, { recursive: true });
 
   const pdfBytes = await createMandatePdf({
+    serviceName: application.service.name,
     clientName: `${application.client.firstName} ${application.client.surname}`,
     clientIdLabel: clientIdMandatePdfLabel(application.client.southAfricanIdEncrypted),
     entityType: application.client.entityType,
