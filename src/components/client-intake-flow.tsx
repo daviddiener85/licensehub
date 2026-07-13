@@ -379,7 +379,8 @@ export function ClientIntakeFlow({
   const requiredUploadLabels = requiredDocuments
     .filter((document) => isMandateStepUpload(document.label))
     .filter((document) => {
-      const inputName = uploadInputName(document.label);
+      const inputName =
+        selectedService.slug === "change-of-ownership" ? "supportingDocument" : uploadInputName(document.label);
       if (effectiveOwnershipType === "non-sa-citizen") {
         return ["passportDocument", "trafficRegisterDocument", "proofOfAddress"].includes(inputName);
       }
@@ -1173,36 +1174,44 @@ export function ClientIntakeFlow({
                         </span>
                         <label className="cursor-pointer border border-[#d8d1c3] bg-white px-3 py-1.5 text-xs font-semibold text-[#52615b]">
                           Choose File
-                          <input
-                            type="file"
-                            name={uploadInputName(document.label)}
-                            accept={
-                              uploadInputName(document.label) === "proofOfAddress"
-                                ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
-                                : "image/jpeg,image/png,image/heic,image/heif"
-                            }
-                            required={stepIndex === 6}
-                            className="sr-only"
-                            onChange={(event) => {
-                              const inputName = uploadInputName(document.label);
-                              const selectedFile = event.currentTarget.files?.[0] ?? null;
-                              const fileName = selectedFile?.name;
+                          {(() => {
+                            const inputName =
+                              selectedService.slug === "change-of-ownership"
+                                ? "supportingDocument"
+                                : uploadInputName(document.label);
 
-                              if (inputName === "licenceDiskPhoto") {
-                                setLicenceDiskFileName(fileName ?? "");
-                              }
+                            return (
+                              <input
+                                type="file"
+                                name={inputName}
+                                accept={
+                                  inputName === "proofOfAddress"
+                                    ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
+                                    : "image/jpeg,image/png,image/heic,image/heif"
+                                }
+                                required={stepIndex === 6}
+                                className="sr-only"
+                                onChange={(event) => {
+                                  const selectedFile = event.currentTarget.files?.[0] ?? null;
+                                  const fileName = selectedFile?.name;
 
-                              setUploadedFiles((current) => ({
-                                ...current,
-                                [inputName as UploadFieldName]: selectedFile,
-                              }));
-                              setSelectedFiles((current) => ({
-                                ...current,
-                                [document.label]: fileName ?? "",
-                              }));
-                            }}
-                          />
-                          {uploadInputName(document.label) === "supportingDocument" ? (
+                                  if (inputName === "licenceDiskPhoto") {
+                                    setLicenceDiskFileName(fileName ?? "");
+                                  }
+
+                                  setUploadedFiles((current) => ({
+                                    ...current,
+                                    [inputName as UploadFieldName]: selectedFile,
+                                  }));
+                                  setSelectedFiles((current) => ({
+                                    ...current,
+                                    [document.label]: fileName ?? "",
+                                  }));
+                                }}
+                              />
+                            );
+                          })()}
+                          {selectedService.slug === "change-of-ownership" || uploadInputName(document.label) === "supportingDocument" ? (
                             <input type="hidden" name="supportingDocumentKey" value={document.key} />
                           ) : null}
                         </label>
