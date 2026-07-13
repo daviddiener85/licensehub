@@ -15,6 +15,12 @@ export type EntityDocumentRequirement = {
   confirmedForUpload: boolean;
 };
 
+type ServiceSupportingRequirement = {
+  key: string;
+  label: string;
+  description: string;
+};
+
 const baseRequirements: EntityDocumentRequirement[] = [
   {
     key: "id-photo",
@@ -95,6 +101,36 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
   ],
 };
 
+const supportingRequirementsByServiceSlug: Record<string, ServiceSupportingRequirement[]> = {
+  "change-of-ownership": [
+    {
+      key: "rc1",
+      label: "Registration document (Original RC1)",
+      description: "Original vehicle registration document provided for the ownership transfer.",
+    },
+    {
+      key: "current-owner-id",
+      label: "Current owner ID",
+      description: "Identification document supplied for the current owner.",
+    },
+    {
+      key: "current-owner-proof-of-address",
+      label: "Current owner proof of address",
+      description: "Must not be older than three months.",
+    },
+    {
+      key: "new-owner-id",
+      label: "New owner ID",
+      description: "Identification document supplied for the new owner.",
+    },
+    {
+      key: "new-owner-proof-of-address",
+      label: "New owner proof of address",
+      description: "Must not be older than three months.",
+    },
+  ],
+};
+
 export function documentRequirementsForEntityType(entityType: ClientEntityType) {
   return requirementsByEntityType[entityType] ?? requirementsByEntityType.PRIVATE_OWNER;
 }
@@ -102,6 +138,31 @@ export function documentRequirementsForEntityType(entityType: ClientEntityType) 
 export function supportingRequirementsForEntityType(entityType: ClientEntityType) {
   return documentRequirementsForEntityType(entityType).filter(
     (requirement) => requirement.confirmedForUpload && !requirement.documentType,
+  );
+}
+
+export function supportingRequirementLabel(
+  key: string,
+  entityType: ClientEntityType,
+  serviceSlug?: string | null,
+) {
+  const serviceRequirement = serviceSlug ? supportingRequirementsByServiceSlug[serviceSlug]?.find((requirement) => requirement.key === key) : undefined;
+
+  if (serviceRequirement) {
+    return serviceRequirement.label;
+  }
+
+  return supportingRequirementsForEntityType(entityType).find((requirement) => requirement.key === key)?.label ?? null;
+}
+
+export function supportingRequirementsForService(
+  entityType: ClientEntityType,
+  serviceSlug?: string | null,
+) {
+  const serviceRequirements = serviceSlug ? supportingRequirementsByServiceSlug[serviceSlug] ?? [] : [];
+
+  return [...supportingRequirementsForEntityType(entityType), ...serviceRequirements].filter(
+    (requirement, index, requirements) => requirements.findIndex((candidate) => candidate.key === requirement.key) === index,
   );
 }
 
@@ -140,8 +201,19 @@ export function supportingRequirementForDocument<T extends SupportingDocumentRec
   document: T,
   entityType: ClientEntityType,
   documents: T[],
+  serviceSlug?: string | null,
 ) {
   const requirements = supportingRequirementsForEntityType(entityType);
+
+  if (serviceSlug) {
+    const serviceRequirement = supportingRequirementsByServiceSlug[serviceSlug]?.find(
+      (requirement) => requirement.key === document.requirementKey,
+    );
+
+    if (serviceRequirement && document.requirementKey) {
+      return serviceRequirement;
+    }
+  }
 
   if (document.requirementKey) {
     return requirements.find((requirement) => requirement.key === document.requirementKey);

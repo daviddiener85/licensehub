@@ -327,6 +327,7 @@ export default async function SupplierPage({
                                 document,
                                 selectedOrder.client.entityType,
                                 selectedOrder.documents,
+                                selectedOrder.service.slug,
                               )?.label ?? documentLabel(document.type, document.fileName)
                             : documentLabel(document.type, document.fileName);
                         const content = (

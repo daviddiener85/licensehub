@@ -79,6 +79,7 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
     where: { id: applicationId },
     select: {
       id: true,
+      service: { select: { slug: true } },
       client: { select: { entityType: true } },
       documents: {
         where: {
@@ -112,7 +113,12 @@ export async function GET(_request: Request, context: RouteContext<"/supplier/pr
     const filePath = storageKeyPath(document.storageKey);
     const label =
       document.type === DocumentType.OTHER
-        ? supportingRequirementForDocument(document, application.client.entityType, application.documents)?.label ??
+        ? supportingRequirementForDocument(
+            document,
+            application.client.entityType,
+            application.documents,
+            application.service.slug,
+          )?.label ??
           documentLabel(document.type, document.fileName)
         : documentLabel(document.type, document.fileName);
 

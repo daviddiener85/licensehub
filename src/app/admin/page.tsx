@@ -324,6 +324,7 @@ function supportingDocumentLabel(
     document,
     application.client.entityType,
     application.documents,
+    application.service.slug,
   );
 
   return requirementForIndex?.label ?? documentLabel(document.type, document.fileName);
