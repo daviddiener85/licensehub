@@ -865,7 +865,7 @@ export default async function AdminPage({
                 <option value="SUPPLIER_PRODUCED">Supplier Produced</option>
                 <option value="RETURNING_TO_LICENSE_HUB">Returning</option>
                 <option value="DOCUMENT_RETURNED">Returned</option>
-                <option value="DISPATCHED">Dispatched</option>
+                <option value="DISPATCHED">Order Complete</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
             </label>

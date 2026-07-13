@@ -86,9 +86,9 @@ export const applicationPipeline = [
   {
     key: "dispatched",
     status: "DISPATCHED",
-    label: "Dispatched",
+    label: "Order Complete",
     owner: "Admin",
-    clientDescription: "Complete. Your document has been dispatched. Tracking details are available below.",
+    clientDescription: "Complete. Your order has been dispatched. Tracking details are available below.",
   },
   {
     key: "cancelled",

@@ -112,7 +112,7 @@ export default async function ClientApplicationPage({
             <section className="border border-[#d8d1c3] bg-white p-5">
               <h2 className="text-lg font-semibold">Progress</h2>
               <div className="mt-4 grid gap-2">
-                {applicationPipeline.map((stage, index) => {
+                {applicationPipeline.filter((stage) => stage.status !== ApplicationStatus.CANCELLED).map((stage, index) => {
                   const isCurrent = stage.status === application.currentStatus;
                   const isComplete = currentStageIndex >= 0 && index < currentStageIndex;
 
