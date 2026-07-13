@@ -1742,6 +1742,9 @@ export async function createPublicApplicationIntake(
     const application: MandatePdfApplication = {
       id: applicationId,
       publicToken,
+      service: {
+        name: service.name,
+      },
       entityDisplayName,
       registrationNumber,
       vin,
