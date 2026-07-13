@@ -1219,7 +1219,7 @@ export function ClientIntakeFlow({
                     </span>
                     <div className="mt-4 border border-[#d8d1c3] bg-[#fffdf8] p-4 leading-6 text-[#1f2724]">
                       <p className="text-center text-base font-semibold uppercase">
-                        Request letter for duplicate vehicle registration document
+                        Request letter for {selectedService.name}
                       </p>
                       <p className="mt-4">To Whom This May Concern</p>
                       <p className="mt-3">
