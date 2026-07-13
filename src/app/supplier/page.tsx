@@ -222,6 +222,7 @@ export default async function SupplierPage({
                           </span>
                         ) : null}
                       </p>
+                      <p className="mt-1 text-sm font-medium text-[#6b5e4f]">{order.service.name}</p>
                       <p className="mt-1 text-sm">
                         {order.client.firstName} {order.client.surname}
                       </p>
