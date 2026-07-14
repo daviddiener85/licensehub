@@ -33,12 +33,6 @@ export default function Home() {
               >
                 Help
               </Link>
-              <Link
-                href="/admin"
-                className="hidden border border-white/35 px-4 py-2 text-sm font-semibold text-white/90 md:inline-block"
-              >
-                Admin
-              </Link>
             </div>
           </nav>
 

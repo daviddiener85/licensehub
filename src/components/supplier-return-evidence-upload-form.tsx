@@ -39,7 +39,6 @@ export function SupplierReturnEvidenceUploadForm({
         <label className="block text-sm font-semibold">
           Produced document photo
           <input
-            capture="environment"
             accept="image/jpeg,image/png,image/heic,image/heif"
             className="mt-1 w-full border border-[#d8d1c3] bg-white px-3 py-2 font-normal"
             name="producedDocumentPhoto"
@@ -50,7 +49,6 @@ export function SupplierReturnEvidenceUploadForm({
         <label className="block text-sm font-semibold">
           Barcode photo
           <input
-            capture="environment"
             accept="image/jpeg,image/png,image/heic,image/heif"
             className="mt-1 w-full border border-[#d8d1c3] bg-white px-3 py-2 font-normal"
             name="barcodePhoto"

@@ -12,6 +12,9 @@ import { supportingRequirementForDocument } from "@/lib/entity-requirements";
 
 export const dynamic = "force-dynamic";
 
+sharp.cache(false);
+sharp.concurrency(1);
+
 function storageKeyPath(storageKey: string) {
   const uploadRoot = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads");
   const relativePath = storageKey.replace(/^\/uploads\/?/, "");
@@ -46,7 +49,11 @@ async function addPlaceholderPage(pdf: PDFDocument, title: string, message: stri
 }
 
 async function addImagePage(pdf: PDFDocument, bytes: Uint8Array, title: string) {
-  const orientedImage = await sharp(bytes).rotate().jpeg({ quality: 92 }).toBuffer();
+  const orientedImage = await sharp(bytes)
+    .rotate()
+    .resize({ width: 1600, height: 2200, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toBuffer();
   const image = await pdf.embedJpg(orientedImage);
   const page = pdf.addPage([595.28, 841.89]);
   const font = await pdf.embedFont(StandardFonts.HelveticaBold);

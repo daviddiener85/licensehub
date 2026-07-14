@@ -10,7 +10,7 @@ function enabled() {
     return configured === "true" || configured === "1" || configured === "yes";
   }
 
-  return process.env.NODE_ENV === "production";
+  return false;
 }
 
 function safeNumber(value: string | undefined, fallback: number, minimum: number, maximum: number) {

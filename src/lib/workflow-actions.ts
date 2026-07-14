@@ -44,6 +44,11 @@ import {
   supplierReturnEvidenceRequirementKeys,
 } from "@/lib/supplier-evidence";
 import { isMetaProviderEnabled, sendMetaWhatsAppTemplate, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
+import sharp from "sharp";
+
+// Bound native image-processing memory on the 512 MB production instance.
+sharp.cache(false);
+sharp.concurrency(1);
 
 export type PublicIntakeSubmissionState = {
   status: "idle" | "success" | "error";
@@ -313,6 +318,26 @@ function getOptionalFile(formData: FormData, fieldName: string, label: string, a
   return file;
 }
 
+async function normalizeUploadedImage(file: File) {
+  const inputBytes = Buffer.from(await file.arrayBuffer());
+  const output = await sharp(inputBytes)
+    .rotate()
+    .resize({
+      width: 1600,
+      height: 2200,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+
+  return {
+    bytes: output.data,
+    mimeType: "image/jpeg",
+    fileName: `${safeFileName(file.name || "photo").replace(/\.[^.]+$/, "")}.jpg`,
+  };
+}
+
 function isNextRedirectError(error: unknown) {
   if (typeof error !== "object" || error === null || !("digest" in error)) {
     return false;
@@ -357,9 +382,13 @@ async function saveUploadedDocument(
   await mkdir(uploadDirectory, { recursive: true });
 
   const fileName = `${randomUUID()}-${safeFileName(file.name || type.toLowerCase())}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
+  const isImage = imageUploadTypes.includes(file.type as (typeof imageUploadTypes)[number]);
+  const normalized = isImage ? await normalizeUploadedImage(file) : null;
+  const bytes = normalized?.bytes ?? Buffer.from(await file.arrayBuffer());
+  const mimeType = normalized?.mimeType ?? file.type;
+  const storedFileName = normalized ? `${randomUUID()}-${normalized.fileName}` : fileName;
 
-  await writeFile(path.join(uploadDirectory, fileName), bytes);
+  await writeFile(path.join(uploadDirectory, storedFileName), bytes);
 
   await prisma.document.upsert({
     where: {
@@ -371,10 +400,10 @@ async function saveUploadedDocument(
     },
     update: {
       status: DocumentStatus.PENDING,
-      fileName: file.name || fileName,
-      mimeType: file.type,
+      fileName: normalized?.fileName ?? (file.name || fileName),
+      mimeType,
       fileSizeBytes: bytes.length,
-      storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+      storageKey: `/uploads/${uploadFolder}/${applicationId}/${storedFileName}`,
       proofDocumentDate,
       rejectionReason: null,
       reviewedById: null,
@@ -385,10 +414,10 @@ async function saveUploadedDocument(
       type,
       status: DocumentStatus.PENDING,
       version: 1,
-      fileName: file.name || fileName,
-      mimeType: file.type,
+      fileName: normalized?.fileName ?? (file.name || fileName),
+      mimeType,
       fileSizeBytes: bytes.length,
-      storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+      storageKey: `/uploads/${uploadFolder}/${applicationId}/${storedFileName}`,
       proofDocumentDate,
     },
   });
@@ -420,10 +449,14 @@ async function saveAdditionalSupportingDocuments(
 
   for (const { file, requirementKey } of validUploads) {
     const fileName = `${randomUUID()}-${safeFileName(file.name || "supporting-document")}`;
-    const bytes = Buffer.from(await file.arrayBuffer());
-    const storageKey = `/uploads/client-documents/${applicationId}/${fileName}`;
+    const isImage = imageUploadTypes.includes(file.type as (typeof imageUploadTypes)[number]);
+    const normalized = isImage ? await normalizeUploadedImage(file) : null;
+    const bytes = normalized?.bytes ?? Buffer.from(await file.arrayBuffer());
+    const mimeType = normalized?.mimeType ?? (file.type || "application/octet-stream");
+    const storedFileName = normalized ? `${randomUUID()}-${normalized.fileName}` : fileName;
+    const storageKey = `/uploads/client-documents/${applicationId}/${storedFileName}`;
 
-    await writeFile(path.join(uploadDirectory, fileName), bytes);
+    await writeFile(path.join(uploadDirectory, storedFileName), bytes);
 
     await prisma.document.create({
       data: {
@@ -432,8 +465,8 @@ async function saveAdditionalSupportingDocuments(
         requirementKey,
         status: DocumentStatus.PENDING,
         version: nextVersion,
-        fileName: file.name || fileName,
-        mimeType: file.type || "application/octet-stream",
+        fileName: normalized?.fileName ?? (file.name || fileName),
+        mimeType,
         fileSizeBytes: bytes.length,
         storageKey,
       },
@@ -452,10 +485,14 @@ async function saveSupplierReturnEvidenceDocument(
   await mkdir(uploadDirectory, { recursive: true });
 
   const fileName = `${randomUUID()}-${safeFileName(file.name || "supplier-evidence")}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
-  const storageKey = `/uploads/supplier-evidence/${applicationId}/${fileName}`;
+  const isImage = imageUploadTypes.includes(file.type as (typeof imageUploadTypes)[number]);
+  const normalized = isImage ? await normalizeUploadedImage(file) : null;
+  const bytes = normalized?.bytes ?? Buffer.from(await file.arrayBuffer());
+  const mimeType = normalized?.mimeType ?? (file.type || "application/octet-stream");
+  const storedFileName = normalized ? `${randomUUID()}-${normalized.fileName}` : fileName;
+  const storageKey = `/uploads/supplier-evidence/${applicationId}/${storedFileName}`;
 
-  await writeFile(path.join(uploadDirectory, fileName), bytes);
+  await writeFile(path.join(uploadDirectory, storedFileName), bytes);
 
   const existingEvidence = await prisma.document.findFirst({
     where: {
@@ -471,8 +508,8 @@ async function saveSupplierReturnEvidenceDocument(
       where: { id: existingEvidence.id },
       data: {
         status: DocumentStatus.ACCEPTED,
-        fileName: file.name || fileName,
-        mimeType: file.type || "application/octet-stream",
+        fileName: normalized?.fileName ?? (file.name || fileName),
+        mimeType,
         fileSizeBytes: bytes.length,
         storageKey,
         rejectionReason: null,
@@ -500,8 +537,8 @@ async function saveSupplierReturnEvidenceDocument(
       requirementKey,
       status: DocumentStatus.ACCEPTED,
       version: nextVersion,
-      fileName: file.name || fileName,
-      mimeType: file.type || "application/octet-stream",
+      fileName: normalized?.fileName ?? (file.name || fileName),
+      mimeType,
       fileSizeBytes: bytes.length,
       storageKey,
       reviewedById: null,
@@ -522,9 +559,13 @@ async function saveAdminUploadedDocument(
   await mkdir(uploadDirectory, { recursive: true });
 
   const fileName = `${randomUUID()}-${safeFileName(file.name || type.toLowerCase())}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
+  const isImage = imageUploadTypes.includes(file.type as (typeof imageUploadTypes)[number]);
+  const normalized = isImage ? await normalizeUploadedImage(file) : null;
+  const bytes = normalized?.bytes ?? Buffer.from(await file.arrayBuffer());
+  const mimeType = normalized?.mimeType ?? (file.type || "application/octet-stream");
+  const storedFileName = normalized ? `${randomUUID()}-${normalized.fileName}` : fileName;
 
-  await writeFile(path.join(uploadDirectory, fileName), bytes);
+  await writeFile(path.join(uploadDirectory, storedFileName), bytes);
 
   if (type === DocumentType.OTHER) {
     const latestOtherDocument = await prisma.document.findFirst({
@@ -544,10 +585,10 @@ async function saveAdminUploadedDocument(
         requirementKey: requirementKey ?? null,
         status: DocumentStatus.ACCEPTED,
         version: nextVersion,
-        fileName: file.name || fileName,
-        mimeType: file.type || "application/octet-stream",
+        fileName: normalized?.fileName ?? (file.name || fileName),
+        mimeType,
         fileSizeBytes: bytes.length,
-        storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+        storageKey: `/uploads/${uploadFolder}/${applicationId}/${storedFileName}`,
         proofDocumentDate,
         reviewedById: await actorIdFor(UserRole.ADMIN),
         reviewedAt: new Date(),
@@ -567,10 +608,10 @@ async function saveAdminUploadedDocument(
     },
     update: {
       status: DocumentStatus.ACCEPTED,
-      fileName: file.name || fileName,
-      mimeType: file.type || "application/octet-stream",
+      fileName: normalized?.fileName ?? (file.name || fileName),
+      mimeType,
       fileSizeBytes: bytes.length,
-      storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+      storageKey: `/uploads/${uploadFolder}/${applicationId}/${storedFileName}`,
       proofDocumentDate,
       rejectionReason: null,
       reviewedById: await actorIdFor(UserRole.ADMIN),
@@ -581,10 +622,10 @@ async function saveAdminUploadedDocument(
       type,
       status: DocumentStatus.ACCEPTED,
       version: 1,
-      fileName: file.name || fileName,
-      mimeType: file.type || "application/octet-stream",
+      fileName: normalized?.fileName ?? (file.name || fileName),
+      mimeType,
       fileSizeBytes: bytes.length,
-      storageKey: `/uploads/${uploadFolder}/${applicationId}/${fileName}`,
+      storageKey: `/uploads/${uploadFolder}/${applicationId}/${storedFileName}`,
       proofDocumentDate,
       reviewedById: await actorIdFor(UserRole.ADMIN),
       reviewedAt: new Date(),
