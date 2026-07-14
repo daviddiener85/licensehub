@@ -33,7 +33,7 @@ export default function HelpPage() {
           </p>
           <div className="mt-8">
             <Link
-              href="/apply?service=change-of-ownership"
+              href="/apply"
               className="tlh-button-primary inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-wide"
             >
               Start an application

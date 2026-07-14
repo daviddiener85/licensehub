@@ -118,19 +118,9 @@ const ownershipOptions: {
 
 const ownershipDocumentsByType: Record<OwnershipType, { key: string; label: string; description: string }[]> = {
   "private-owner": [
-    { key: "rc1", label: "Registration document (Original RC1)", description: "The original registration certificate for the vehicle." },
-    { key: "current-owner-id", label: "Current owner ID", description: "A clear copy of the current owner's ID." },
-    {
-      key: "current-owner-proof-of-address",
-      label: "Current owner proof of address",
-      description: "Must not be older than three months.",
-    },
-    { key: "new-owner-id", label: "New owner ID", description: "A clear copy of the new owner's ID." },
-    {
-      key: "new-owner-proof-of-address",
-      label: "New owner proof of address",
-      description: "Must not be older than three months.",
-    },
+    { key: "id-photo", label: "ID photo", description: "A clear photo of the owner's ID." },
+    { key: "licence-disk", label: "Licence disk photo", description: "A clear photo showing the vehicle registration details." },
+    { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
   "deceased-estate": [
     { key: "id-photo", label: "Executor or representative ID", description: "A clear photo of the person handling the estate request." },
@@ -153,6 +143,22 @@ const ownershipDocumentsByType: Record<OwnershipType, { key: string; label: stri
     { key: "proof-of-address", label: "Proof of address", description: "A document dated within the last 3 months." },
   ],
 };
+
+const changeOfOwnershipDocuments = [
+  { key: "rc1", label: "Registration document (Original RC1)", description: "The original registration certificate for the vehicle." },
+  { key: "current-owner-id", label: "Current owner ID", description: "A clear copy of the current owner's ID." },
+  {
+    key: "current-owner-proof-of-address",
+    label: "Current owner proof of address",
+    description: "Must not be older than three months.",
+  },
+  { key: "new-owner-id", label: "New owner ID", description: "A clear copy of the new owner's ID." },
+  {
+    key: "new-owner-proof-of-address",
+    label: "New owner proof of address",
+    description: "Must not be older than three months.",
+  },
+] as const;
 
 const licenceFeeRenewalDocuments = [
   { key: "id-photo", label: "ID photo", description: "A clear photo of the owner's ID." },
@@ -328,12 +334,24 @@ export function ClientIntakeFlow({
     ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
   const requiredDocuments = useMemo(() => {
+    if (selectedService.slug === "change-of-ownership") {
+      return changeOfOwnershipDocuments;
+    }
+
     if (selectedService.slug === "licence-renewal") {
       return licenceFeeRenewalDocuments;
     }
 
     return ownershipDocumentsByType[effectiveOwnershipType];
   }, [effectiveOwnershipType, selectedService.slug]);
+
+  function selectService(serviceSlug: string) {
+    setSelectedServiceSlug(serviceSlug);
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("service", serviceSlug);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
   const licenceDiskScanResultApplies =
     !licenceDiskScanResultInvalidated &&
     (licenceDiskScanState.status === "success" || licenceDiskScanState.status === "needs-review");
@@ -575,7 +593,7 @@ export function ClientIntakeFlow({
                   <button
                     key={service.slug}
                     type="button"
-                    onClick={() => setSelectedServiceSlug(service.slug)}
+                    onClick={() => selectService(service.slug)}
                     className={[
                       "border p-4 text-left transition",
                       isSelected
