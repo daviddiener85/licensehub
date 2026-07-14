@@ -28,9 +28,15 @@ export async function createService(formData: FormData) {
   const description = stringField(formData, "description");
   const basePrice = stringField(formData, "basePrice");
   const deliveryFee = stringField(formData, "deliveryFee");
+  const pricingPath = stringField(formData, "pricingPath");
+  const requiresQuote = pricingPath === "quote";
 
-  if (!name || !basePrice || !deliveryFee) {
-    throw new Error("Service name, price and delivery fee are required.");
+  if (!name || !basePrice || !deliveryFee || !["fixed", "quote"].includes(pricingPath)) {
+    throw new Error("Service name, pricing path, price and delivery fee are required.");
+  }
+
+  if (!requiresQuote && Number(basePrice) <= 0) {
+    throw new Error("A fixed-price service must have a price greater than zero.");
   }
 
   await prisma.service.create({
@@ -40,6 +46,7 @@ export async function createService(formData: FormData) {
       description,
       basePrice,
       deliveryFee,
+      requiresQuote,
       isActive: formData.get("isActive") === "on",
     },
   });
@@ -54,9 +61,15 @@ export async function updateService(formData: FormData) {
   const description = stringField(formData, "description");
   const basePrice = stringField(formData, "basePrice");
   const deliveryFee = stringField(formData, "deliveryFee");
+  const pricingPath = stringField(formData, "pricingPath");
+  const requiresQuote = pricingPath === "quote";
 
-  if (!serviceId || !name || !basePrice || !deliveryFee) {
-    throw new Error("Service id, name, price and delivery fee are required.");
+  if (!serviceId || !name || !basePrice || !deliveryFee || !["fixed", "quote"].includes(pricingPath)) {
+    throw new Error("Service id, name, pricing path, price and delivery fee are required.");
+  }
+
+  if (!requiresQuote && Number(basePrice) <= 0) {
+    throw new Error("A fixed-price service must have a price greater than zero.");
   }
 
   await prisma.service.update({
@@ -66,6 +79,7 @@ export async function updateService(formData: FormData) {
       description,
       basePrice,
       deliveryFee,
+      requiresQuote,
       isActive: formData.get("isActive") === "on",
     },
   });

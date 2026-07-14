@@ -213,6 +213,7 @@ async function main() {
       description: "Replacement of lost vehicle certificates.",
       basePrice: "499.00",
       deliveryFee: "150.00",
+      requiresQuote: false,
       isActive: true,
       documentRequirements: {
         upsert: [
@@ -283,6 +284,7 @@ async function main() {
       description: "Replacement of lost vehicle certificates.",
       basePrice: "499.00",
       deliveryFee: "150.00",
+      requiresQuote: false,
       documentRequirements: {
         create: [
           {
@@ -315,6 +317,7 @@ async function main() {
       description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
       basePrice: "0.00",
       deliveryFee: "150.00",
+      requiresQuote: true,
       isActive: true,
     },
     create: {
@@ -324,6 +327,7 @@ async function main() {
       description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
       basePrice: "0.00",
       deliveryFee: "150.00",
+      requiresQuote: true,
       isActive: true,
     },
   });
@@ -335,6 +339,7 @@ async function main() {
       description: "Vehicle licence renewal assistance. Available in Gauteng only.",
       basePrice: "0.00",
       deliveryFee: "150.00",
+      requiresQuote: true,
       isActive: true,
     },
     create: {
@@ -344,6 +349,7 @@ async function main() {
       description: "Vehicle licence renewal assistance. Available in Gauteng only.",
       basePrice: "0.00",
       deliveryFee: "150.00",
+      requiresQuote: true,
       isActive: true,
     },
   });

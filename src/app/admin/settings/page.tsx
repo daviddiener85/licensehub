@@ -130,8 +130,20 @@ export default async function AdminSettingsPage({
                     </label>
                   </div>
                   <div className="mt-4 flex flex-wrap items-end gap-4">
+                    <label className="w-48 text-sm font-semibold">
+                      Pricing Path
+                      <select
+                        className="mt-2 h-11 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
+                        defaultValue={service.requiresQuote ? "quote" : "fixed"}
+                        name="pricingPath"
+                        required
+                      >
+                        <option value="fixed">Fixed price</option>
+                        <option value="quote">Quote first</option>
+                      </select>
+                    </label>
                     <label className="w-40 text-sm font-semibold">
-                      Price
+                      Fixed Price
                       <input
                         className="mt-2 h-11 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
                         defaultValue={service.basePrice.toString()}
@@ -188,11 +200,21 @@ export default async function AdminSettingsPage({
                 />
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-4">
+                <select
+                  aria-label="Pricing path"
+                  className="h-11 w-48 border border-[#d8d1c3] bg-white px-3 text-sm outline-none"
+                  defaultValue="fixed"
+                  name="pricingPath"
+                  required
+                >
+                  <option value="fixed">Fixed price</option>
+                  <option value="quote">Quote first</option>
+                </select>
                 <input
                   className="h-11 w-40 border border-[#d8d1c3] bg-white px-3 text-sm outline-none"
                   min="0"
                   name="basePrice"
-                  placeholder="Price"
+                  placeholder="Fixed Price"
                   required
                   step="0.01"
                   type="number"

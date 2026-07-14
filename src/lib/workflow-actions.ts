@@ -1666,7 +1666,30 @@ export async function createPublicApplicationIntake(
       console.error(`Service load for intake failed for slug "${selectedServiceSlug}":`, error);
       throw new Error("The selected service is not available right now. Please refresh the page and try again.");
     });
-    const initialStatus = ApplicationStatus.AWAITING_ADMIN_QUOTE;
+    const isQuoteFlowService = service.requiresQuote;
+    const baseAmount = Number(service.basePrice);
+    const deliveryAmount = deliveryRequired ? Number(service.deliveryFee) : 0;
+    const totalAmount = (baseAmount + deliveryAmount).toFixed(2);
+    const startAwaitingPayment = !isQuoteFlowService && Number(totalAmount) > 0;
+    const paymentReference = `PAY-${applicationId}-Q1`;
+    const requestedPaymentMethodValue = requestedPaymentMethod(formData);
+    const paymentMethod =
+      requestedPaymentMethodValue === PaymentMethod.PAYSTACK && isPaystackConfigured()
+        ? PaymentMethod.PAYSTACK
+        : PaymentMethod.EFT;
+    const paymentRequest = startAwaitingPayment
+      ? await buildPaymentRequest({
+          applicationId,
+          email,
+          amount: totalAmount,
+          reference: paymentReference,
+          paymentMethod,
+        })
+      : null;
+    const paymentMethodLabel = paymentMethod === PaymentMethod.PAYSTACK ? "Paystack" : "EFT";
+    const initialStatus = startAwaitingPayment
+      ? ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT
+      : ApplicationStatus.AWAITING_ADMIN_QUOTE;
     const referralSource = getRequiredString(formData, "referralSource", "Referral source");
     const referralContact = getOptionalString(formData, "referralContact");
     const sendCompletedDocumentsToReferrer = formData.get("sendCompletedDocumentsToReferrer") === "yes";
@@ -1741,7 +1764,9 @@ export async function createPublicApplicationIntake(
         applicationId,
         fromStatus: null,
         toStatus: initialStatus,
-        note: `Client submitted an application for admin quote preparation. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
+        note: startAwaitingPayment
+          ? `Client submitted a fixed-price application and moved to awaiting ${paymentMethodLabel} payment. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`
+          : `Client submitted an application for admin quote preparation. Relationship: ${getOptionalString(formData, "relation") ?? "Not supplied"}. Delivery required: ${deliveryRequired ? "Yes" : "No"}.`,
       },
     });
     const application: MandatePdfApplication = {
@@ -1764,6 +1789,29 @@ export async function createPublicApplicationIntake(
       },
     };
     const adminId = await actorIdFor(UserRole.ADMIN);
+    if (startAwaitingPayment) {
+      await prisma.charge.create({
+        data: {
+          applicationId,
+          description: `${service.name}${deliveryRequired && deliveryAmount > 0 ? " (including delivery)" : ""}`,
+          reason: "QUOTE_V1",
+          amount: totalAmount,
+        },
+      });
+
+      await prisma.payment.create({
+        data: {
+          applicationId,
+          method: paymentMethod,
+          type: PaymentType.BASE_FEE,
+          amount: totalAmount,
+          reference: paymentReference,
+          status: PaymentStatus.PENDING,
+          checkoutUrl: paymentRequest?.checkoutUrl ?? null,
+          providerReference: paymentRequest?.providerReference ?? null,
+        },
+      });
+    }
     const whatsappConfirmationTemplateKey = "application_received";
     const whatsappConfirmationTemplateName = "account_creation_confirmation_3";
     const whatsappConfirmationTemplateParameters = applicationReceivedTemplateParameters(firstName, publicToken);

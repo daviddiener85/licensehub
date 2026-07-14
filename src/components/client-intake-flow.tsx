@@ -26,6 +26,7 @@ type IntakeService = {
   description: string;
   basePrice: string;
   deliveryFee: string;
+  requiresQuote: boolean;
 };
 
 type ClientIntakeFlowProps = {
@@ -35,6 +36,7 @@ type ClientIntakeFlowProps = {
   paystackEnabled?: boolean;
 };
 
+type PaymentChoice = "EFT" | "PAYSTACK";
 type UploadFieldName = "idPhoto" | "licenceDiskPhoto" | "proofOfAddress" | "passportDocument" | "trafficRegisterDocument";
 
 type Point = {
@@ -49,6 +51,7 @@ const fallbackServices: IntakeService[] = [
     description: "Replacement of lost vehicle certificates.",
     basePrice: "499",
     deliveryFee: "0",
+    requiresQuote: false,
   },
   {
     slug: "change-of-ownership",
@@ -56,6 +59,7 @@ const fallbackServices: IntakeService[] = [
     description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
     basePrice: "0",
     deliveryFee: "0",
+    requiresQuote: true,
   },
   {
     slug: "licence-renewal",
@@ -63,6 +67,7 @@ const fallbackServices: IntakeService[] = [
     description: "Vehicle license fee renewal assistance. Available in Gauteng only.",
     basePrice: "0",
     deliveryFee: "0",
+    requiresQuote: true,
   },
 ];
 
@@ -328,8 +333,10 @@ export function ClientIntakeFlow({
   const [isDrawingSignature, setIsDrawingSignature] = useState(false);
   const [hasMandateSignature, setHasMandateSignature] = useState(false);
   const [deliveryRequired, setDeliveryRequired] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentChoice>("EFT");
   const selectedService =
     availableServices.find((service) => service.slug === selectedServiceSlug) ?? availableServices[0];
+  const isQuoteFlowService = selectedService.requiresQuote;
   const effectiveOwnershipType: OwnershipType =
     ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
@@ -383,6 +390,12 @@ export function ClientIntakeFlow({
   ].every((value) => value.trim().length > 0) && citizenshipStatus.length > 0 && identityDetailsComplete && popiaConsent;
   const vehicleDetailsComplete =
     effectiveVehicleDetails.registrationNumber.trim().length > 0 && licenceDiskFileName.trim().length > 0;
+  const selectedServiceAmount = Number(selectedService.basePrice);
+  const selectedServiceDeliveryFee = Number(selectedService.deliveryFee);
+  const selectedServiceDisplayAmount =
+    Number.isFinite(selectedServiceAmount) && selectedServiceAmount > 0 ? selectedServiceAmount : 0;
+  const selectedServiceDisplayDeliveryFee =
+    Number.isFinite(selectedServiceDeliveryFee) && selectedServiceDeliveryFee > 0 ? selectedServiceDeliveryFee : 0;
   const requiredUploadLabels = requiredDocuments
     .filter((document) => isMandateStepUpload(document.label))
     .filter((document) => {
@@ -429,6 +442,8 @@ export function ClientIntakeFlow({
       });
     });
   }, [stepIndex]);
+
+  const effectivePaymentMethod: PaymentChoice = paystackEnabled ? paymentMethod : "EFT";
 
   useEffect(() => {
     if (publicIntakeSubmitState.status !== "success" || !publicIntakeSubmitState.redirectTo) {
@@ -618,7 +633,9 @@ export function ClientIntakeFlow({
                       {service.description}
                     </span>
                     <span className={["mt-3 block text-xs font-black uppercase", isSelected ? "text-[#ffb84d]" : "text-[#6b5e4f]"].join(" ")}>
-                      {Number(service.basePrice) > 0 ? `R${Number(service.basePrice).toFixed(2)}` : "Price to be confirmed"}
+                      {service.requiresQuote
+                        ? "Price to be confirmed"
+                        : `R${Number(service.basePrice).toFixed(2)}`}
                     </span>
                   </button>
                 );
@@ -1127,6 +1144,7 @@ export function ClientIntakeFlow({
         {stepIndex === 6 || stepIndex === 7 ? (
           <form action={submitPublicIntake} onSubmit={preparePublicIntakeSubmit}>
             <input type="hidden" name="serviceSlug" value={selectedService.slug} />
+            <input type="hidden" name="paymentMethod" value={effectivePaymentMethod} />
             <input type="hidden" name="ownershipType" value={effectiveOwnershipType} />
             <input type="hidden" name="relation" value={relation || selectedOwnership.relationPrompt} />
             <input
@@ -1353,17 +1371,59 @@ export function ClientIntakeFlow({
             {stepIndex === 7 ? (
               <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
                 <div>
-                  <h2 className="text-2xl font-semibold">Quote</h2>
+                  <h2 className="text-2xl font-semibold">{isQuoteFlowService ? "Quote" : "Payment"}</h2>
                   <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                    Admin will prepare the quote first. Payment opens only after you approve it.
+                    {isQuoteFlowService
+                      ? "Admin will prepare the quote first. Payment opens only after you approve it."
+                      : "Choose how you would like to pay, then submit your application."}
                   </p>
-                  <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
-                    <p className="font-semibold">Payment comes later</p>
-                    <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
-                      After approving the quote, you can pay by EFT
-                      {paystackEnabled ? " or choose Paystack for online payment" : ""}.
-                    </p>
-                  </div>
+                  {isQuoteFlowService ? (
+                    <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                      <p className="font-semibold">Payment comes later</p>
+                      <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
+                        After approving the quote, you can pay by EFT
+                        {paystackEnabled ? " or choose Paystack for online payment" : ""}.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-4 border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                      <p className="font-semibold">Payment method</p>
+                      <div className="mt-3 grid gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod("EFT")}
+                          className={[
+                            "border px-3 py-2 text-left",
+                            effectivePaymentMethod === "EFT"
+                              ? "border-[#1f2724] bg-[#fff8df]"
+                              : "border-[#d8d1c3] bg-white",
+                          ].join(" ")}
+                        >
+                          <span className="block text-sm font-semibold">EFT transfer</span>
+                          <span className="mt-1 block text-xs font-semibold text-[#6b5e4f]">
+                            Upload proof of payment after submitting.
+                          </span>
+                        </button>
+                        {paystackEnabled ? (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod("PAYSTACK")}
+                            className={[
+                              "border px-3 py-2 text-left",
+                              effectivePaymentMethod === "PAYSTACK"
+                                ? "border-[#1f2724] bg-[#fff8df]"
+                                : "border-[#d8d1c3] bg-white",
+                            ].join(" ")}
+                          >
+                            <span className="block text-sm font-semibold">Paystack</span>
+                            <span className="mt-1 block text-xs font-semibold text-[#6b5e4f]">
+                              Pay by card or another Paystack-supported method.
+                            </span>
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
 
                   <label className="mt-4 flex gap-3 border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm font-semibold">
                     <input
@@ -1435,11 +1495,23 @@ export function ClientIntakeFlow({
                     Amount due
                   </h3>
                   <p className="mt-4 text-3xl font-semibold">
-                    To be confirmed
+                    {isQuoteFlowService
+                      ? "To be confirmed"
+                      : `R${(
+                          selectedServiceDisplayAmount +
+                          (deliveryRequired ? selectedServiceDisplayDeliveryFee : 0)
+                        ).toFixed(2)}`}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[#6b5e4f]">{selectedService.name}</p>
+                  {!isQuoteFlowService && deliveryRequired ? (
+                    <p className="mt-2 text-xs font-semibold text-[#6b5e4f]">
+                      Includes delivery fee: R{selectedServiceDisplayDeliveryFee.toFixed(2)}
+                    </p>
+                  ) : null}
                   <p className="mt-4 text-sm leading-6 text-[#6b5e4f]">
-                    The application will be submitted for admin quote preparation when you submit.
+                    {isQuoteFlowService
+                      ? "The application will be submitted for admin quote preparation when you submit."
+                      : "The application will be submitted and payment instructions will open when you submit."}
                   </p>
                   {!requiredUploadsReady ? (
                     <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
@@ -1456,7 +1528,7 @@ export function ClientIntakeFlow({
                       {publicIntakeSubmitState.message}
                     </p>
                   ) : null}
-                  <SubmitApplicationButton quoteFlow disabled={!clientDetailsComplete} />
+                  <SubmitApplicationButton quoteFlow={isQuoteFlowService} disabled={!clientDetailsComplete} />
                 </aside>
               </div>
             ) : null}

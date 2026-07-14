@@ -7,6 +7,7 @@ export type ServiceSummary = {
   description: string;
   basePrice: Prisma.Decimal;
   deliveryFee: Prisma.Decimal;
+  requiresQuote: boolean;
 };
 
 export type ServiceDetail = ServiceSummary & {
@@ -16,48 +17,35 @@ export type ServiceDetail = ServiceSummary & {
 
 const fallbackServices: Record<
   string,
-  { name: string; description: string; basePrice: string; deliveryFee: string }
+  { name: string; description: string; basePrice: string; deliveryFee: string; requiresQuote: boolean }
 > = {
   "duplicate-certificate": {
     name: "Duplicate Certificate",
     description: "Replacement of lost vehicle certificates.",
     basePrice: "499.00",
     deliveryFee: "150.00",
+    requiresQuote: false,
   },
   "change-of-ownership": {
     name: "Change of Ownership",
     description: "Vehicle ownership transfer assistance. Available in Gauteng only.",
     basePrice: "0.00",
     deliveryFee: "150.00",
+    requiresQuote: true,
   },
   "licence-renewal": {
     name: "License Fees",
     description: "Vehicle license fee renewal assistance. Available in Gauteng only.",
     basePrice: "0.00",
     deliveryFee: "150.00",
+    requiresQuote: true,
   },
 };
 
 function normalizeServicePricing<T extends { slug: string; basePrice: Prisma.Decimal; deliveryFee: Prisma.Decimal }>(
   service: T,
 ) {
-  const fallback = fallbackServices[service.slug];
-
-  if (!fallback) {
-    return service;
-  }
-
-  const basePrice = Number(service.basePrice.toString());
-  const deliveryFee = Number(service.deliveryFee.toString());
-
-  return {
-    ...service,
-    basePrice: Number.isFinite(basePrice) && basePrice > 0 ? service.basePrice : new Prisma.Decimal(fallback.basePrice),
-    deliveryFee:
-      Number.isFinite(deliveryFee) && deliveryFee > 0
-        ? service.deliveryFee
-        : new Prisma.Decimal(fallback.deliveryFee),
-  };
+  return service;
 }
 
 async function hasDeliveryFeeColumn() {
@@ -78,7 +66,7 @@ export async function listActiveServices(): Promise<ServiceSummary[]> {
 
   if (columnExists) {
     const rows = await prisma.$queryRaw<Array<ServiceSummary>>`
-      SELECT slug, name, description, "basePrice", "deliveryFee"
+      SELECT slug, name, description, "basePrice", "deliveryFee", "requiresQuote"
       FROM "Service"
       WHERE "isActive" = true
       ORDER BY name ASC
@@ -88,7 +76,7 @@ export async function listActiveServices(): Promise<ServiceSummary[]> {
   }
 
   const rows = await prisma.$queryRaw<Array<ServiceSummary>>`
-    SELECT slug, name, description, "basePrice", 0::numeric AS "deliveryFee"
+    SELECT slug, name, description, "basePrice", 0::numeric AS "deliveryFee", false AS "requiresQuote"
     FROM "Service"
     WHERE "isActive" = true
     ORDER BY name ASC
@@ -106,7 +94,7 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
 
   if (columnExists) {
     const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
-      SELECT id, slug, name, description, "basePrice", "deliveryFee", "isActive"
+      SELECT id, slug, name, description, "basePrice", "deliveryFee", "requiresQuote", "isActive"
       FROM "Service"
       WHERE slug = ${slug} AND "isActive" = true
       LIMIT 1
@@ -126,7 +114,7 @@ export async function findActiveServiceBySlug(slug: string): Promise<ServiceDeta
   }
 
   const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
-    SELECT id, slug, name, description, "basePrice", 0::numeric AS "deliveryFee", "isActive"
+    SELECT id, slug, name, description, "basePrice", 0::numeric AS "deliveryFee", false AS "requiresQuote", "isActive"
     FROM "Service"
     WHERE slug = ${slug} AND "isActive" = true
     LIMIT 1
@@ -161,6 +149,7 @@ async function ensureFallbackServiceExists(slug: string): Promise<ServiceDetail 
       description: true,
       basePrice: true,
       deliveryFee: true,
+      requiresQuote: true,
       isActive: true,
     },
   });
@@ -177,6 +166,7 @@ async function ensureFallbackServiceExists(slug: string): Promise<ServiceDetail 
       description: fallback.description,
       basePrice: fallback.basePrice,
       deliveryFee: fallback.deliveryFee,
+      requiresQuote: fallback.requiresQuote,
       isActive: true,
     },
   });
@@ -189,7 +179,7 @@ export async function listServiceDetails(): Promise<ServiceDetail[]> {
 
   if (columnExists) {
     const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
-      SELECT id, slug, name, description, "basePrice", "deliveryFee", "isActive"
+      SELECT id, slug, name, description, "basePrice", "deliveryFee", "requiresQuote", "isActive"
       FROM "Service"
       ORDER BY name ASC
     `;
@@ -198,7 +188,7 @@ export async function listServiceDetails(): Promise<ServiceDetail[]> {
   }
 
   const rows = await prisma.$queryRaw<Array<ServiceDetail>>`
-    SELECT id, slug, name, description, "basePrice", 0::numeric AS "deliveryFee", "isActive"
+    SELECT id, slug, name, description, "basePrice", 0::numeric AS "deliveryFee", false AS "requiresQuote", "isActive"
     FROM "Service"
     ORDER BY name ASC
   `;
