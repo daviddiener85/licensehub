@@ -73,13 +73,13 @@ export default async function AdminSettingsPage({
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
-      <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-8 sm:py-8">
         <header className="flex flex-col gap-4 border-b border-[#d8d1c3] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Link href="/admin" className="text-sm font-medium text-[#6b5e4f]">
               Back to admin
             </Link>
-            <h1 className="mt-4 text-3xl font-semibold">Administration Settings</h1>
+            <h1 className="mt-3 text-2xl font-semibold sm:mt-4 sm:text-3xl">Administration Settings</h1>
             <p className="mt-2 text-sm text-[#52615b]">
               Manage services, prices, retention rules, and admin or supplier access.
             </p>
@@ -130,7 +130,7 @@ export default async function AdminSettingsPage({
                     </label>
                   </div>
                   <div className="mt-4 flex flex-wrap items-end gap-4">
-                    <label className="w-48 text-sm font-semibold">
+                    <label className="w-full text-sm font-semibold sm:w-48">
                       Pricing Path
                       <select
                         className="mt-2 h-11 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
@@ -142,7 +142,7 @@ export default async function AdminSettingsPage({
                         <option value="quote">Quote first</option>
                       </select>
                     </label>
-                    <label className="w-40 text-sm font-semibold">
+                    <label className="w-full text-sm font-semibold sm:w-40">
                       Fixed Price
                       <input
                         className="mt-2 h-11 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"
@@ -154,7 +154,7 @@ export default async function AdminSettingsPage({
                         type="number"
                       />
                     </label>
-                    <label className="w-40 text-sm font-semibold">
+                    <label className="w-full text-sm font-semibold sm:w-40">
                       Delivery Fee
                       <input
                         className="mt-2 h-11 w-full border border-[#d8d1c3] bg-white px-3 font-normal outline-none"

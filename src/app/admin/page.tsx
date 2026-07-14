@@ -659,18 +659,18 @@ export default async function AdminPage({
   if (applications.length === 0) {
     return (
       <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
-        <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8">
+        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-8 sm:py-8">
           <header className="flex flex-col gap-4 border-b border-[#d8d1c3] pb-6 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <Link href="/" className="text-sm font-medium text-[#6b5e4f]">
                 Back
               </Link>
-              <h1 className="mt-4 text-3xl font-semibold">Admin Workspace</h1>
+              <h1 className="mt-3 text-2xl font-semibold sm:mt-4 sm:text-3xl">Admin Workspace</h1>
               <p className="mt-2 text-sm text-[#52615b]">
                 Review documents, confirm payments, raise charges, approve orders, and dispatch returns.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
               <AdminRefreshController enabled={adminAutoRefreshEnabled} intervalSeconds={adminRefreshIntervalSeconds} />
               <Link
                 className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
@@ -792,18 +792,18 @@ export default async function AdminPage({
           createdAt: application.createdAt.toISOString(),
         }))}
       />
-      <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-8 sm:py-8">
         <header className="flex flex-col gap-4 border-b border-[#d8d1c3] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Link href="/" className="text-sm font-medium text-[#6b5e4f]">
               Back
             </Link>
-            <h1 className="mt-4 text-3xl font-semibold">Admin Workspace</h1>
+            <h1 className="mt-3 text-2xl font-semibold sm:mt-4 sm:text-3xl">Admin Workspace</h1>
             <p className="mt-2 text-sm text-[#52615b]">
               Review documents, confirm payments, raise charges, approve orders, and dispatch returns.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             <AdminRefreshController enabled={adminAutoRefreshEnabled} intervalSeconds={adminRefreshIntervalSeconds} />
             <Link
               className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
@@ -825,12 +825,12 @@ export default async function AdminPage({
           </div>
         </header>
 
-        <section className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <section className="mt-5 grid grid-cols-2 gap-3 md:mt-6 md:grid-cols-3 xl:grid-cols-6">
           {queueCards.map((queue) => (
             <Link
               key={queue.label}
               href={queue.href}
-              className="border border-[#d8d1c3] bg-white p-4 transition hover:border-[#8a6a2a] hover:bg-[#fffdf8]"
+              className="min-h-24 border border-[#d8d1c3] bg-white p-4 transition hover:border-[#8a6a2a] hover:bg-[#fffdf8]"
             >
               <span className="block text-2xl font-semibold">{queue.count}</span>
               <span className="mt-1 block text-xs font-semibold uppercase tracking-wide text-[#6b5e4f]">
@@ -924,8 +924,8 @@ export default async function AdminPage({
           </p>
         </section>
 
-        <section className="mt-6 overflow-hidden border border-[#d8d1c3] bg-white">
-          <div className="grid grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f]">
+        <section className="mt-6 space-y-3 md:space-y-0 md:overflow-hidden md:border md:border-[#d8d1c3] md:bg-white">
+          <div className="hidden grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f] md:grid">
             <span>Application</span>
             <span>Client</span>
             <span>Service</span>
@@ -940,12 +940,13 @@ export default async function AdminPage({
               data-admin-order-id={application.id}
               data-admin-order-selected={application.id === selectedApplication.id}
               className={[
-                "grid grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] items-center gap-2 border-b border-[#eee8dc] px-4 py-4 text-sm last:border-b-0",
+                "grid grid-cols-2 gap-x-3 gap-y-4 border border-[#d8d1c3] bg-white px-4 py-4 text-sm md:grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] md:items-center md:gap-2 md:border-x-0 md:border-t-0 md:border-b-[#eee8dc] md:last:border-b-0",
                 application.id === selectedApplication.id ? "bg-[#fff8df]" : "",
               ].join(" ")}
             >
-              <AdminApplicationCell applicationId={application.id} className="font-semibold">
-                {application.id}
+              <AdminApplicationCell applicationId={application.id} className="min-w-0 font-semibold">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Application</span>
+                <span className="break-all md:break-normal">{application.id}</span>
                 {urgencyMarker(application.supplierUrgency) ? (
                   <span className="ml-2 font-black text-[#b3261e]" title={urgencyLabel(application.supplierUrgency)}>
                     {urgencyMarker(application.supplierUrgency)}
@@ -953,17 +954,25 @@ export default async function AdminPage({
                 ) : null}
               </AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Client</span>
                 {application.client.firstName} {application.client.surname}
               </AdminApplicationCell>
-              <AdminApplicationCell applicationId={application.id}>{application.service.name}</AdminApplicationCell>
+              <AdminApplicationCell applicationId={application.id}>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Service</span>
+                {application.service.name}
+              </AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id} className="space-y-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Next action</span>
                 <span className="block font-semibold">{workflowStatusSummary(application)}</span>
                 <span className="block text-xs text-[#6b5e4f]">
                   {paymentSummary(application)} · {documentSummary(application)}
                 </span>
               </AdminApplicationCell>
-              <AdminApplicationCell applicationId={application.id}>{ageSummary(application.createdAt)}</AdminApplicationCell>
-              <span className="flex flex-wrap gap-2">
+              <AdminApplicationCell applicationId={application.id}>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Age</span>
+                {ageSummary(application.createdAt)}
+              </AdminApplicationCell>
+              <span className="col-span-2 flex flex-wrap gap-2 border-t border-[#eee8dc] pt-3 md:col-span-1 md:border-0 md:pt-0">
                 {hasUnseenWhatsappReply(application, selectedApplication.id, selectedView) ? (
                   <Link
                     href={adminHref(baseAdminParams, { application: application.id, view: "messages" }, "messages")}
@@ -1024,9 +1033,9 @@ export default async function AdminPage({
         </section>
 
         <section className="mt-6">
-          <div className="border border-[#d8d1c3] bg-white p-5">
+          <div className="border border-[#d8d1c3] bg-white p-4 sm:p-5">
             <h2 className="text-lg font-semibold">Selected Review</h2>
-            <p className="mt-1 text-sm text-[#52615b]">
+            <p className="mt-1 break-words text-sm text-[#52615b]">
               {selectedApplication.id} · {selectedApplication.client.firstName} {selectedApplication.client.surname}
             </p>
             <nav className="mt-4 flex flex-wrap gap-2 border-b border-[#eee8dc] pb-3 text-sm font-semibold">

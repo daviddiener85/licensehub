@@ -54,19 +54,19 @@ export default async function AdminClientsPage({
 
   return (
     <main className="min-h-screen bg-[#f7f5ef] text-[#1f2724]">
-      <div className="mx-auto max-w-7xl px-6 py-8 sm:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-8 sm:py-8">
         <header className="flex flex-col gap-4 border-b border-[#d8d1c3] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Link href="/admin" className="text-sm font-medium text-[#6b5e4f]">
               Back to admin
             </Link>
-            <h1 className="mt-4 text-3xl font-semibold">Client Database</h1>
+            <h1 className="mt-3 text-2xl font-semibold sm:mt-4 sm:text-3xl">Client Database</h1>
             <p className="mt-2 text-sm text-[#52615b]">
               Search saved client profiles, contact details, addresses, and their application history.
             </p>
           </div>
           <Link
-            className="border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-sm font-semibold text-white"
+            className="w-full border border-[#1f2724] bg-[#1f2724] px-4 py-2 text-center text-sm font-semibold text-white sm:w-auto"
             href="/admin"
           >
             Create Client Link
@@ -110,8 +110,8 @@ export default async function AdminClientsPage({
           </div>
         </form>
 
-        <section className="mt-6 overflow-hidden border border-[#d8d1c3] bg-white">
-          <div className="grid grid-cols-[1fr_1fr_1.2fr_1fr_1.1fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f]">
+        <section className="mt-6 space-y-3 md:space-y-0 md:overflow-hidden md:border md:border-[#d8d1c3] md:bg-white">
+          <div className="hidden grid-cols-[1fr_1fr_1.2fr_1fr_1.1fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f] md:grid">
             <span>Client</span>
             <span>Contact</span>
             <span>Address</span>
@@ -124,7 +124,7 @@ export default async function AdminClientsPage({
             return (
               <div
                 key={client.id}
-                className="grid grid-cols-[1fr_1fr_1.2fr_1fr_1.1fr] gap-3 border-b border-[#eee8dc] px-4 py-4 text-sm last:border-b-0"
+                className="grid gap-4 border border-[#d8d1c3] bg-white px-4 py-4 text-sm md:grid-cols-[1fr_1fr_1.2fr_1fr_1.1fr] md:gap-3 md:border-x-0 md:border-t-0 md:border-b-[#eee8dc] md:last:border-b-0"
               >
                 <div>
                   <p className="font-semibold">
