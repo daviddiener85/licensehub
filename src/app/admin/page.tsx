@@ -1216,76 +1216,112 @@ export default async function AdminPage({
               )}
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {selectedApplication.documents.map((document: ApplicationDocumentRecord) => {
-                const href = document.storageKey ? documentHref(document.storageKey) : null;
-                const supplierEvidenceDescription =
-                  document.type === "OTHER" && isSupplierReturnEvidenceDocument(document)
-                    ? supplierReturnEvidenceDescriptions[document.requirementKey ?? ""]
-                    : null;
+              {selectedApplication.documents
+                .filter((document: ApplicationDocumentRecord) => document.status !== "ACCEPTED")
+                .map((document: ApplicationDocumentRecord) => {
+                  const href = document.storageKey ? documentHref(document.storageKey) : null;
+                  const supplierEvidenceDescription =
+                    document.type === "OTHER" && isSupplierReturnEvidenceDocument(document)
+                      ? supplierReturnEvidenceDescriptions[document.requirementKey ?? ""]
+                      : null;
 
-                return (
-                  <div key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
-                    <span className="text-[#1f2724]">{supportingDocumentLabel(document, selectedApplication)}: </span>
-                    <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
-                      {formatDocumentStatus(document.status)}
-                    </span>
-                    {supplierEvidenceDescription ? (
-                      <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">{supplierEvidenceDescription}</span>
-                    ) : null}
-                    {documentTypeDescriptions[document.type] ? (
-                      <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
-                        {documentTypeDescriptions[document.type]}
+                  return (
+                    <div key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
+                      <span className="text-[#1f2724]">{supportingDocumentLabel(document, selectedApplication)}: </span>
+                      <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
+                        {formatDocumentStatus(document.status)}
                       </span>
-                    ) : null}
-                    {href ? (
-                      <AdminDocumentQuickView href={href} fileName={document.fileName} />
-                    ) : null}
-                    {document.rejectionReason ? (
-                      <p className="mt-2 text-xs leading-5 text-[#b3261e]">{document.rejectionReason}</p>
-                    ) : null}
-                    {document.reviewedAt ? (
-                      <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
-                        Reviewed: {document.reviewedAt.toLocaleString("en-ZA")}
-                      </p>
-                    ) : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {document.status === "PENDING" ? (
-                        <>
-                          <form action={acceptDocument}>
+                      {supplierEvidenceDescription ? (
+                        <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">{supplierEvidenceDescription}</span>
+                      ) : null}
+                      {documentTypeDescriptions[document.type] ? (
+                        <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                          {documentTypeDescriptions[document.type]}
+                        </span>
+                      ) : null}
+                      {href ? <AdminDocumentQuickView href={href} fileName={document.fileName} downloadHref={href} /> : null}
+                      {document.rejectionReason ? (
+                        <p className="mt-2 text-xs leading-5 text-[#b3261e]">{document.rejectionReason}</p>
+                      ) : null}
+                      {document.reviewedAt ? (
+                        <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
+                          Reviewed: {document.reviewedAt.toLocaleString("en-ZA")}
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {document.status === "PENDING" ? (
+                          <>
+                            <form action={acceptDocument}>
+                              <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                              <input type="hidden" name="documentId" value={document.id} />
+                              <button className="border border-[#1f7a4d] px-3 py-1.5 text-xs font-semibold text-[#1f7a4d]">
+                                Accept
+                              </button>
+                            </form>
+                            <form action={rejectDocument} className="flex flex-wrap gap-2">
+                              <input type="hidden" name="applicationId" value={selectedApplication.id} />
+                              <input type="hidden" name="documentId" value={document.id} />
+                              <input
+                                name="rejectionReason"
+                                placeholder="Reason"
+                                className="min-w-36 border border-[#d8d1c3] px-2 py-1.5 text-xs"
+                                required
+                              />
+                              <button className="border border-[#b3261e] px-3 py-1.5 text-xs font-semibold text-[#b3261e]">
+                                Reject
+                              </button>
+                            </form>
+                          </>
+                        ) : (
+                          <form action={markDocumentPending}>
                             <input type="hidden" name="applicationId" value={selectedApplication.id} />
                             <input type="hidden" name="documentId" value={document.id} />
-                            <button className="border border-[#1f7a4d] px-3 py-1.5 text-xs font-semibold text-[#1f7a4d]">
-                              Accept
+                            <button className="border border-[#8a6a2a] px-3 py-1.5 text-xs font-semibold text-[#6b5e4f]">
+                              Mark pending
                             </button>
                           </form>
-                          <form action={rejectDocument} className="flex flex-wrap gap-2">
-                            <input type="hidden" name="applicationId" value={selectedApplication.id} />
-                            <input type="hidden" name="documentId" value={document.id} />
-                            <input
-                              name="rejectionReason"
-                              placeholder="Reason"
-                              className="min-w-36 border border-[#d8d1c3] px-2 py-1.5 text-xs"
-                              required
-                            />
-                            <button className="border border-[#b3261e] px-3 py-1.5 text-xs font-semibold text-[#b3261e]">
-                              Reject
-                            </button>
-                          </form>
-                        </>
-                      ) : (
-                        <form action={markDocumentPending}>
-                          <input type="hidden" name="applicationId" value={selectedApplication.id} />
-                          <input type="hidden" name="documentId" value={document.id} />
-                          <button className="border border-[#8a6a2a] px-3 py-1.5 text-xs font-semibold text-[#6b5e4f]">
-                            Mark pending
-                          </button>
-                        </form>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
+            {selectedApplication.documents.some((document: ApplicationDocumentRecord) => document.status === "ACCEPTED") ? (
+              <details className="mt-4 border border-[#d8d1c3] bg-[#fffdf8] p-3">
+                <summary className="cursor-pointer list-none text-sm font-semibold text-[#1f2724]">
+                  Approved client docs ({selectedApplication.documents.filter((document: ApplicationDocumentRecord) => document.status === "ACCEPTED").length})
+                </summary>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {selectedApplication.documents
+                    .filter((document: ApplicationDocumentRecord) => document.status === "ACCEPTED")
+                    .map((document: ApplicationDocumentRecord) => {
+                      const href = document.storageKey ? documentHref(document.storageKey) : null;
+                      const supplierEvidenceDescription =
+                        document.type === "OTHER" && isSupplierReturnEvidenceDocument(document)
+                          ? supplierReturnEvidenceDescriptions[document.requirementKey ?? ""]
+                          : null;
+
+                      return (
+                        <div key={document.id} className="border border-[#d8d1c3] bg-white px-3 py-3 text-left text-sm">
+                          <span className="text-[#1f2724]">{supportingDocumentLabel(document, selectedApplication)}: </span>
+                          <span className={["font-semibold", documentStatusClass(document.status)].join(" ")}>
+                            {formatDocumentStatus(document.status)}
+                          </span>
+                          {supplierEvidenceDescription ? (
+                            <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">{supplierEvidenceDescription}</span>
+                          ) : null}
+                          {documentTypeDescriptions[document.type] ? (
+                            <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
+                              {documentTypeDescriptions[document.type]}
+                            </span>
+                          ) : null}
+                          {href ? <AdminDocumentQuickView href={href} fileName={document.fileName} downloadHref={href} /> : null}
+                        </div>
+                      );
+                    })}
+                </div>
+              </details>
+            ) : null}
             <AdminDocumentUploadForm
               applicationId={selectedApplication.id}
               action={adminUploadDocument}

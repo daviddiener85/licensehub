@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 type AdminDocumentQuickViewProps = {
   href: string;
   fileName: string;
+  downloadHref?: string;
 };
 
 function extensionFromPath(path: string) {
@@ -12,7 +13,7 @@ function extensionFromPath(path: string) {
   return cleanPath.split(".").pop()?.toLowerCase() ?? "";
 }
 
-export function AdminDocumentQuickView({ href, fileName }: AdminDocumentQuickViewProps) {
+export function AdminDocumentQuickView({ href, fileName, downloadHref }: AdminDocumentQuickViewProps) {
   const [open, setOpen] = useState(false);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -188,6 +189,15 @@ export function AdminDocumentQuickView({ href, fileName }: AdminDocumentQuickVie
             <div className="flex items-center justify-between gap-3 border-b border-[#eee8dc] px-4 py-3">
               <p className="truncate text-sm font-semibold text-[#1f2724]">{fileName}</p>
               <div className="flex gap-2">
+                {downloadHref ? (
+                  <a
+                    href={downloadHref}
+                    download
+                    className="border border-[#d8d1c3] px-3 py-1.5 text-xs font-semibold text-[#52615b]"
+                  >
+                    Download
+                  </a>
+                ) : null}
                 {isImage ? (
                   <>
                     <button
