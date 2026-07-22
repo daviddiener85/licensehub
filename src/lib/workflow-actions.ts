@@ -1626,6 +1626,11 @@ export async function createPublicApplicationIntake(
         throw new Error("Company or trust legal name, BRNC number, representative name, and representative role/capacity are required.");
       }
     }
+    if (entityType === ClientEntityType.DECEASED_ESTATE) {
+      if (!entityDisplayName || !deceasedFullName || !deceasedIdNumber || !entityRegistrationNumber || !representativeFullName || !representativeCapacity) {
+        throw new Error("Deceased estate name, deceased full name, deceased ID number, executor reference number, representative name, and representative role/capacity are required.");
+      }
+    }
     const paymentDeliveryAddressLine1 = deliveryRequired
       ? getRequiredString(formData, "paymentDeliveryAddressLine1", "Payment delivery address line 1")
       : deliveryAddressLine1;

@@ -348,7 +348,13 @@ export function ClientIntakeFlow({
     }
 
     if (selectedServiceSlug === "licence-renewal") {
-      return licenceFeeRenewalDocuments;
+      return effectiveOwnershipType === "deceased-estate"
+        ? [
+            { key: "death-certificate", label: "Death certificate", description: "Proof that the registered owner is deceased." },
+            { key: "executor-authority", label: "Executor authority document", description: "Letter of executorship or authority to act for the estate." },
+            ...licenceFeeRenewalDocuments,
+          ]
+        : licenceFeeRenewalDocuments;
     }
 
     return ownershipDocumentsByType[effectiveOwnershipType];
@@ -890,6 +896,7 @@ export function ClientIntakeFlow({
                   Estate name or reference
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.entityDisplayName}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -904,6 +911,7 @@ export function ClientIntakeFlow({
                   Deceased full name
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.deceasedFullName}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -918,6 +926,7 @@ export function ClientIntakeFlow({
                   Deceased ID number
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.deceasedIdNumber}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -932,6 +941,7 @@ export function ClientIntakeFlow({
                   Executor/letter reference number
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.entityRegistrationNumber}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -946,6 +956,7 @@ export function ClientIntakeFlow({
                   Representative full name
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.representativeFullName}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -961,6 +972,7 @@ export function ClientIntakeFlow({
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     placeholder="Executor, estate representative"
+                    required
                     value={entityDetails.representativeCapacity}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
