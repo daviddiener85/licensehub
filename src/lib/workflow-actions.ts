@@ -33,7 +33,6 @@ import { calculateRetentionEligibleAt } from "@/lib/retention";
 import { deleteQueuedFiles, storagePathsForApplication } from "@/lib/retention-purge";
 import {
   documentRequirementsForApplication,
-  documentRequirementsForEntityType,
   supportingDocumentForRequirement,
   supportingRequirementForDocument,
   supportingRequirementsForEntityType,
@@ -63,6 +62,8 @@ type MandatePdfApplication = {
     name: string;
   };
   entityDisplayName: string | null;
+  deceasedFullName: string | null;
+  deceasedIdNumber: string | null;
   registrationNumber: string | null;
   vin: string | null;
   vehicleMake: string | null;
@@ -93,6 +94,8 @@ type ApplicationBaseRowInput = {
   sendCompletedDocumentsToReferrer?: boolean;
   entityDisplayName?: string | null;
   entityRegistrationNumber?: string | null;
+  deceasedFullName?: string | null;
+  deceasedIdNumber?: string | null;
   representativeFullName?: string | null;
   representativeCapacity?: string | null;
 };
@@ -107,6 +110,8 @@ const mandatePdfApplicationSelect = {
   },
   entityDisplayName: true,
   registrationNumber: true,
+  deceasedFullName: true,
+  deceasedIdNumber: true,
   vin: true,
   vehicleMake: true,
   vehicleModel: true,
@@ -177,6 +182,8 @@ async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
       "sendCompletedDocumentsToReferrer",
       "entityDisplayName",
       "entityRegistrationNumber",
+      "deceasedFullName",
+      "deceasedIdNumber",
       "representativeFullName",
       "representativeCapacity",
       "createdAt",
@@ -199,6 +206,8 @@ async function createApplicationBaseRow(input: ApplicationBaseRowInput) {
       ${input.sendCompletedDocumentsToReferrer ?? false},
       ${input.entityDisplayName ?? null},
       ${input.entityRegistrationNumber ?? null},
+      ${input.deceasedFullName ?? null},
+      ${input.deceasedIdNumber ?? null},
       ${input.representativeFullName ?? null},
       ${input.representativeCapacity ?? null},
       ${now},
@@ -814,6 +823,8 @@ async function writeMandatePdf(
     clientIdLabel: clientIdMandatePdfLabel(application.client.southAfricanIdEncrypted),
     entityType: application.client.entityType,
     entityDisplayName: application.entityDisplayName,
+    deceasedFullName: application.deceasedFullName,
+    deceasedIdNumber: application.deceasedIdNumber,
     date: new Date(),
     registrationNumber: application.registrationNumber,
     vin: application.vin,
@@ -1603,6 +1614,8 @@ export async function createPublicApplicationIntake(
     const deliveryRequired = getDeliveryRequired(formData);
     const entityDisplayName = getOptionalString(formData, "entityDisplayName");
     const entityRegistrationNumber = getOptionalString(formData, "entityRegistrationNumber");
+    const deceasedFullName = getOptionalString(formData, "deceasedFullName");
+    const deceasedIdNumber = getOptionalString(formData, "deceasedIdNumber");
     const representativeFullName = getOptionalString(formData, "representativeFullName");
     const representativeCapacity = getOptionalString(formData, "representativeCapacity");
     const paymentDeliveryAddressLine1 = deliveryRequired
@@ -1797,6 +1810,8 @@ export async function createPublicApplicationIntake(
       sendCompletedDocumentsToReferrer,
       entityDisplayName,
       entityRegistrationNumber,
+      deceasedFullName,
+      deceasedIdNumber,
       representativeFullName,
       representativeCapacity,
     });
@@ -1817,6 +1832,8 @@ export async function createPublicApplicationIntake(
         name: service.name,
       },
       entityDisplayName,
+      deceasedFullName,
+      deceasedIdNumber,
       registrationNumber,
       vin,
       vehicleMake,

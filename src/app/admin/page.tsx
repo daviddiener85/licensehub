@@ -779,6 +779,15 @@ export default async function AdminPage({
   const selectedPendingDocumentCount = selectedApplication.documents.filter(
     (document: ApplicationDocumentRecord) => document.status === "PENDING",
   ).length;
+  const selectedRequiredRequirements = documentRequirementsForApplication(
+    selectedApplication.service.slug,
+    selectedApplication.client.entityType,
+  ).filter((requirement) => requirement.confirmedForUpload);
+  const selectedRequirementStatuses = selectedRequiredRequirements.map((requirement) => ({
+    requirement,
+    status: documentRequirementStatus(requirement, selectedApplication),
+  }));
+  const selectedIncompleteRequirement = selectedRequirementStatuses.find(({ status }) => status !== "ACCEPTED") ?? null;
   const selectedPendingCharges = selectedApplication.charges.filter(
     (charge: ApplicationChargeRecord) => charge.status === "PENDING",
   );
@@ -1215,6 +1224,37 @@ export default async function AdminPage({
                 <span className="text-sm font-semibold text-[#6b5e4f]">No pending documents to bulk accept.</span>
               )}
             </div>
+            <div className="mt-4 border border-[#d8d1c3] bg-white p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold">Approval readiness</h3>
+                <span
+                  className={[
+                    "text-xs font-semibold",
+                    selectedIncompleteRequirement ? "text-[#b3261e]" : "text-[#1f7a4d]",
+                  ].join(" ")}
+                >
+                  {selectedIncompleteRequirement ? "Blocked" : "Ready"}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-[#52615b]">
+                {selectedIncompleteRequirement
+                  ? `${selectedIncompleteRequirement.requirement.label} is still ${formatRequirementStatus(selectedIncompleteRequirement.status)}.`
+                  : "All required documents are accepted and the application can be sent to the supplier."}
+              </p>
+              <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {selectedRequirementStatuses.map(({ requirement, status }) => (
+                  <div key={requirement.key} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-semibold">{requirement.label}</span>
+                      <span className={["text-xs font-semibold", status === "ACCEPTED" ? "text-[#1f7a4d]" : "text-[#b3261e]"].join(" ")}>
+                        {formatRequirementStatus(status)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs leading-5 text-[#6b5e4f]">{requirement.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
             {selectedApplication.documents.filter(
               (document: ApplicationDocumentRecord) =>
                 document.status === "ACCEPTED" && isSupplierReturnEvidenceDocument(document),
@@ -1249,7 +1289,7 @@ export default async function AdminPage({
               {selectedApplication.documents
                 .filter(
                   (document: ApplicationDocumentRecord) =>
-                    document.status !== "ACCEPTED" || !isSupplierReturnEvidenceDocument(document),
+                    document.status !== "ACCEPTED" || isSupplierReturnEvidenceDocument(document),
                 )
                 .map((document: ApplicationDocumentRecord) => {
                   const href = document.storageKey ? documentHref(document.storageKey) : null;

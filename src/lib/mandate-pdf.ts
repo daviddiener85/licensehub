@@ -7,6 +7,8 @@ type MandatePdfInput = {
   clientIdLabel: string;
   entityType: ClientEntityType;
   entityDisplayName: string | null;
+  deceasedFullName: string | null;
+  deceasedIdNumber: string | null;
   date: Date;
   registrationNumber: string | null;
   vin: string | null;
@@ -32,7 +34,10 @@ function mandateDeclarationText(input: MandatePdfInput) {
   }
 
   if (input.entityType === ClientEntityType.DECEASED_ESTATE) {
-    return `I, ${input.clientName}, acting on behalf of ${entityName || "the deceased estate"}, hereby request The License Hub's assistance with ${input.serviceName}.`;
+    const deceasedName = input.deceasedFullName?.trim() || "the deceased";
+    const deceasedId = input.deceasedIdNumber?.trim() || "To be confirmed";
+
+    return `I, ${input.clientName}, acting on behalf of ${entityName || "the deceased estate"}, in respect of the late ${deceasedName} (ID number ${deceasedId}), hereby request The License Hub's assistance with ${input.serviceName}.`;
   }
 
   if (input.serviceName.toLowerCase() === "change of ownership") {
@@ -216,6 +221,12 @@ export async function createMandatePdf(input: MandatePdfInput) {
   drawField(page, "ID number", input.clientIdLabel, 314, y, 238, 74, fonts);
 
   y -= 38;
+  if (input.entityType === ClientEntityType.DECEASED_ESTATE) {
+    drawField(page, "Deceased full name", valueOrLine(input.deceasedFullName), margin, y, 250, 110, fonts);
+    drawField(page, "Deceased ID number", valueOrLine(input.deceasedIdNumber), 314, y, 238, 110, fonts);
+    y -= 38;
+  }
+
   y = drawWrappedText(
     page,
     mandateDeclarationText(input),

@@ -245,6 +245,8 @@ model Application {
   vin                              String?
   entityDisplayName                String?
   entityRegistrationNumber         String?
+  deceasedFullName                 String?
+  deceasedIdNumber                 String?
   representativeFullName           String?
   representativeCapacity           String?
   referralSource                   String?

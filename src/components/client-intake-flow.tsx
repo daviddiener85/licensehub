@@ -309,6 +309,8 @@ export function ClientIntakeFlow({
   const [entityDetails, setEntityDetails] = useState({
     entityDisplayName: "",
     entityRegistrationNumber: "",
+    deceasedFullName: "",
+    deceasedIdNumber: "",
     representativeFullName: "",
     representativeCapacity: "",
   });
@@ -341,16 +343,16 @@ export function ClientIntakeFlow({
     ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
   const requiredDocuments = useMemo(() => {
-    if (selectedService.slug === "change-of-ownership") {
+    if (selectedServiceSlug === "change-of-ownership") {
       return changeOfOwnershipDocuments;
     }
 
-    if (selectedService.slug === "licence-renewal") {
+    if (selectedServiceSlug === "licence-renewal") {
       return licenceFeeRenewalDocuments;
     }
 
     return ownershipDocumentsByType[effectiveOwnershipType];
-  }, [effectiveOwnershipType, selectedService.slug]);
+  }, [effectiveOwnershipType, selectedServiceSlug]);
 
   function selectService(serviceSlug: string) {
     setSelectedServiceSlug(serviceSlug);
@@ -895,6 +897,34 @@ export function ClientIntakeFlow({
                   />
                 </label>
                 <label className="text-sm font-semibold">
+                  Deceased full name
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.deceasedFullName}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setEntityDetails((current) => ({
+                        ...current,
+                        deceasedFullName: value,
+                      }));
+                    }}
+                  />
+                </label>
+                <label className="text-sm font-semibold">
+                  Deceased ID number
+                  <input
+                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    value={entityDetails.deceasedIdNumber}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value;
+                      setEntityDetails((current) => ({
+                        ...current,
+                        deceasedIdNumber: value,
+                      }));
+                    }}
+                  />
+                </label>
+                <label className="text-sm font-semibold">
                   Executor/letter reference number
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
@@ -1262,6 +1292,16 @@ export function ClientIntakeFlow({
                               {entityDetails.entityDisplayName ||
                                 (ownershipType === "company-or-trust" ? "the company or trust" : "the deceased estate")}
                             </span>
+                            {ownershipType === "deceased-estate" ? (
+                              <>
+                                , in respect of the late{" "}
+                                <span className="font-semibold">
+                                  {entityDetails.deceasedFullName || "deceased full name"}
+                                </span>{" "}
+                                (ID number{" "}
+                                <span className="font-semibold">{entityDetails.deceasedIdNumber || "to be confirmed"}</span>)
+                              </>
+                            ) : null}
                             , hereby state that I require assistance with my selected The License Hub service,{" "}
                             <span className="font-semibold">{selectedService.name}</span>.
                           </>
@@ -1320,6 +1360,18 @@ export function ClientIntakeFlow({
                           <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Relationship to vehicle</dt>
                           <dd className="font-medium">{relation || selectedOwnership.relationPrompt}</dd>
                         </div>
+                        {ownershipType === "deceased-estate" ? (
+                          <>
+                            <div>
+                              <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Deceased full name</dt>
+                              <dd className="font-medium">{entityDetails.deceasedFullName || "To be confirmed"}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Deceased ID number</dt>
+                              <dd className="font-medium">{entityDetails.deceasedIdNumber || "To be confirmed"}</dd>
+                            </div>
+                          </>
+                        ) : null}
                       </dl>
                     </div>
 

@@ -25,6 +25,8 @@ const supplierVisibleStatuses = [
 const missingApplicationEntityFields = {
   entityDisplayName: null,
   entityRegistrationNumber: null,
+  deceasedFullName: null,
+  deceasedIdNumber: null,
   representativeFullName: null,
   representativeCapacity: null,
 } as const;
@@ -152,6 +154,8 @@ export type ApplicationRecord = {
   updatedAt: Date;
   entityDisplayName: string | null;
   entityRegistrationNumber: string | null;
+  deceasedFullName: string | null;
+  deceasedIdNumber: string | null;
   representativeFullName: string | null;
   representativeCapacity: string | null;
   referralSource: string | null;
@@ -198,6 +202,8 @@ const applicationBaseSelect = {
   vin: true,
   entityDisplayName: true,
   entityRegistrationNumber: true,
+  deceasedFullName: true,
+  deceasedIdNumber: true,
   representativeFullName: true,
   representativeCapacity: true,
   referralSource: true,
