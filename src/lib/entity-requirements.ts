@@ -55,7 +55,25 @@ const baseRequirements: EntityDocumentRequirement[] = [
 const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequirement[]> = {
   [ClientEntityType.PRIVATE_OWNER]: baseRequirements,
   [ClientEntityType.DECEASED_ESTATE]: [
-    ...baseRequirements,
+    ...baseRequirements.map((requirement) => {
+      if (requirement.key === "id-photo") {
+        return {
+          ...requirement,
+          label: "Executor or estate representative ID",
+          description: "Identification document for the person authorised to act for the deceased estate.",
+        };
+      }
+
+      if (requirement.key === "proof-of-address") {
+        return {
+          ...requirement,
+          label: "Executor or estate representative proof of address",
+          description: "Proof of address for the estate representative, dated within the last 3 months.",
+        };
+      }
+
+      return requirement;
+    }),
     {
       key: "death-certificate",
       label: "Death certificate",
@@ -194,7 +212,32 @@ export function documentRequirementsForApplication(
   entityType: ClientEntityType,
 ) {
   if (serviceSlug === "change-of-ownership") {
-    return changeOfOwnershipDocumentRequirements;
+    const entitySupportingRequirements = supportingRequirementsForEntityType(entityType);
+    const requirements = [...changeOfOwnershipDocumentRequirements, ...entitySupportingRequirements];
+
+    return requirements.map((requirement) => {
+      if (requirement.key !== "current-owner-id") {
+        return requirement;
+      }
+
+      if (entityType === ClientEntityType.DECEASED_ESTATE) {
+        return {
+          ...requirement,
+          label: "Executor or estate representative ID",
+          description: "Identification document for the person authorised to act for the deceased estate.",
+        };
+      }
+
+      if (entityType === ClientEntityType.COMPANY_OR_TRUST) {
+        return {
+          ...requirement,
+          label: "Company or trust representative ID",
+          description: "Identification document for the authorised company or trust representative.",
+        };
+      }
+
+      return requirement;
+    });
   }
 
   return documentRequirementsForEntityType(entityType);

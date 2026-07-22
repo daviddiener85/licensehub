@@ -344,17 +344,47 @@ export function ClientIntakeFlow({
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
   const requiredDocuments = useMemo(() => {
     if (selectedServiceSlug === "change-of-ownership") {
-      return changeOfOwnershipDocuments;
+      const entitySupportingDocuments = ownershipDocumentsByType[effectiveOwnershipType].filter((document) =>
+        [
+          "death-certificate",
+          "executor-authority",
+          "registration-or-trust-document",
+          "representative-authority",
+          "traffic-register-document",
+          "passport-document",
+        ].includes(document.key),
+      );
+      const serviceDocuments = changeOfOwnershipDocuments.map((document) => {
+        if (document.key !== "current-owner-id") {
+          return document;
+        }
+
+        if (effectiveOwnershipType === "deceased-estate") {
+          return {
+            ...document,
+            label: "Executor or estate representative ID",
+            description: "A clear copy of the ID for the person authorised to act for the estate.",
+          };
+        }
+
+        if (effectiveOwnershipType === "company-or-trust") {
+          return {
+            ...document,
+            label: "Company or trust representative ID",
+            description: "A clear copy of the authorised representative's ID.",
+          };
+        }
+
+        return document;
+      });
+
+      return [...serviceDocuments, ...entitySupportingDocuments];
     }
 
     if (selectedServiceSlug === "licence-renewal") {
-      return effectiveOwnershipType === "deceased-estate"
-        ? [
-            { key: "death-certificate", label: "Death certificate", description: "Proof that the registered owner is deceased." },
-            { key: "executor-authority", label: "Executor authority document", description: "Letter of executorship or authority to act for the estate." },
-            ...licenceFeeRenewalDocuments,
-          ]
-        : licenceFeeRenewalDocuments;
+      return effectiveOwnershipType === "private-owner"
+        ? licenceFeeRenewalDocuments
+        : ownershipDocumentsByType[effectiveOwnershipType];
     }
 
     return ownershipDocumentsByType[effectiveOwnershipType];
@@ -1253,7 +1283,7 @@ export function ClientIntakeFlow({
                                 type="file"
                                 name={inputName}
                                 accept={
-                                  inputName === "proofOfAddress"
+                                  inputName === "proofOfAddress" || inputName === "supportingDocument"
                                     ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
                                     : "image/jpeg,image/png,image/heic,image/heif"
                                 }

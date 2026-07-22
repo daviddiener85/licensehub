@@ -36,6 +36,7 @@ import {
   supportingDocumentForRequirement,
   supportingRequirementForDocument,
   supportingRequirementsForEntityType,
+  supportingRequirementsForService,
 } from "@/lib/entity-requirements";
 import { documentLabel } from "@/lib/documents";
 import { findActiveServiceBySlug } from "@/lib/services";
@@ -1670,15 +1671,8 @@ export async function createPublicApplicationIntake(
     const supportingDocumentKeys = formData
       .getAll("supportingDocumentKey")
       .filter((value): value is string => typeof value === "string" && value.length > 0);
-    const changeOfOwnershipRequirements = [
-      { key: "rc1", label: "Registration document (Original RC1)" },
-      { key: "current-owner-id", label: "Current owner ID" },
-      { key: "current-owner-proof-of-address", label: "Current owner proof of address" },
-      { key: "new-owner-id", label: "New owner ID" },
-      { key: "new-owner-proof-of-address", label: "New owner proof of address" },
-    ];
     const supportingRequirements = isChangeOfOwnership
-      ? changeOfOwnershipRequirements
+      ? supportingRequirementsForService(entityType, selectedServiceSlug)
       : supportingRequirementsForEntityType(entityType);
     const allowedSupportingKeys = new Set(supportingRequirements.map((requirement) => requirement.key));
     if (supportingDocuments.length !== supportingDocumentKeys.length) {
@@ -2989,6 +2983,12 @@ export async function approveToSupplier(formData: FormData) {
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      entityDisplayName: true,
+      entityRegistrationNumber: true,
+      deceasedFullName: true,
+      deceasedIdNumber: true,
+      representativeFullName: true,
+      representativeCapacity: true,
       service: {
         select: {
           slug: true,
@@ -3018,6 +3018,28 @@ export async function approveToSupplier(formData: FormData) {
       },
     },
   });
+  if (
+    application.client.entityType === ClientEntityType.DECEASED_ESTATE &&
+    (!application.entityDisplayName ||
+      !application.entityRegistrationNumber ||
+      !application.deceasedFullName ||
+      !application.deceasedIdNumber ||
+      !application.representativeFullName ||
+      !application.representativeCapacity)
+  ) {
+    throw new Error("Deceased estate, executor, and representative details must be captured before approval.");
+  }
+
+  if (
+    application.client.entityType === ClientEntityType.COMPANY_OR_TRUST &&
+    (!application.entityDisplayName ||
+      !application.entityRegistrationNumber ||
+      !application.representativeFullName ||
+      !application.representativeCapacity)
+  ) {
+    throw new Error("Company and representative details must be captured before approval.");
+  }
+
   const incompleteRequirement = documentRequirementsForApplication(application.service.slug, application.client.entityType)
     .filter((requirement) => requirement.confirmedForUpload)
     .find((requirement) => {

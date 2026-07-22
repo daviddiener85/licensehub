@@ -332,19 +332,28 @@ function supportingDocumentLabel(
 }
 
 function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
-  const entityFieldsRequired =
-    application.client.entityType === "COMPANY_OR_TRUST" || application.client.entityType === "DECEASED_ESTATE";
+  if (application.client.entityType === "COMPANY_OR_TRUST") {
+    if (
+      !application.entityDisplayName ||
+      !application.entityRegistrationNumber ||
+      !application.representativeFullName ||
+      !application.representativeCapacity
+    ) {
+      return "Company and representative details must be captured before approval.";
+    }
+  }
 
-  if (
-    entityFieldsRequired &&
-    !(
-      application.entityDisplayName &&
-      application.entityRegistrationNumber &&
-      application.representativeFullName &&
-      application.representativeCapacity
-    )
-  ) {
-    return "Entity and representative details must be captured before approval.";
+  if (application.client.entityType === "DECEASED_ESTATE") {
+    if (
+      !application.entityDisplayName ||
+      !application.entityRegistrationNumber ||
+      !application.deceasedFullName ||
+      !application.deceasedIdNumber ||
+      !application.representativeFullName ||
+      !application.representativeCapacity
+    ) {
+      return "Deceased estate, executor, and representative details must be captured before approval.";
+    }
   }
 
   const incompleteRequirement = documentRequirementsForApplication(application.service.slug, application.client.entityType)
