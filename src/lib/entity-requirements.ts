@@ -73,8 +73,8 @@ const requirementsByEntityType: Record<ClientEntityType, EntityDocumentRequireme
     ...baseRequirements,
     {
       key: "registration-or-trust-document",
-      label: "Company or trust registration document",
-      description: "Company registration, trust deed, or equivalent entity document.",
+      label: "BRNC number",
+      description: "Company registration number or BRNC number required for company or trust applications.",
       confirmedForUpload: true,
     },
     {

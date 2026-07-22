@@ -1122,7 +1122,7 @@ export default async function AdminPage({
                 <dd className="mt-1 font-medium">{selectedApplication.entityDisplayName || "Not captured"}</dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Entity / BRNC / reference</dt>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">BRNC number</dt>
                 <dd className="mt-1 font-medium">{selectedApplication.entityRegistrationNumber || "Not captured"}</dd>
               </div>
               <div>
