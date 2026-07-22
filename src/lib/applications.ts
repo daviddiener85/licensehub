@@ -456,7 +456,7 @@ export async function getAdminApplicationById(applicationId: string): Promise<Ap
     select: applicationAdminDetailSelect,
   });
 
-  return application ? (addMissingApplicationEntityFields(application) as ApplicationRecord) : null;
+  return application ? (addMissingApplicationEntityFields(application) as unknown as ApplicationRecord) : null;
 }
 
 export async function listSupplierApplications(): Promise<ApplicationSupplierListRecord[]> {
@@ -479,7 +479,7 @@ export async function getSupplierApplicationById(applicationId: string): Promise
     select: applicationSupplierDetailSelect,
   });
 
-  return application ? (addMissingApplicationEntityFields(application) as ApplicationRecord) : null;
+  return application ? (addMissingApplicationEntityFields(application) as unknown as ApplicationRecord) : null;
 }
 
 export async function getClientApplicationByToken(publicToken: string): Promise<ApplicationRecord | null> {

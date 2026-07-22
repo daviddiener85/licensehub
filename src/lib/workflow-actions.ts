@@ -110,6 +110,7 @@ const mandatePdfApplicationSelect = {
     },
   },
   entityDisplayName: true,
+  entityRegistrationNumber: true,
   registrationNumber: true,
   deceasedFullName: true,
   deceasedIdNumber: true,
