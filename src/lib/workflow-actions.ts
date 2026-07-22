@@ -62,6 +62,7 @@ type MandatePdfApplication = {
     name: string;
   };
   entityDisplayName: string | null;
+  entityRegistrationNumber: string | null;
   deceasedFullName: string | null;
   deceasedIdNumber: string | null;
   registrationNumber: string | null;
@@ -823,6 +824,7 @@ async function writeMandatePdf(
     clientIdLabel: clientIdMandatePdfLabel(application.client.southAfricanIdEncrypted),
     entityType: application.client.entityType,
     entityDisplayName: application.entityDisplayName,
+    entityRegistrationNumber: application.entityRegistrationNumber,
     deceasedFullName: application.deceasedFullName,
     deceasedIdNumber: application.deceasedIdNumber,
     date: new Date(),
@@ -1618,6 +1620,11 @@ export async function createPublicApplicationIntake(
     const deceasedIdNumber = getOptionalString(formData, "deceasedIdNumber");
     const representativeFullName = getOptionalString(formData, "representativeFullName");
     const representativeCapacity = getOptionalString(formData, "representativeCapacity");
+    if (entityType === ClientEntityType.COMPANY_OR_TRUST) {
+      if (!entityDisplayName || !entityRegistrationNumber || !representativeFullName || !representativeCapacity) {
+        throw new Error("Company or trust legal name, BRNC number, representative name, and representative role/capacity are required.");
+      }
+    }
     const paymentDeliveryAddressLine1 = deliveryRequired
       ? getRequiredString(formData, "paymentDeliveryAddressLine1", "Payment delivery address line 1")
       : deliveryAddressLine1;
@@ -1832,6 +1839,7 @@ export async function createPublicApplicationIntake(
         name: service.name,
       },
       entityDisplayName,
+      entityRegistrationNumber,
       deceasedFullName,
       deceasedIdNumber,
       registrationNumber,

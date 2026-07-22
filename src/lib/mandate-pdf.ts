@@ -7,6 +7,7 @@ type MandatePdfInput = {
   clientIdLabel: string;
   entityType: ClientEntityType;
   entityDisplayName: string | null;
+  entityRegistrationNumber: string | null;
   deceasedFullName: string | null;
   deceasedIdNumber: string | null;
   date: Date;
@@ -30,7 +31,7 @@ function mandateDeclarationText(input: MandatePdfInput) {
       : rawEntityName;
 
   if (input.entityType === ClientEntityType.COMPANY_OR_TRUST) {
-    return `I, ${input.clientName}, acting on behalf of ${entityName || "the company or trust"}, hereby request The License Hub's assistance with ${input.serviceName}.`;
+    return `I, ${input.clientName}, acting on behalf of ${entityName || "the company or trust"}, BRNC number ${input.entityRegistrationNumber?.trim() || "To be confirmed"}, hereby request The License Hub's assistance with ${input.serviceName}.`;
   }
 
   if (input.entityType === ClientEntityType.DECEASED_ESTATE) {

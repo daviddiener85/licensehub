@@ -950,7 +950,7 @@ export default async function AdminPage({
               data-admin-order-selected={application.id === selectedApplication.id}
               className={[
                 "grid grid-cols-2 gap-x-3 gap-y-4 border border-[#d8d1c3] bg-white px-4 py-4 text-sm md:grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] md:items-center md:gap-2 md:border-x-0 md:border-t-0 md:border-b-[#eee8dc] md:last:border-b-0",
-                application.id === selectedApplication.id ? "bg-[#fff8df]" : "",
+                application.id === selectedApplication.id ? "bg-[#fff8df] ring-1 ring-inset ring-[#07315f]" : "",
               ].join(" ")}
             >
               <AdminApplicationCell applicationId={application.id} className="min-w-0 font-semibold">

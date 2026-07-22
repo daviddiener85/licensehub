@@ -14,7 +14,7 @@ export function AdminApplicationCell({ applicationId, children, className }: Adm
 
   return (
     <button
-      className={["text-left", className].filter(Boolean).join(" ")}
+      className={["block w-full text-left focus-visible:outline-none", className].filter(Boolean).join(" ")}
       onClick={() => {
         const nextParams = new URLSearchParams(searchParams.toString());
         nextParams.set("application", applicationId);

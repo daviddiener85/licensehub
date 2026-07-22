@@ -824,6 +824,7 @@ export function ClientIntakeFlow({
                   Company or trust legal name
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.entityDisplayName}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -835,9 +836,10 @@ export function ClientIntakeFlow({
                   />
                 </label>
                 <label className="text-sm font-semibold">
-                  CIPC / BRNC / register
+                  BRNC number
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.entityRegistrationNumber}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -852,6 +854,7 @@ export function ClientIntakeFlow({
                   Representative full name
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                    required
                     value={entityDetails.representativeFullName}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
@@ -867,6 +870,7 @@ export function ClientIntakeFlow({
                   <input
                     className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                     placeholder="Director, trustee, authorised agent"
+                    required
                     value={entityDetails.representativeCapacity}
                     onChange={(event) => {
                       const value = event.currentTarget.value;
