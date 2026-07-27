@@ -943,9 +943,10 @@ export default async function AdminPage({
         </section>
 
         <section className="mt-6 space-y-3 md:space-y-0 md:overflow-hidden md:border md:border-[#d8d1c3] md:bg-white">
-          <div className="hidden grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f] md:grid">
+          <div className="hidden grid-cols-[0.9fr_1fr_1fr_1fr_1.4fr_0.7fr_1.35fr] border-b border-[#d8d1c3] bg-[#fffdf8] px-4 py-3 text-xs font-semibold uppercase text-[#6b5e4f] md:grid">
             <span>Application</span>
             <span>Client</span>
+            <span>Register</span>
             <span>Service</span>
             <span>Next action</span>
             <span>Age</span>
@@ -958,7 +959,7 @@ export default async function AdminPage({
               data-admin-order-id={application.id}
               data-admin-order-selected={application.id === selectedApplication.id}
               className={[
-                "grid grid-cols-2 gap-x-3 gap-y-4 border border-[#d8d1c3] bg-white px-4 py-4 text-sm md:grid-cols-[0.9fr_1fr_1fr_1.4fr_0.7fr_1.35fr] md:items-center md:gap-2 md:border-x-0 md:border-t-0 md:border-b-[#eee8dc] md:last:border-b-0",
+                "grid grid-cols-2 gap-x-3 gap-y-4 border border-[#d8d1c3] bg-white px-4 py-4 text-sm md:grid-cols-[0.9fr_1fr_1fr_1fr_1.4fr_0.7fr_1.35fr] md:items-center md:gap-2 md:border-x-0 md:border-t-0 md:border-b-[#eee8dc] md:last:border-b-0",
                 application.id === selectedApplication.id ? "bg-[#fff8df] ring-1 ring-inset ring-[#07315f]" : "",
               ].join(" ")}
             >
@@ -974,6 +975,10 @@ export default async function AdminPage({
               <AdminApplicationCell applicationId={application.id}>
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Client</span>
                 {application.client.firstName} {application.client.surname}
+              </AdminApplicationCell>
+              <AdminApplicationCell applicationId={application.id}>
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Register</span>
+                {application.registrationNumber || "Not captured"}
               </AdminApplicationCell>
               <AdminApplicationCell applicationId={application.id}>
                 <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-[#6b5e4f] md:hidden">Service</span>
@@ -1129,6 +1134,10 @@ export default async function AdminPage({
               <div>
                 <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Entity / estate name</dt>
                 <dd className="mt-1 font-medium">{selectedApplication.entityDisplayName || "Not captured"}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Vehicle register</dt>
+                <dd className="mt-1 font-medium">{selectedApplication.registrationNumber || "Not captured"}</dd>
               </div>
               <div>
                 <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">BRNC number</dt>
