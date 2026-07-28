@@ -332,22 +332,32 @@ function getOptionalFile(formData: FormData, fieldName: string, label: string, a
 
 async function normalizeUploadedImage(file: File) {
   const inputBytes = Buffer.from(await file.arrayBuffer());
-  const output = await sharp(inputBytes)
-    .rotate()
-    .resize({
-      width: 1600,
-      height: 2200,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .jpeg({ quality: 92, mozjpeg: true })
-    .toBuffer({ resolveWithObject: true });
 
-  return {
-    bytes: output.data,
-    mimeType: "image/jpeg",
-    fileName: `${safeFileName(file.name || "photo").replace(/\.[^.]+$/, "")}.jpg`,
-  };
+  try {
+    const output = await sharp(inputBytes)
+      .rotate()
+      .resize({
+        width: 1600,
+        height: 2200,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: 92, mozjpeg: true })
+      .toBuffer({ resolveWithObject: true });
+
+    return {
+      bytes: output.data,
+      mimeType: "image/jpeg",
+      fileName: `${safeFileName(file.name || "photo").replace(/\.[^.]+$/, "")}.jpg`,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (message.includes("unsupported image format") || message.includes("vips") || message.includes("sharp")) {
+      throw new Error("The uploaded image could not be processed. Please upload a JPG or PNG image.");
+    }
+
+    throw error;
+  }
 }
 
 function isNextRedirectError(error: unknown) {

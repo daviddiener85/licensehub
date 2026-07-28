@@ -3,7 +3,14 @@ import Image from "next/image";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { PublicFooter } from "@/components/public-footer";
 
-export default function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ service?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const selectedService = Array.isArray(params.service) ? params.service[0] : params.service;
+
   return (
     <main className="min-h-screen bg-[#0f1417] text-[#f7f7f2]">
       <section className="tlh-metal-bg relative min-h-screen overflow-hidden text-white">
@@ -59,7 +66,7 @@ export default function Home() {
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/apply"
+                  href={selectedService ? `/apply?service=${encodeURIComponent(selectedService)}` : "/apply"}
                   className="tlh-button-primary inline-flex items-center gap-2 px-5 py-3 text-sm font-black uppercase tracking-wide"
                 >
                   Start here

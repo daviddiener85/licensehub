@@ -91,6 +91,34 @@ const initialPublicIntakeSubmitState = {
   redirectTo: undefined,
 };
 
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+const IMAGE_UPLOAD_TYPES = new Set(["image/jpeg", "image/png"]);
+const DOCUMENT_UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "image/heic", "image/heif", "application/pdf"]);
+
+function formatUploadTypeList(types: ReadonlySet<string>) {
+  return Array.from(types)
+    .map((type) => {
+      if (type === "application/pdf") {
+        return "PDF";
+      }
+
+      return type.split("/")[1]?.toUpperCase() ?? type;
+    })
+    .join(", ");
+}
+
+function validateSelectedUpload(file: File, acceptedTypes: ReadonlySet<string>, label: string) {
+  if (!acceptedTypes.has(file.type)) {
+    return `${label} must be one of the accepted file types: ${formatUploadTypeList(acceptedTypes)}.`;
+  }
+
+  if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+    return `${label} must be smaller than 10 MB.`;
+  }
+
+  return null;
+}
+
 const ownershipOptions: {
   value: OwnershipType;
   label: string;
@@ -292,6 +320,7 @@ export function ClientIntakeFlow({
   const [sendCompletedDocumentsToReferrer, setSendCompletedDocumentsToReferrer] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, string>>({});
   const [uploadedFiles, setUploadedFiles] = useState<Partial<Record<UploadFieldName, File | null>>>({});
+  const [uploadError, setUploadError] = useState("");
   const [clientDetails, setClientDetails] = useState({
     fullName: "",
     cellphone: "",
@@ -1056,6 +1085,28 @@ export function ClientIntakeFlow({
                         const selectedFile = event.currentTarget.files?.[0] ?? null;
                         const fileName = selectedFile?.name ?? "";
 
+                        if (selectedFile) {
+                          const validationError = validateSelectedUpload(selectedFile, IMAGE_UPLOAD_TYPES, "Licence disk photo");
+                          if (validationError) {
+                            setUploadError(validationError);
+                            event.currentTarget.value = "";
+                            setLicenceDiskFileName("");
+                            setLicenceDiskScanResultInvalidated(true);
+                            setVehicleDetailsConfirmed(false);
+                            setUploadedFiles((current) => ({
+                              ...current,
+                              licenceDiskPhoto: null,
+                            }));
+                            setSelectedFiles((current) => {
+                              const next = { ...current };
+                              delete next["Licence disk photo"];
+                              return next;
+                            });
+                            return;
+                          }
+                        }
+
+                        setUploadError("");
                         setLicenceDiskFileName(fileName);
                         setLicenceDiskScanResultInvalidated(true);
                         setVehicleDetailsConfirmed(false);
@@ -1098,9 +1149,14 @@ export function ClientIntakeFlow({
                         ? "tlh-button-dark"
                         : "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]",
                     ].join(" ")}
-                  >
-                    Retry AI Scan
-                  </button>
+                    >
+                      Retry AI Scan
+                    </button>
+                ) : null}
+                {uploadError ? (
+                  <p className="mt-3 border border-[#b35448] bg-[#fff5f3] px-3 py-2 text-xs font-semibold text-[#7d3128]">
+                    {uploadError}
+                  </p>
                 ) : null}
               </form>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1292,7 +1348,30 @@ export function ClientIntakeFlow({
                                 onChange={(event) => {
                                   const selectedFile = event.currentTarget.files?.[0] ?? null;
                                   const fileName = selectedFile?.name;
+                                  const acceptedTypes =
+                                    inputName === "proofOfAddress" || inputName === "supportingDocument"
+                                      ? DOCUMENT_UPLOAD_TYPES
+                                      : IMAGE_UPLOAD_TYPES;
 
+                                  if (selectedFile) {
+                                    const validationError = validateSelectedUpload(selectedFile, acceptedTypes, document.label);
+                                    if (validationError) {
+                                      setUploadError(validationError);
+                                      event.currentTarget.value = "";
+                                      setUploadedFiles((current) => ({
+                                        ...current,
+                                        [inputName as UploadFieldName]: null,
+                                      }));
+                                      setSelectedFiles((current) => {
+                                        const next = { ...current };
+                                        delete next[document.label];
+                                        return next;
+                                      });
+                                      return;
+                                    }
+                                  }
+
+                                  setUploadError("");
                                   if (inputName === "licenceDiskPhoto") {
                                     setLicenceDiskFileName(fileName ?? "");
                                   }

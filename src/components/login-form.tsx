@@ -23,8 +23,6 @@ export function LoginForm({ nextPath, action }: LoginFormProps) {
     initialState,
   );
 
-  const submitPath = role === "SUPPLIER" ? "/supplier" : "/admin";
-
   useEffect(() => {
     if (state.redirectTo) {
       router.push(state.redirectTo);
@@ -33,7 +31,7 @@ export function LoginForm({ nextPath, action }: LoginFormProps) {
 
   return (
     <form action={formAction} className="mt-6 space-y-4">
-      <input type="hidden" name="nextPath" value={submitPath || nextPath} />
+      <input type="hidden" name="nextPath" value={nextPath} />
       <label className="block text-sm font-semibold">
         Role
         <select
