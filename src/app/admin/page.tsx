@@ -332,6 +332,12 @@ function supportingDocumentLabel(
 }
 
 function approvalBlockReason(application: Awaited<ReturnType<typeof listAdminApplications>>[number]) {
+  const approvableStatuses = new Set(["PENDING_REVIEW", "DOCUMENTS_RESUBMIT_REQUIRED", "APPROVED"]);
+
+  if (!approvableStatuses.has(application.currentStatus)) {
+    return "This application is already beyond supplier approval and cannot be approved again.";
+  }
+
   if (application.client.entityType === "COMPANY_OR_TRUST") {
     if (
       !application.entityDisplayName ||
@@ -532,7 +538,7 @@ function adminActions(application: Awaited<ReturnType<typeof listAdminApplicatio
     });
   }
 
-  if (application.currentStatus === "PENDING_REVIEW" || application.currentStatus === "DOCUMENTS_RESUBMIT_REQUIRED") {
+  if (application.currentStatus === "PENDING_REVIEW" || application.currentStatus === "DOCUMENTS_RESUBMIT_REQUIRED" || application.currentStatus === "APPROVED") {
     if (!approvalBlockReason(application)) {
       actions.push({
         label: "Approve",

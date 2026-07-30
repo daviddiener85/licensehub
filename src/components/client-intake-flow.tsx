@@ -119,6 +119,51 @@ function validateSelectedUpload(file: File, acceptedTypes: ReadonlySet<string>, 
   return null;
 }
 
+function normalizeDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function isValidSouthAfricanIdNumber(value: string) {
+  const digits = normalizeDigits(value);
+
+  if (!/^\d{13}$/.test(digits)) {
+    return false;
+  }
+
+  const base = digits.slice(0, 12);
+  const checkDigit = Number(digits.slice(12));
+  let sum = 0;
+  let shouldDouble = false;
+
+  for (let index = base.length - 1; index >= 0; index -= 1) {
+    let digit = Number(base[index]);
+
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+
+  return (10 - (sum % 10)) % 10 === checkDigit;
+}
+
+function isValidSouthAfricanPhoneNumber(value: string) {
+  return /^0\d{9}$/.test(normalizeDigits(value));
+}
+
+function isValidEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isValidRegisterNumber(value: string) {
+  return /^[A-Za-z0-9]+$/.test(value.trim());
+}
+
 const ownershipOptions: {
   value: OwnershipType;
   label: string;
@@ -311,7 +356,8 @@ export function ClientIntakeFlow({
       ? "duplicate-certificate"
       : availableServices[0].slug,
   );
-  const [ownershipType, setOwnershipType] = useState<OwnershipType>("private-owner");
+  const [ownershipType, setOwnershipType] = useState<OwnershipType | "">("");
+  const [ownershipTypeError, setOwnershipTypeError] = useState("");
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>("");
   const [relation, setRelation] = useState("");
   const [referralSource, setReferralSource] = useState("");
@@ -369,7 +415,7 @@ export function ClientIntakeFlow({
     availableServices.find((service) => service.slug === selectedServiceSlug) ?? availableServices[0];
   const isQuoteFlowService = selectedService.requiresQuote;
   const effectiveOwnershipType: OwnershipType =
-    ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType;
+    ownershipType === "private-owner" && citizenshipStatus === "foreigner" ? "non-sa-citizen" : ownershipType || "private-owner";
   const selectedOwnership = ownershipOptions.find((option) => option.value === ownershipType) ?? ownershipOptions[0];
   const requiredDocuments = useMemo(() => {
     if (selectedServiceSlug === "change-of-ownership") {
@@ -455,8 +501,31 @@ export function ClientIntakeFlow({
     clientDetails.deliveryCity,
     clientDetails.deliveryPostalCode,
   ].every((value) => value.trim().length > 0) && citizenshipStatus.length > 0 && identityDetailsComplete && popiaConsent;
+  const clientValidationErrors = {
+    identityNumber:
+      citizenshipStatus === "sa-citizen" &&
+      clientDetails.identityNumber.trim().length > 0 &&
+      !isValidSouthAfricanIdNumber(clientDetails.identityNumber)
+        ? "Enter a valid 13-digit South African ID number with a correct Luhn check digit."
+        : "",
+    cellphone:
+      clientDetails.cellphone.trim().length > 0 && !isValidSouthAfricanPhoneNumber(clientDetails.cellphone)
+        ? "Enter a valid 10-digit South African cellphone number."
+        : "",
+    email:
+      clientDetails.email.trim().length > 0 && !isValidEmailAddress(clientDetails.email)
+        ? "Enter a valid email address."
+        : "",
+    register:
+      effectiveVehicleDetails.registrationNumber.trim().length > 0 &&
+      !isValidRegisterNumber(effectiveVehicleDetails.registrationNumber)
+        ? "Register may contain letters and numbers only."
+        : "",
+  };
   const vehicleDetailsComplete =
-    effectiveVehicleDetails.registrationNumber.trim().length > 0 && licenceDiskFileName.trim().length > 0;
+    effectiveVehicleDetails.registrationNumber.trim().length > 0 &&
+    licenceDiskFileName.trim().length > 0 &&
+    !clientValidationErrors.register;
   const selectedServiceAmount = Number(selectedService.basePrice);
   const selectedServiceDeliveryFee = Number(selectedService.deliveryFee);
   const selectedServiceDisplayAmount =
@@ -538,10 +607,24 @@ export function ClientIntakeFlow({
   }, [stepIndex]);
 
   function nextStep() {
+    if (stepIndex === 2 && !ownershipType) {
+      setOwnershipTypeError("Select who owns the vehicle before continuing.");
+      return;
+    }
+
+    if (stepIndex === 3 && !clientDetailsComplete) {
+      return;
+    }
+
+    if (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady)) {
+      return;
+    }
+
     setStepIndex((current) => Math.min(current + 1, steps.length - 1));
   }
 
   function previousStep() {
+    setSubmissionGateError("");
     setStepIndex((current) => Math.max(current - 1, 0));
   }
 
@@ -608,6 +691,9 @@ export function ClientIntakeFlow({
 
     signatureInputRef.current.value = canvas.toDataURL("image/png");
   }
+
+  const step3ProceedBlocked = stepIndex === 3 && !clientDetailsComplete;
+  const step6ProceedBlocked = stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady);
 
   async function submitPublicIntake(formData: FormData) {
     formData.set("identityNumber", clientDetails.identityNumber.trim());
@@ -778,6 +864,15 @@ export function ClientIntakeFlow({
                     <input
                       type={type}
                       ref={field === "fullName" ? fullNameInputRef : undefined}
+                      pattern={
+                        field === "cellphone"
+                          ? "0\\d{9}"
+                          : field === "email"
+                            ? "[^\\s@]+@[^\\s@]+\\.[^\\s@]+"
+                            : field === "identityNumber"
+                              ? "\\d{13}"
+                              : undefined
+                      }
                       className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
                       value={clientDetails[field as keyof typeof clientDetails]}
                       onChange={(event) => {
@@ -789,6 +884,15 @@ export function ClientIntakeFlow({
                         }));
                       }}
                     />
+                    {field === "identityNumber" && clientValidationErrors.identityNumber ? (
+                      <span className="mt-1 block font-normal text-[#7d3128]">{clientValidationErrors.identityNumber}</span>
+                    ) : null}
+                    {field === "cellphone" && clientValidationErrors.cellphone ? (
+                      <span className="mt-1 block font-normal text-[#7d3128]">{clientValidationErrors.cellphone}</span>
+                    ) : null}
+                    {field === "email" && clientValidationErrors.email ? (
+                      <span className="mt-1 block font-normal text-[#7d3128]">{clientValidationErrors.email}</span>
+                    ) : null}
                   </label>
                 ))}
               </div>
@@ -853,6 +957,7 @@ export function ClientIntakeFlow({
                     type="button"
                     onClick={() => {
                       setOwnershipType(option.value);
+                      setOwnershipTypeError("");
                       setRelation(option.relationPrompt);
                     }}
                     className={[
@@ -883,8 +988,15 @@ export function ClientIntakeFlow({
               />
             </label>
 
+            {ownershipTypeError ? (
+              <p className="mt-4 border border-[#b35448] bg-[#fff5f3] p-3 text-sm font-semibold text-[#7d3128]">
+                {ownershipTypeError}
+              </p>
+            ) : null}
+
             {ownershipType === "company-or-trust" ? (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <label className="text-sm font-semibold">
                   Company or trust legal name
                   <input
@@ -947,6 +1059,12 @@ export function ClientIntakeFlow({
                   />
                 </label>
               </div>
+                {step3ProceedBlocked ? (
+                  <p className="mt-4 border border-[#b35448] bg-[#fff5f3] p-3 text-sm font-semibold text-[#7d3128]">
+                    Complete the required details on this step before continuing.
+                  </p>
+                ) : null}
+              </>
             ) : null}
 
             {ownershipType === "deceased-estate" ? (
@@ -1170,6 +1288,7 @@ export function ClientIntakeFlow({
                     {label}
                     <input
                       className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
+                      pattern="[A-Za-z0-9]+"
                       value={effectiveVehicleDetails[field as keyof typeof effectiveVehicleDetails]}
                       onChange={(event) => {
                         const value = event.currentTarget.value;
@@ -1181,6 +1300,9 @@ export function ClientIntakeFlow({
                         }));
                       }}
                     />
+                    {field === "registrationNumber" && clientValidationErrors.register ? (
+                      <span className="mt-1 block font-normal text-[#7d3128]">{clientValidationErrors.register}</span>
+                    ) : null}
                   </label>
                 ))}
               </div>
@@ -1690,16 +1812,21 @@ export function ClientIntakeFlow({
                       ? "The application will be submitted for admin quote preparation when you submit."
                       : "The application will be submitted and payment instructions will open when you submit."}
                   </p>
-                  {!requiredUploadsReady ? (
-                    <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
-                      Complete all required uploads in the Mandate Form step before submission.
-                    </p>
-                  ) : null}
-                  {!clientDetailsComplete ? (
-                    <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
-                      Complete required identity details in the Who You Are step before final submission.
-                    </p>
-                  ) : null}
+                {!requiredUploadsReady ? (
+                  <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
+                    Complete all required uploads in the Mandate Form step before submission.
+                  </p>
+                ) : null}
+                {step6ProceedBlocked ? (
+                  <p className="mt-3 border border-[#b35448] bg-[#fff5f3] p-3 text-xs font-semibold text-[#7d3128]">
+                    Complete all required uploads and add your signature before continuing.
+                  </p>
+                ) : null}
+                {!clientDetailsComplete ? (
+                  <p className="mt-3 border border-[#d8b267] bg-[#fff8df] p-3 text-xs font-semibold text-[#6b5e4f]">
+                    Complete required identity details in the Who You Are step before final submission.
+                  </p>
+                ) : null}
                   {publicIntakeSubmitState.status === "error" ? (
                     <p className="mt-3 border border-[#b35448] bg-[#fff5f3] p-3 text-xs font-semibold text-[#7d3128]">
                       {publicIntakeSubmitState.message}
@@ -1732,14 +1859,19 @@ export function ClientIntakeFlow({
             onClick={nextStep}
             disabled={
               stepIndex === steps.length - 1 ||
+              (stepIndex === 2 && !ownershipType) ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
               (stepIndex === 5 && (!referralSource || (referralSource === "Other" && !referralOther.trim()))) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
             }
+            aria-describedby={
+              step3ProceedBlocked || step6ProceedBlocked ? "step-proceed-error" : undefined
+            }
             className={[
               "inline-flex items-center gap-2 border px-4 py-2 text-sm font-black uppercase tracking-wide",
               stepIndex === steps.length - 1 ||
+              (stepIndex === 2 && !ownershipType) ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
               (stepIndex === 5 && (!referralSource || (referralSource === "Other" && !referralOther.trim()))) ||
@@ -1752,6 +1884,16 @@ export function ClientIntakeFlow({
             <ArrowRight size={16} aria-hidden="true" />
           </button>
         </div>
+        {stepIndex === 3 && step3ProceedBlocked ? (
+          <p id="step-proceed-error" className="mt-3 text-sm font-semibold text-[#7d3128]">
+            Complete the required details on this step before continuing.
+          </p>
+        ) : null}
+        {stepIndex === 6 && step6ProceedBlocked ? (
+          <p id="step-proceed-error" className="mt-3 text-sm font-semibold text-[#7d3128]">
+            Complete all required uploads and add your signature before continuing.
+          </p>
+        ) : null}
       </div>
     </section>
   );

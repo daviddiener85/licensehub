@@ -132,6 +132,74 @@ const mandatePdfApplicationSelect = {
 let applicationColumnNamesPromise: Promise<Set<string>> | null = null;
 let applicationStatusValuesPromise: Promise<void> | null = null;
 
+function normalizeDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function isValidSouthAfricanIdNumber(value: string) {
+  const digits = normalizeDigits(value);
+
+  if (!/^\d{13}$/.test(digits)) {
+    return false;
+  }
+
+  const luhnBase = digits.slice(0, 12);
+  const checkDigit = Number(digits.slice(12));
+  let sum = 0;
+  let shouldDouble = false;
+
+  for (let index = luhnBase.length - 1; index >= 0; index -= 1) {
+    let digit = Number(luhnBase[index]);
+
+    if (shouldDouble) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    sum += digit;
+    shouldDouble = !shouldDouble;
+  }
+
+  return (10 - (sum % 10)) % 10 === checkDigit;
+}
+
+function isValidSouthAfricanPhoneNumber(value: string) {
+  return /^0\d{9}$/.test(normalizeDigits(value));
+}
+
+function isValidEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isValidRegisterNumber(value: string) {
+  return /^[A-Za-z0-9]+$/.test(value.trim());
+}
+
+function assertPublicIntakeIdentityFields(input: {
+  identityNumber: string;
+  cellphone: string;
+  email: string;
+  registrationNumber: string;
+}) {
+  if (!isValidSouthAfricanIdNumber(input.identityNumber)) {
+    throw new Error("ID number must be a valid 13-digit South African ID number with a correct Luhn check digit.");
+  }
+
+  if (!isValidSouthAfricanPhoneNumber(input.cellphone)) {
+    throw new Error("Cellphone number must be a valid 10-digit South African number.");
+  }
+
+  if (!isValidEmailAddress(input.email)) {
+    throw new Error("Email address must be a valid email format.");
+  }
+
+  if (!isValidRegisterNumber(input.registrationNumber)) {
+    throw new Error("Register must contain only letters and numbers.");
+  }
+}
+
 async function applicationColumnNames() {
   applicationColumnNamesPromise ??= prisma.$queryRaw<Array<{ column_name: string }>>`
     SELECT column_name
@@ -1652,6 +1720,12 @@ export async function createPublicApplicationIntake(
       ? getRequiredString(formData, "paymentDeliveryPostalCode", "Payment delivery postal code")
       : deliveryPostalCode;
     const registrationNumber = getRequiredString(formData, "registrationNumber", "Register");
+    assertPublicIntakeIdentityFields({
+      identityNumber,
+      cellphone,
+      email,
+      registrationNumber,
+    });
     const vin = getOptionalString(formData, "vin");
     const vehicleMake = getOptionalString(formData, "vehicleMake");
     const vehicleModel = getOptionalString(formData, "vehicleModel");
@@ -3028,6 +3102,16 @@ export async function approveToSupplier(formData: FormData) {
       },
     },
   });
+  const approvableStatuses = new Set<ApplicationStatus>([
+    ApplicationStatus.PENDING_REVIEW,
+    ApplicationStatus.DOCUMENTS_RESUBMIT_REQUIRED,
+    ApplicationStatus.APPROVED,
+  ]);
+
+  if (!approvableStatuses.has(application.currentStatus)) {
+    throw new Error("This application can no longer be approved for supplier handoff.");
+  }
+
   if (
     application.client.entityType === ClientEntityType.DECEASED_ESTATE &&
     (!application.entityDisplayName ||
