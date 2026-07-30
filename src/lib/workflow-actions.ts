@@ -3067,6 +3067,7 @@ export async function approveToSupplier(formData: FormData) {
   const application = await prisma.application.findUniqueOrThrow({
     where: { id: applicationId },
     select: {
+      currentStatus: true,
       entityDisplayName: true,
       entityRegistrationNumber: true,
       deceasedFullName: true,

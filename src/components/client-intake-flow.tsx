@@ -624,7 +624,6 @@ export function ClientIntakeFlow({
   }
 
   function previousStep() {
-    setSubmissionGateError("");
     setStepIndex((current) => Math.max(current - 1, 0));
   }
 
