@@ -1279,36 +1279,6 @@ export default async function AdminPage({
                 ))}
               </div>
             </div>
-            {selectedApplication.documents.filter(
-              (document: ApplicationDocumentRecord) =>
-                document.status === "ACCEPTED" && isSupplierReturnEvidenceDocument(document),
-            ).length > 0 ? (
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {selectedApplication.documents
-                  .filter(
-                    (document: ApplicationDocumentRecord) =>
-                      document.status === "ACCEPTED" && isSupplierReturnEvidenceDocument(document),
-                  )
-                  .map((document: ApplicationDocumentRecord) => {
-                    const href = document.storageKey ? documentHref(document.storageKey) : null;
-                    const supplierEvidenceDescription = supplierReturnEvidenceDescriptions[document.requirementKey ?? ""];
-
-                    return (
-                      <div key={document.id} className="border border-[#d8d1c3] px-3 py-3 text-left text-sm">
-                        <span className="text-[#1f2724]">{supportingDocumentLabel(document, selectedApplication)}</span>
-                        {supplierEvidenceDescription ? (
-                          <span className="mt-1 block text-xs leading-5 text-[#6b5e4f]">
-                            {supplierEvidenceDescription}
-                          </span>
-                        ) : null}
-                        {href ? (
-                          <AdminDocumentQuickView href={href} fileName={document.fileName} downloadHref={href} />
-                        ) : null}
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : null}
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               {selectedApplication.documents
                 .filter(
