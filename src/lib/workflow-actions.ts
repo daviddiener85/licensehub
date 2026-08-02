@@ -416,13 +416,18 @@ async function normalizeUploadedImage(file: File) {
       mimeType: "image/jpeg",
       fileName: `${safeFileName(file.name || "photo").replace(/\.[^.]+$/, "")}.jpg`,
     };
-  } catch (error) {
-    const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (message.includes("unsupported image format") || message.includes("vips") || message.includes("sharp")) {
-      throw new Error("The uploaded image could not be processed. Please upload a JPG or PNG image.");
-    }
-
-    throw error;
+  } catch {
+    // sharp/libvips couldn't decode this file -- most commonly a real HEIC/HEVC
+    // photo, since npm's prebuilt sharp binary excludes the HEVC decoder for
+    // licensing reasons. Fall back to the original bytes rather than blocking
+    // the whole submission; downstream consumers (mandate PDF, print pack)
+    // already degrade to a "preview unavailable" placeholder for mime types
+    // they can't embed.
+    return {
+      bytes: inputBytes,
+      mimeType: file.type || "application/octet-stream",
+      fileName: safeFileName(file.name || "photo"),
+    };
   }
 }
 
