@@ -17,7 +17,7 @@ const initialState: LoginFormState = { error: "" };
 
 export function LoginForm({ nextPath, action }: LoginFormProps) {
   const router = useRouter();
-  const [role, setRole] = useState<"ADMIN" | "SUPPLIER">(nextPath === "/supplier" ? "SUPPLIER" : "ADMIN");
+  const [role, setRole] = useState<"ADMIN" | "SUPPLIER">(nextPath.startsWith("/supplier") ? "SUPPLIER" : "ADMIN");
   const [state, formAction, pending] = useActionState(
     async (_previousState: LoginFormState, formData: FormData): Promise<LoginFormState> => action(formData),
     initialState,
@@ -29,9 +29,18 @@ export function LoginForm({ nextPath, action }: LoginFormProps) {
     }
   }, [router, state.redirectTo]);
 
+  const effectiveNextPath =
+    role === "SUPPLIER"
+      ? nextPath.startsWith("/supplier")
+        ? nextPath
+        : "/supplier"
+      : nextPath.startsWith("/admin")
+        ? nextPath
+        : "/admin";
+
   return (
     <form action={formAction} className="mt-6 space-y-4">
-      <input type="hidden" name="nextPath" value={nextPath} />
+      <input type="hidden" name="nextPath" value={effectiveNextPath} />
       <label className="block text-sm font-semibold">
         Role
         <select
