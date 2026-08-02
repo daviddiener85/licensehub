@@ -92,7 +92,7 @@ const initialPublicIntakeSubmitState = {
 };
 
 const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
-const IMAGE_UPLOAD_TYPES = new Set(["image/jpeg", "image/png"]);
+const IMAGE_UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "image/heic", "image/heif"]);
 const DOCUMENT_UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "image/heic", "image/heif", "application/pdf"]);
 
 function formatUploadTypeList(types: ReadonlySet<string>) {
