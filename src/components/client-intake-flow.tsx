@@ -130,15 +130,12 @@ function isValidSouthAfricanIdNumber(value: string) {
     return false;
   }
 
-  const base = digits.slice(0, 12);
-  const checkDigit = Number(digits.slice(12));
   let sum = 0;
-  let shouldDouble = false;
 
-  for (let index = base.length - 1; index >= 0; index -= 1) {
-    let digit = Number(base[index]);
+  for (let index = 0; index < 12; index += 1) {
+    let digit = Number(digits[index]);
 
-    if (shouldDouble) {
+    if (index % 2 === 1) {
       digit *= 2;
       if (digit > 9) {
         digit -= 9;
@@ -146,9 +143,9 @@ function isValidSouthAfricanIdNumber(value: string) {
     }
 
     sum += digit;
-    shouldDouble = !shouldDouble;
   }
 
+  const checkDigit = Number(digits[12]);
   return (10 - (sum % 10)) % 10 === checkDigit;
 }
 
@@ -359,6 +356,7 @@ export function ClientIntakeFlow({
   const [ownershipType, setOwnershipType] = useState<OwnershipType | "">("");
   const [ownershipTypeError, setOwnershipTypeError] = useState("");
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>("");
+  const [identityNumberTouched, setIdentityNumberTouched] = useState(false);
   const [relation, setRelation] = useState("");
   const [referralSource, setReferralSource] = useState("");
   const [referralOther, setReferralOther] = useState("");
@@ -409,6 +407,8 @@ export function ClientIntakeFlow({
   const [vehicleDetailsConfirmed, setVehicleDetailsConfirmed] = useState(false);
   const [isDrawingSignature, setIsDrawingSignature] = useState(false);
   const [hasMandateSignature, setHasMandateSignature] = useState(false);
+  const [step3ProceedAttempted, setStep3ProceedAttempted] = useState(false);
+  const [step6ProceedAttempted, setStep6ProceedAttempted] = useState(false);
   const [deliveryRequired, setDeliveryRequired] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentChoice>("EFT");
   const selectedService =
@@ -613,10 +613,12 @@ export function ClientIntakeFlow({
     }
 
     if (stepIndex === 3 && !clientDetailsComplete) {
+      setStep3ProceedAttempted(true);
       return;
     }
 
     if (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady)) {
+      setStep6ProceedAttempted(true);
       return;
     }
 
@@ -882,8 +884,13 @@ export function ClientIntakeFlow({
                           [field]: value,
                         }));
                       }}
+                      onBlur={() => {
+                        if (field === "identityNumber") {
+                          setIdentityNumberTouched(true);
+                        }
+                      }}
                     />
-                    {field === "identityNumber" && clientValidationErrors.identityNumber ? (
+                    {field === "identityNumber" && identityNumberTouched && clientValidationErrors.identityNumber ? (
                       <span className="mt-1 block font-normal text-[#7d3128]">{clientValidationErrors.identityNumber}</span>
                     ) : null}
                     {field === "cellphone" && clientValidationErrors.cellphone ? (
@@ -1883,12 +1890,12 @@ export function ClientIntakeFlow({
             <ArrowRight size={16} aria-hidden="true" />
           </button>
         </div>
-        {stepIndex === 3 && step3ProceedBlocked ? (
+        {stepIndex === 3 && step3ProceedAttempted && step3ProceedBlocked ? (
           <p id="step-proceed-error" className="mt-3 text-sm font-semibold text-[#7d3128]">
             Complete the required details on this step before continuing.
           </p>
         ) : null}
-        {stepIndex === 6 && step6ProceedBlocked ? (
+        {stepIndex === 6 && step6ProceedAttempted && step6ProceedBlocked ? (
           <p id="step-proceed-error" className="mt-3 text-sm font-semibold text-[#7d3128]">
             Complete all required uploads and add your signature before continuing.
           </p>

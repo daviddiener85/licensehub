@@ -143,15 +143,12 @@ function isValidSouthAfricanIdNumber(value: string) {
     return false;
   }
 
-  const luhnBase = digits.slice(0, 12);
-  const checkDigit = Number(digits.slice(12));
   let sum = 0;
-  let shouldDouble = false;
 
-  for (let index = luhnBase.length - 1; index >= 0; index -= 1) {
-    let digit = Number(luhnBase[index]);
+  for (let index = 0; index < 12; index += 1) {
+    let digit = Number(digits[index]);
 
-    if (shouldDouble) {
+    if (index % 2 === 1) {
       digit *= 2;
       if (digit > 9) {
         digit -= 9;
@@ -159,9 +156,9 @@ function isValidSouthAfricanIdNumber(value: string) {
     }
 
     sum += digit;
-    shouldDouble = !shouldDouble;
   }
 
+  const checkDigit = Number(digits[12]);
   return (10 - (sum % 10)) % 10 === checkDigit;
 }
 
@@ -829,22 +826,24 @@ async function saveMandateIdPhoto(applicationId: string, idPhoto: File) {
   const uploadDirectory = path.join(process.cwd(), "public", "uploads", "mandate-forms", applicationId);
   await mkdir(uploadDirectory, { recursive: true });
 
-  const fileName = `${randomUUID()}-${safeFileName(idPhoto.name || "id-photo")}`;
-  const idPhotoBytes = Buffer.from(await idPhoto.arrayBuffer());
+  // Normalizing here (not just writing the raw upload) bakes in EXIF orientation
+  // correction, since pdf-lib embeds raw pixel data and ignores orientation tags.
+  const normalized = await normalizeUploadedImage(idPhoto);
+  const fileName = `${randomUUID()}-${normalized.fileName}`;
   const storageKey = `/uploads/mandate-forms/${applicationId}/${fileName}`;
 
-  await writeFile(path.join(uploadDirectory, fileName), idPhotoBytes);
+  await writeFile(path.join(uploadDirectory, fileName), normalized.bytes);
 
   return {
     fileName,
-    idPhotoBytes,
+    idPhotoBytes: normalized.bytes,
+    idPhotoMimeType: normalized.mimeType,
     storageKey,
   };
 }
 
 async function saveMandateIdPhotoDocument(
   applicationId: string,
-  idPhoto: File,
   savedIdPhoto: Awaited<ReturnType<typeof saveMandateIdPhoto>>,
 ) {
   await prisma.document.upsert({
@@ -857,9 +856,9 @@ async function saveMandateIdPhotoDocument(
     },
     update: {
       status: DocumentStatus.PENDING,
-      fileName: idPhoto.name || savedIdPhoto.fileName,
-      mimeType: idPhoto.type || "application/octet-stream",
-      fileSizeBytes: idPhoto.size,
+      fileName: savedIdPhoto.fileName,
+      mimeType: savedIdPhoto.idPhotoMimeType,
+      fileSizeBytes: savedIdPhoto.idPhotoBytes.length,
       storageKey: savedIdPhoto.storageKey,
       rejectionReason: null,
       reviewedById: null,
@@ -870,9 +869,9 @@ async function saveMandateIdPhotoDocument(
       type: DocumentType.ID_PHOTO,
       status: DocumentStatus.PENDING,
       version: 1,
-      fileName: idPhoto.name || savedIdPhoto.fileName,
-      mimeType: idPhoto.type || "application/octet-stream",
-      fileSizeBytes: idPhoto.size,
+      fileName: savedIdPhoto.fileName,
+      mimeType: savedIdPhoto.idPhotoMimeType,
+      fileSizeBytes: savedIdPhoto.idPhotoBytes.length,
       storageKey: savedIdPhoto.storageKey,
     },
   });
@@ -1993,7 +1992,13 @@ export async function createPublicApplicationIntake(
       },
     });
     const savedIdPhoto = await saveMandateIdPhoto(applicationId, identityDocumentForStorage);
-    await saveMandateIdPhotoDocument(applicationId, identityDocumentForStorage, savedIdPhoto);
+    await saveMandateIdPhotoDocument(applicationId, savedIdPhoto);
+    const normalizedMandatePhoto =
+      identityPhotoForMandate === identityDocumentForStorage
+        ? { bytes: savedIdPhoto.idPhotoBytes, mimeType: savedIdPhoto.idPhotoMimeType }
+        : identityPhotoForMandate
+          ? await normalizeUploadedImage(identityPhotoForMandate)
+          : null;
 
     await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
     if (proofOfAddress) {
@@ -2021,16 +2026,16 @@ export async function createPublicApplicationIntake(
         entityDisplayName,
       },
       signatureDataUrl,
-      identityPhotoForMandate ? Buffer.from(await identityPhotoForMandate.arrayBuffer()) : undefined,
-      identityPhotoForMandate?.type,
+      normalizedMandatePhoto?.bytes,
+      normalizedMandatePhoto?.mimeType,
     );
     await prisma.mandateFormSubmission.create({
     data: {
       applicationId,
       signatureDataUrl,
-      idPhotoFileName: identityDocumentForStorage.name || savedIdPhoto.fileName,
-      idPhotoMimeType: identityDocumentForStorage.type || "application/octet-stream",
-      idPhotoSizeBytes: identityDocumentForStorage.size,
+      idPhotoFileName: savedIdPhoto.fileName,
+      idPhotoMimeType: savedIdPhoto.idPhotoMimeType,
+      idPhotoSizeBytes: savedIdPhoto.idPhotoBytes.length,
       idPhotoStorageKey: savedIdPhoto.storageKey,
     },
     });
@@ -3473,7 +3478,7 @@ export async function submitMandateFormCapture(formData: FormData) {
   });
 
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
-  await saveMandateIdPhotoDocument(applicationId, idPhoto, savedIdPhoto);
+  await saveMandateIdPhotoDocument(applicationId, savedIdPhoto);
   await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
   await saveUploadedDocument(
     applicationId,
@@ -3487,25 +3492,25 @@ export async function submitMandateFormCapture(formData: FormData) {
     application,
     signatureDataUrl,
     savedIdPhoto.idPhotoBytes,
-    idPhoto.type,
+    savedIdPhoto.idPhotoMimeType,
   );
 
   await prisma.mandateFormSubmission.upsert({
     where: { applicationId },
     update: {
       signatureDataUrl,
-      idPhotoFileName: idPhoto.name || savedIdPhoto.fileName,
-      idPhotoMimeType: idPhoto.type,
-      idPhotoSizeBytes: idPhoto.size,
+      idPhotoFileName: savedIdPhoto.fileName,
+      idPhotoMimeType: savedIdPhoto.idPhotoMimeType,
+      idPhotoSizeBytes: savedIdPhoto.idPhotoBytes.length,
       idPhotoStorageKey: savedIdPhoto.storageKey,
       submittedAt: new Date(),
     },
     create: {
       applicationId,
       signatureDataUrl,
-      idPhotoFileName: idPhoto.name || savedIdPhoto.fileName,
-      idPhotoMimeType: idPhoto.type,
-      idPhotoSizeBytes: idPhoto.size,
+      idPhotoFileName: savedIdPhoto.fileName,
+      idPhotoMimeType: savedIdPhoto.idPhotoMimeType,
+      idPhotoSizeBytes: savedIdPhoto.idPhotoBytes.length,
       idPhotoStorageKey: savedIdPhoto.storageKey,
     },
   });
@@ -3559,7 +3564,7 @@ export async function resubmitSupportingDocuments(formData: FormData) {
     throw new Error(`${missingSupportingRequirement.label} is required.`);
   }
   const savedIdPhoto = await saveMandateIdPhoto(applicationId, idPhoto);
-  await saveMandateIdPhotoDocument(applicationId, idPhoto, savedIdPhoto);
+  await saveMandateIdPhotoDocument(applicationId, savedIdPhoto);
 
   await saveUploadedDocument(applicationId, licenceDiskPhoto, DocumentType.LICENCE_DISK_PHOTO, "client-documents");
   await saveUploadedDocument(
@@ -3578,9 +3583,9 @@ export async function resubmitSupportingDocuments(formData: FormData) {
   await prisma.mandateFormSubmission.update({
     where: { applicationId },
     data: {
-      idPhotoFileName: idPhoto.name || savedIdPhoto.fileName,
-      idPhotoMimeType: idPhoto.type,
-      idPhotoSizeBytes: idPhoto.size,
+      idPhotoFileName: savedIdPhoto.fileName,
+      idPhotoMimeType: savedIdPhoto.idPhotoMimeType,
+      idPhotoSizeBytes: savedIdPhoto.idPhotoBytes.length,
       idPhotoStorageKey: savedIdPhoto.storageKey,
       submittedAt: new Date(),
     },
@@ -3589,7 +3594,7 @@ export async function resubmitSupportingDocuments(formData: FormData) {
     application,
     application.mandateFormSubmission.signatureDataUrl,
     savedIdPhoto.idPhotoBytes,
-    idPhoto.type,
+    savedIdPhoto.idPhotoMimeType,
   );
 
   revalidatePath(`/client/${application.publicToken}`);
