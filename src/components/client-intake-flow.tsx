@@ -1447,7 +1447,15 @@ export function ClientIntakeFlow({
                   </p>
                 </div>
                 <div className="grid gap-3">
-                  {requiredDocuments.filter((document) => isMandateStepUpload(document.label)).map((document) => (
+                  {requiredDocuments.filter((document) => isMandateStepUpload(document.label)).map((document) => {
+                    const inputName =
+                      selectedService.slug === "change-of-ownership" &&
+                      document.key !== "traffic-register-document" &&
+                      document.key !== "passport-document"
+                        ? "supportingDocument"
+                        : uploadInputName(document.label);
+
+                    return (
                     <div key={document.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <span className="flex items-center gap-2 font-semibold">
@@ -1456,67 +1464,58 @@ export function ClientIntakeFlow({
                         </span>
                         <label className="cursor-pointer border border-[#d8d1c3] bg-white px-3 py-1.5 text-xs font-semibold text-[#52615b]">
                           Choose File
-                          {(() => {
-                            const inputName =
-                              selectedService.slug === "change-of-ownership"
-                                ? "supportingDocument"
-                                : uploadInputName(document.label);
+                          <input
+                            type="file"
+                            name={inputName}
+                            accept={
+                              inputName === "proofOfAddress" || inputName === "supportingDocument"
+                                ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
+                                : "image/jpeg,image/png,image/heic,image/heif"
+                            }
+                            required={stepIndex === 6}
+                            className="sr-only"
+                            onChange={(event) => {
+                              const selectedFile = event.currentTarget.files?.[0] ?? null;
+                              const fileName = selectedFile?.name;
+                              const acceptedTypes =
+                                inputName === "proofOfAddress" || inputName === "supportingDocument"
+                                  ? DOCUMENT_UPLOAD_TYPES
+                                  : IMAGE_UPLOAD_TYPES;
 
-                            return (
-                              <input
-                                type="file"
-                                name={inputName}
-                                accept={
-                                  inputName === "proofOfAddress" || inputName === "supportingDocument"
-                                    ? "image/jpeg,image/png,image/heic,image/heif,application/pdf"
-                                    : "image/jpeg,image/png,image/heic,image/heif"
-                                }
-                                required={stepIndex === 6}
-                                className="sr-only"
-                                onChange={(event) => {
-                                  const selectedFile = event.currentTarget.files?.[0] ?? null;
-                                  const fileName = selectedFile?.name;
-                                  const acceptedTypes =
-                                    inputName === "proofOfAddress" || inputName === "supportingDocument"
-                                      ? DOCUMENT_UPLOAD_TYPES
-                                      : IMAGE_UPLOAD_TYPES;
-
-                                  if (selectedFile) {
-                                    const validationError = validateSelectedUpload(selectedFile, acceptedTypes, document.label);
-                                    if (validationError) {
-                                      setUploadError(validationError);
-                                      event.currentTarget.value = "";
-                                      setUploadedFiles((current) => ({
-                                        ...current,
-                                        [inputName as UploadFieldName]: null,
-                                      }));
-                                      setSelectedFiles((current) => {
-                                        const next = { ...current };
-                                        delete next[document.label];
-                                        return next;
-                                      });
-                                      return;
-                                    }
-                                  }
-
-                                  setUploadError("");
-                                  if (inputName === "licenceDiskPhoto") {
-                                    setLicenceDiskFileName(fileName ?? "");
-                                  }
-
+                              if (selectedFile) {
+                                const validationError = validateSelectedUpload(selectedFile, acceptedTypes, document.label);
+                                if (validationError) {
+                                  setUploadError(validationError);
+                                  event.currentTarget.value = "";
                                   setUploadedFiles((current) => ({
                                     ...current,
-                                    [inputName as UploadFieldName]: selectedFile,
+                                    [inputName as UploadFieldName]: null,
                                   }));
-                                  setSelectedFiles((current) => ({
-                                    ...current,
-                                    [document.label]: fileName ?? "",
-                                  }));
-                                }}
-                              />
-                            );
-                          })()}
-                          {selectedService.slug === "change-of-ownership" || uploadInputName(document.label) === "supportingDocument" ? (
+                                  setSelectedFiles((current) => {
+                                    const next = { ...current };
+                                    delete next[document.label];
+                                    return next;
+                                  });
+                                  return;
+                                }
+                              }
+
+                              setUploadError("");
+                              if (inputName === "licenceDiskPhoto") {
+                                setLicenceDiskFileName(fileName ?? "");
+                              }
+
+                              setUploadedFiles((current) => ({
+                                ...current,
+                                [inputName as UploadFieldName]: selectedFile,
+                              }));
+                              setSelectedFiles((current) => ({
+                                ...current,
+                                [document.label]: fileName ?? "",
+                              }));
+                            }}
+                          />
+                          {inputName === "supportingDocument" ? (
                             <input type="hidden" name="supportingDocumentKey" value={document.key} />
                           ) : null}
                         </label>
@@ -1525,7 +1524,8 @@ export function ClientIntakeFlow({
                         <p className="mt-2 text-xs font-semibold text-[#1f7a4d]">{selectedFiles[document.label]}</p>
                       ) : null}
                     </div>
-                  ))}
+                    );
+                  })}
                   <div className="border border-[#07315f] bg-white p-4 text-sm">
                     <span className="flex items-center gap-2 text-base font-semibold">
                       <PenLine size={18} className="text-[#07315f]" aria-hidden="true" />
