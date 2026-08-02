@@ -179,8 +179,9 @@ function assertPublicIntakeIdentityFields(input: {
   cellphone: string;
   email: string;
   registrationNumber: string;
+  requireSouthAfricanId: boolean;
 }) {
-  if (!isValidSouthAfricanIdNumber(input.identityNumber)) {
+  if (input.requireSouthAfricanId && !isValidSouthAfricanIdNumber(input.identityNumber)) {
     throw new Error("ID number must be a valid 13-digit South African ID number with a correct Luhn check digit.");
   }
 
@@ -1724,6 +1725,7 @@ export async function createPublicApplicationIntake(
       cellphone,
       email,
       registrationNumber,
+      requireSouthAfricanId: entityType !== ClientEntityType.NON_SA_CITIZEN,
     });
     const vin = getOptionalString(formData, "vin");
     const vehicleMake = getOptionalString(formData, "vehicleMake");
