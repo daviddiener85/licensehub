@@ -23,6 +23,12 @@ function redirectToSettings(notice: string) {
   redirect(`/admin/settings?notice=${encodeURIComponent(notice)}`);
 }
 
+function revalidateServicePages() {
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
+  revalidatePath("/apply");
+}
+
 export async function createService(formData: FormData) {
   const name = stringField(formData, "name");
   const description = stringField(formData, "description");
@@ -51,7 +57,7 @@ export async function createService(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/settings");
+  revalidateServicePages();
   redirectToSettings("Service added.");
 }
 
@@ -84,8 +90,7 @@ export async function updateService(formData: FormData) {
     },
   });
 
-  revalidatePath("/admin/settings");
-  revalidatePath("/admin");
+  revalidateServicePages();
   redirectToSettings("Service saved.");
 }
 
