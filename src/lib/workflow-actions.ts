@@ -45,6 +45,7 @@ import {
 } from "@/lib/supplier-evidence";
 import { isMetaProviderEnabled, sendMetaWhatsAppTemplate, sendMetaWhatsAppText } from "@/lib/whatsapp-meta";
 import sharp from "sharp";
+import heicConvert from "heic-convert";
 
 // Bound native image-processing memory on the 512 MB production instance.
 sharp.cache(false);
@@ -419,15 +420,37 @@ async function normalizeUploadedImage(file: File) {
   } catch {
     // sharp/libvips couldn't decode this file -- most commonly a real HEIC/HEVC
     // photo, since npm's prebuilt sharp binary excludes the HEVC decoder for
-    // licensing reasons. Fall back to the original bytes rather than blocking
-    // the whole submission; downstream consumers (mandate PDF, print pack)
-    // already degrade to a "preview unavailable" placeholder for mime types
-    // they can't embed.
-    return {
-      bytes: inputBytes,
-      mimeType: file.type || "application/octet-stream",
-      fileName: safeFileName(file.name || "photo"),
-    };
+    // licensing reasons. Decode it with heic-convert instead: it bundles libheif
+    // as WebAssembly, so it works without a native decoder on the host.
+    try {
+      const decoded = await heicConvert({ buffer: inputBytes, format: "JPEG", quality: 0.92 });
+      const output = await sharp(decoded)
+        .rotate()
+        .resize({
+          width: 1600,
+          height: 2200,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer({ resolveWithObject: true });
+
+      return {
+        bytes: output.data,
+        mimeType: "image/jpeg",
+        fileName: `${safeFileName(file.name || "photo").replace(/\.[^.]+$/, "")}.jpg`,
+      };
+    } catch {
+      // Not a HEIC/HEIF file either (or truly corrupt) -- fall back to the
+      // original bytes rather than blocking the whole submission; downstream
+      // consumers (mandate PDF, print pack) already degrade to a "preview
+      // unavailable" placeholder for mime types they can't embed.
+      return {
+        bytes: inputBytes,
+        mimeType: file.type || "application/octet-stream",
+        fileName: safeFileName(file.name || "photo"),
+      };
+    }
   }
 }
 
