@@ -34,6 +34,7 @@ type ClientIntakeFlowProps = {
   services?: IntakeService[];
   initialServiceSlug?: string;
   paystackEnabled?: boolean;
+  deliveryOptionEnabled?: boolean;
 };
 
 type PaymentChoice = "EFT" | "PAYSTACK";
@@ -328,6 +329,7 @@ export function ClientIntakeFlow({
   services = fallbackServices,
   initialServiceSlug,
   paystackEnabled = false,
+  deliveryOptionEnabled = true,
 }: ClientIntakeFlowProps) {
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
@@ -1730,17 +1732,19 @@ export function ClientIntakeFlow({
                     </div>
                   )}
 
-                  <label className="mt-4 flex gap-3 border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm font-semibold">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={deliveryRequired}
-                      onChange={(event) => setDeliveryRequired(event.currentTarget.checked)}
-                    />
-                    <span>Delivery required for this application.</span>
-                  </label>
+                  {deliveryOptionEnabled ? (
+                    <label className="mt-4 flex gap-3 border border-[#d8d1c3] bg-[#fffdf8] p-3 text-sm font-semibold">
+                      <input
+                        type="checkbox"
+                        className="mt-1"
+                        checked={deliveryRequired}
+                        onChange={(event) => setDeliveryRequired(event.currentTarget.checked)}
+                      />
+                      <span>Delivery required for this application.</span>
+                    </label>
+                  ) : null}
 
-                  {deliveryRequired ? (
+                  {deliveryOptionEnabled && deliveryRequired ? (
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       {[
                         {

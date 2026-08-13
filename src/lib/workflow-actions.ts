@@ -1721,7 +1721,11 @@ export async function createPublicApplicationIntake(
     const deliveryAddressLine1 = getRequiredString(formData, "deliveryAddressLine1", "Delivery address");
     const deliveryCity = getRequiredString(formData, "deliveryCity", "Delivery city");
     const deliveryPostalCode = getRequiredString(formData, "deliveryPostalCode", "Delivery postal code");
-    const deliveryRequired = getDeliveryRequired(formData);
+    const deliveryOptionSetting = await prisma.retentionSetting.findUnique({
+      where: { id: "default" },
+      select: { deliveryOptionEnabled: true },
+    });
+    const deliveryRequired = (deliveryOptionSetting?.deliveryOptionEnabled ?? true) && getDeliveryRequired(formData);
     const entityDisplayName = getOptionalString(formData, "entityDisplayName");
     const entityRegistrationNumber = getOptionalString(formData, "entityRegistrationNumber");
     const deceasedFullName = getOptionalString(formData, "deceasedFullName");

@@ -1,6 +1,7 @@
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
 import { PublicFooter } from "@/components/public-footer";
 import { isPaystackConfigured } from "@/lib/paystack";
+import { prisma } from "@/lib/prisma";
 import { listActiveServices } from "@/lib/services";
 import Link from "next/link";
 
@@ -18,6 +19,11 @@ export default async function ApplyPage({
     return [];
   });
   const paystackEnabled = isPaystackConfigured();
+  const retentionSetting = await prisma.retentionSetting.findUnique({
+    where: { id: "default" },
+    select: { deliveryOptionEnabled: true },
+  });
+  const deliveryOptionEnabled = retentionSetting?.deliveryOptionEnabled ?? true;
 
   return (
     <main className="min-h-screen bg-[#0f1417] text-[#f7f7f2]">
@@ -54,6 +60,7 @@ export default async function ApplyPage({
         <ClientIntakeFlow
           initialServiceSlug={selectedServiceSlug}
           paystackEnabled={paystackEnabled}
+          deliveryOptionEnabled={deliveryOptionEnabled}
           services={services.map((service) => ({
             ...service,
             basePrice: service.basePrice.toString(),

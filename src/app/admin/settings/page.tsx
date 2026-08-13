@@ -299,6 +299,14 @@ export default async function AdminSettingsPage({
                 />
                 Allow client to view produced document
               </label>
+              <label className="flex h-10 items-center gap-2 text-sm font-semibold">
+                <input
+                  defaultChecked={data.retentionSetting?.deliveryOptionEnabled ?? true}
+                  name="deliveryOptionEnabled"
+                  type="checkbox"
+                />
+                Allow client to request delivery
+              </label>
               <label className="block w-full max-w-sm text-sm font-semibold">
                 Refresh interval in seconds
                 <input

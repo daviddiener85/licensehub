@@ -31,6 +31,11 @@ export default async function ClientApplicationPage({
     return [];
   });
   const paystackEnabled = isPaystackConfigured();
+  const workspaceSetting = await prisma.retentionSetting.findUnique({
+    where: { id: "default" },
+    select: { deliveryOptionEnabled: true },
+  });
+  const deliveryOptionEnabled = workspaceSetting?.deliveryOptionEnabled ?? true;
 
   if (application) {
     const currentStage =
@@ -318,6 +323,7 @@ export default async function ClientApplicationPage({
         <ClientIntakeFlow
           reference={token}
           paystackEnabled={paystackEnabled}
+          deliveryOptionEnabled={deliveryOptionEnabled}
           services={services.map((service) => ({
             ...service,
             basePrice: service.basePrice.toString(),
