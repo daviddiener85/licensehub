@@ -19,16 +19,18 @@ function UploadStatus({ selectedFileName }: { selectedFileName: string }) {
 
 type EftProofUploadFormProps = {
   applicationId: string;
+  publicToken: string;
   action: (formData: FormData) => void | Promise<void>;
 };
 
-export function EftProofUploadForm({ applicationId, action }: EftProofUploadFormProps) {
+export function EftProofUploadForm({ applicationId, publicToken, action }: EftProofUploadFormProps) {
   const [selectedFileName, setSelectedFileName] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
     <form ref={formRef} action={action} className="space-y-3 border border-[#e4ded2] bg-white p-3">
       <input type="hidden" name="applicationId" value={applicationId} />
+      <input type="hidden" name="publicToken" value={publicToken} />
       <div className="space-y-2">
         <p className="text-sm font-semibold">Upload proof of EFT payment</p>
         <label className="inline-flex cursor-pointer border border-[#d8d1c3] bg-white px-3 py-2 text-sm font-semibold text-[#52615b]">

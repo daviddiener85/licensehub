@@ -35,6 +35,14 @@ type ClientIntakeFlowProps = {
   initialServiceSlug?: string;
   paystackEnabled?: boolean;
   deliveryOptionEnabled?: boolean;
+  eftBankingDetails?: {
+    bankName: string | null;
+    accountHolder: string | null;
+    accountNumber: string | null;
+    branchCode: string | null;
+    accountType: string | null;
+    referenceInstruction: string | null;
+  };
 };
 
 type PaymentChoice = "EFT" | "PAYSTACK";
@@ -258,7 +266,7 @@ const stepSummaries = [
   "Tell us who legally owns the vehicle.",
   "Share the contact and ID details for the person completing this.",
   "Confirm the vehicle details from the licence disk.",
-  "Tell us who referred you and where completed documents should go.",
+  "Tell us who or which company referred you.",
   "Upload files and sign the mandate.",
   "Choose how you want to pay and submit.",
 ] as const;
@@ -330,6 +338,7 @@ export function ClientIntakeFlow({
   initialServiceSlug,
   paystackEnabled = false,
   deliveryOptionEnabled = true,
+  eftBankingDetails,
 }: ClientIntakeFlowProps) {
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
@@ -361,9 +370,6 @@ export function ClientIntakeFlow({
   const [identityNumberTouched, setIdentityNumberTouched] = useState(false);
   const [relation, setRelation] = useState("");
   const [referralSource, setReferralSource] = useState("");
-  const [referralOther, setReferralOther] = useState("");
-  const [referralContact, setReferralContact] = useState("");
-  const [sendCompletedDocumentsToReferrer, setSendCompletedDocumentsToReferrer] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<Record<string, string>>({});
   const [uploadedFiles, setUploadedFiles] = useState<Partial<Record<UploadFieldName, File | null>>>({});
   const [uploadError, setUploadError] = useState("");
@@ -546,10 +552,11 @@ export function ClientIntakeFlow({
       return ["idPhoto", "proofOfAddress"].includes(inputName);
     })
     .map((document) => document.label);
-  const requiredUploadsReady = requiredUploadLabels.every((label) => {
-    return Boolean(selectedFiles[label]?.trim());
-  });
+  const requiredUploadsReady = requiredUploadLabels.every((label) => Boolean(selectedFiles[label]?.trim()));
   const showLicenceRenewalDisclaimer = selectedService.slug === "licence-renewal";
+  const eftBankingDetailsAvailable = Boolean(
+    eftBankingDetails?.bankName && eftBankingDetails.accountHolder && eftBankingDetails.accountNumber,
+  );
   const nonSaIdentityPreview = [clientDetails.passportNumber, clientDetails.trnNumber]
     .filter((value) => value.trim().length > 0)
     .join(" / ");
@@ -1342,64 +1349,19 @@ export function ClientIntakeFlow({
         {stepIndex === 5 ? (
           <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <h2 className="text-2xl font-semibold">Who referred you to us?</h2>
-              <p className="mt-2 text-sm leading-6 text-[#52615b]">
-                This helps us coordinate your application and return the completed documents to the right person.
-              </p>
+              <h2 id="referral-source-label" className="text-2xl font-semibold">
+                Who/which company referred you to us?
+              </h2>
             </div>
-            <div className="grid gap-3">
-              {["A friend or family member", "A dealership or motor industry professional", "Online search or social media", "Other"].map((option) => (
-                <label key={option} className="flex cursor-pointer gap-3 border border-[#d8d1c3] bg-white p-3 text-sm font-semibold">
-                  <input
-                    type="radio"
-                    name="referralChoice"
-                    value={option}
-                    checked={referralSource === option}
-                    onChange={() => {
-                      setReferralSource(option);
-                      if (option !== "A dealership or motor industry professional") {
-                        setSendCompletedDocumentsToReferrer(false);
-                        setReferralContact("");
-                      }
-                    }}
-                  />
-                  <span>{option}</span>
-                </label>
-              ))}
-              {referralSource === "Other" ? (
-                <label className="text-sm font-semibold">
-                  Please tell us who referred you
-                  <input
-                    value={referralOther}
-                    onChange={(event) => setReferralOther(event.currentTarget.value)}
-                    className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
-                    required
-                  />
-                </label>
-              ) : null}
-              {referralSource === "A dealership or motor industry professional" ? (
-                <div className="border border-[#d8d1c3] bg-[#fffdf8] p-4">
-                  <label className="block text-sm font-semibold">
-                    Dealership or contact name
-                    <input
-                      value={referralContact}
-                      onChange={(event) => setReferralContact(event.currentTarget.value)}
-                      placeholder="Enter the name, if known"
-                      className="mt-1 w-full border border-[#d8d1c3] px-3 py-2 font-normal"
-                    />
-                  </label>
-                  <p className="mt-4 text-sm font-semibold">Where should we send the completed documents?</p>
-                  <label className="mt-3 flex gap-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={sendCompletedDocumentsToReferrer}
-                      onChange={(event) => setSendCompletedDocumentsToReferrer(event.currentTarget.checked)}
-                    />
-                    <span>Send them directly to the referring dealership or contact.</span>
-                  </label>
-                </div>
-              ) : null}
-            </div>
+            <input
+              type="text"
+              value={referralSource}
+              onChange={(event) => setReferralSource(event.currentTarget.value)}
+              aria-labelledby="referral-source-label"
+              placeholder="Enter a person or company name"
+              className="w-full self-start border border-[#d8d1c3] bg-white px-3 py-3"
+              required
+            />
           </div>
         ) : null}
 
@@ -1409,17 +1371,7 @@ export function ClientIntakeFlow({
             <input type="hidden" name="paymentMethod" value={effectivePaymentMethod} />
             <input type="hidden" name="ownershipType" value={effectiveOwnershipType} />
             <input type="hidden" name="relation" value={relation || selectedOwnership.relationPrompt} />
-            <input
-              type="hidden"
-              name="referralSource"
-              value={referralSource === "Other" ? referralOther.trim() : referralSource}
-            />
-            <input type="hidden" name="referralContact" value={referralContact.trim()} />
-            <input
-              type="hidden"
-              name="sendCompletedDocumentsToReferrer"
-              value={sendCompletedDocumentsToReferrer ? "yes" : "no"}
-            />
+            <input type="hidden" name="referralSource" value={referralSource.trim()} />
             {Object.entries(clientDetails).map(([field, value]) => (
               <input key={field} type="hidden" name={field} value={value} />
             ))}
@@ -1456,7 +1408,6 @@ export function ClientIntakeFlow({
                       document.key !== "passport-document"
                         ? "supportingDocument"
                         : uploadInputName(document.label);
-
                     return (
                     <div key={document.label} className="border border-[#eee8dc] bg-[#fffdf8] p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1729,6 +1680,52 @@ export function ClientIntakeFlow({
                           </button>
                         ) : null}
                       </div>
+                      {effectivePaymentMethod === "EFT" ? (
+                        <details className="mt-3 border border-[#d8d1c3] bg-white p-3">
+                          <summary className="cursor-pointer text-sm font-semibold text-[#1f2724]">
+                            View EFT banking details
+                          </summary>
+                          {eftBankingDetailsAvailable && eftBankingDetails ? (
+                            <div className="mt-3 border-t border-[#eee8dc] pt-3">
+                              <dl className="grid gap-3 text-xs sm:grid-cols-2">
+                                <div>
+                                  <dt className="font-semibold uppercase text-[#6b5e4f]">Bank</dt>
+                                  <dd className="mt-1">{eftBankingDetails.bankName}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-semibold uppercase text-[#6b5e4f]">Account holder</dt>
+                                  <dd className="mt-1">{eftBankingDetails.accountHolder}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-semibold uppercase text-[#6b5e4f]">Account number</dt>
+                                  <dd className="mt-1">{eftBankingDetails.accountNumber}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-semibold uppercase text-[#6b5e4f]">Branch code</dt>
+                                  <dd className="mt-1">{eftBankingDetails.branchCode || "Not provided"}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-semibold uppercase text-[#6b5e4f]">Account type</dt>
+                                  <dd className="mt-1">{eftBankingDetails.accountType || "Not provided"}</dd>
+                                </div>
+                                <div>
+                                  <dt className="font-semibold uppercase text-[#6b5e4f]">Payment reference</dt>
+                                  <dd className="mt-1">Your application reference, shown after submission</dd>
+                                </div>
+                              </dl>
+                              <p className="mt-3 text-xs leading-5 text-[#6b5e4f]">
+                                {eftBankingDetails.referenceInstruction ||
+                                  "Use your application reference as the EFT payment reference."}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="mt-3 border-t border-[#eee8dc] pt-3 text-xs font-semibold text-[#6b5e4f]">
+                              EFT banking details are not configured yet. Please contact The License Hub support before
+                              paying.
+                            </p>
+                          )}
+                        </details>
+                      ) : null}
                     </div>
                   )}
 
@@ -1872,7 +1869,7 @@ export function ClientIntakeFlow({
               (stepIndex === 2 && !ownershipType) ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
-              (stepIndex === 5 && (!referralSource || (referralSource === "Other" && !referralOther.trim()))) ||
+              (stepIndex === 5 && !referralSource.trim()) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
             }
             aria-describedby={
@@ -1884,7 +1881,7 @@ export function ClientIntakeFlow({
               (stepIndex === 2 && !ownershipType) ||
               (stepIndex === 3 && !clientDetailsComplete) ||
               (stepIndex === 4 && (!vehicleDetailsConfirmed || !vehicleDetailsComplete)) ||
-              (stepIndex === 5 && (!referralSource || (referralSource === "Other" && !referralOther.trim()))) ||
+              (stepIndex === 5 && !referralSource.trim()) ||
               (stepIndex === 6 && (!hasMandateSignature || !requiredUploadsReady))
                 ? "cursor-not-allowed border-[#e4ded2] bg-[#e8e2d6] text-[#6b5e4f]"
                 : "tlh-button-primary",

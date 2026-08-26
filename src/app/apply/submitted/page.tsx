@@ -4,9 +4,8 @@ import { ApplicationStatus, DocumentType, PaymentMethod, PaymentStatus, PaymentT
 import { EftProofUploadForm } from "@/components/eft-proof-upload-form";
 import { PublicFooter } from "@/components/public-footer";
 import { formatMoney } from "@/lib/applications";
-import { isPaystackConfigured } from "@/lib/paystack";
 import { prisma } from "@/lib/prisma";
-import { approveClientQuote, switchPendingPaymentToPaystack, uploadEftProof } from "@/lib/workflow-actions";
+import { approveClientQuote, uploadEftProof } from "@/lib/workflow-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +78,6 @@ export default async function ApplicationSubmittedPage({
     },
   });
   const payment = applicationRecord?.payments[0] ?? null;
-  const paystackEnabled = isPaystackConfigured();
   const amountLabel = payment ? `R${Number(payment.amount).toFixed(2)}` : null;
   const quoteLines = applicationRecord?.charges ?? [];
   const quoteTotal = quoteLines.reduce((sum, charge) => sum + Number(charge.amount.toString()), 0);
@@ -302,8 +300,12 @@ export default async function ApplicationSubmittedPage({
                       Latest uploaded proof: <span className="font-semibold">{latestEftProof.fileName}</span>
                     </p>
                   ) : null}
-                  {shouldShowUploadForm && application ? (
-                    <EftProofUploadForm applicationId={application} action={uploadEftProof} />
+                  {shouldShowUploadForm && application && applicationRecord ? (
+                    <EftProofUploadForm
+                      applicationId={application}
+                      publicToken={applicationRecord.publicToken}
+                      action={uploadEftProof}
+                    />
                   ) : null}
                   {hasEftProof && !shouldShowUploadForm && application ? (
                     <Link
@@ -313,18 +315,6 @@ export default async function ApplicationSubmittedPage({
                       Replace uploaded proof
                     </Link>
                   ) : null}
-                  {paystackEnabled && applicationRecord ? (
-                    <form action={switchPendingPaymentToPaystack} className="border-t border-[#d8d1c3] pt-4">
-                      <input type="hidden" name="applicationId" value={applicationRecord.id} />
-                      <input type="hidden" name="publicToken" value={applicationRecord.publicToken} />
-                      <p className="mb-3 text-sm text-[#52615b]">
-                        Prefer to pay online? You can switch this pending EFT payment to Paystack.
-                      </p>
-                      <button className="border border-[#1f2724] bg-white px-4 py-2 text-sm font-semibold text-[#1f2724]">
-                        Pay online with Paystack
-                      </button>
-                    </form>
-                  ) : null}
                 </>
               )}
             </div>
@@ -332,6 +322,14 @@ export default async function ApplicationSubmittedPage({
         ) : null}
 
         <div className="mt-6 flex flex-wrap gap-3">
+          {applicationRecord && payment?.status === PaymentStatus.PENDING && paymentRequested ? (
+            <Link
+              href={`/client/${encodeURIComponent(applicationRecord.publicToken)}`}
+              className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
+            >
+              Manage payment options
+            </Link>
+          ) : null}
           <Link href="/apply" className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]">
             Start another request
           </Link>

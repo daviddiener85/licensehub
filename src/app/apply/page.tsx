@@ -21,7 +21,15 @@ export default async function ApplyPage({
   const paystackEnabled = isPaystackConfigured();
   const retentionSetting = await prisma.retentionSetting.findUnique({
     where: { id: "default" },
-    select: { deliveryOptionEnabled: true },
+    select: {
+      deliveryOptionEnabled: true,
+      eftBankName: true,
+      eftAccountHolder: true,
+      eftAccountNumber: true,
+      eftBranchCode: true,
+      eftAccountType: true,
+      eftReferenceInstruction: true,
+    },
   });
   const deliveryOptionEnabled = retentionSetting?.deliveryOptionEnabled ?? true;
 
@@ -61,6 +69,14 @@ export default async function ApplyPage({
           initialServiceSlug={selectedServiceSlug}
           paystackEnabled={paystackEnabled}
           deliveryOptionEnabled={deliveryOptionEnabled}
+          eftBankingDetails={{
+            bankName: retentionSetting?.eftBankName ?? null,
+            accountHolder: retentionSetting?.eftAccountHolder ?? null,
+            accountNumber: retentionSetting?.eftAccountNumber ?? null,
+            branchCode: retentionSetting?.eftBranchCode ?? null,
+            accountType: retentionSetting?.eftAccountType ?? null,
+            referenceInstruction: retentionSetting?.eftReferenceInstruction ?? null,
+          }}
           services={services.map((service) => ({
             ...service,
             basePrice: service.basePrice.toString(),

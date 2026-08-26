@@ -2,7 +2,14 @@ import Link from "next/link";
 
 import { MandateCaptureForm } from "@/components/mandate-capture-form";
 import { PublicFooter } from "@/components/public-footer";
-import { ApplicationStatus, ChargeStatus, DocumentStatus, PaymentStatus } from "@/generated/prisma/client";
+import {
+  ApplicationStatus,
+  ChargeStatus,
+  DocumentStatus,
+  DocumentType,
+  PaymentMethod,
+  PaymentStatus,
+} from "@/generated/prisma/client";
 import { formatMoney, getClientApplicationByToken, statusLabel } from "@/lib/applications";
 import { documentHref, documentLabel } from "@/lib/documents";
 import { ClientIntakeFlow } from "@/components/client-intake-flow";
@@ -16,6 +23,7 @@ import {
   supplierReturnEvidenceDescriptions,
 } from "@/lib/supplier-evidence";
 import { prisma } from "@/lib/prisma";
+import { changeClientPendingPaymentMethod } from "@/lib/workflow-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +41,15 @@ export default async function ClientApplicationPage({
   const paystackEnabled = isPaystackConfigured();
   const workspaceSetting = await prisma.retentionSetting.findUnique({
     where: { id: "default" },
-    select: { deliveryOptionEnabled: true },
+    select: {
+      deliveryOptionEnabled: true,
+      eftBankName: true,
+      eftAccountHolder: true,
+      eftAccountNumber: true,
+      eftBranchCode: true,
+      eftAccountType: true,
+      eftReferenceInstruction: true,
+    },
   });
   const deliveryOptionEnabled = workspaceSetting?.deliveryOptionEnabled ?? true;
 
@@ -51,6 +67,25 @@ export default async function ClientApplicationPage({
       },
     });
     const visibleDocuments = application.documents.filter((document) => !isSupplierReturnEvidenceDocument(document));
+    const hasEftProof = visibleDocuments.some(
+      (document) =>
+        document.type === DocumentType.PROOF_OF_EFT_PAYMENT && document.status !== DocumentStatus.SUPERSEDED,
+    );
+    const paymentMethodCanChange =
+      latestPayment?.status === PaymentStatus.PENDING &&
+      !hasEftProof &&
+      (application.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT ||
+        application.currentStatus === ApplicationStatus.ADDITIONAL_CHARGE_RAISED);
+    const alternativePaymentMethod = paymentMethodCanChange
+      ? latestPayment.method === PaymentMethod.PAYSTACK
+        ? PaymentMethod.EFT
+        : paystackEnabled
+          ? PaymentMethod.PAYSTACK
+          : null
+      : null;
+    const eftBankingDetailsAvailable = Boolean(
+      workspaceSetting?.eftBankName && workspaceSetting.eftAccountHolder && workspaceSetting.eftAccountNumber,
+    );
     const rejectedDocuments = visibleDocuments.filter((document) => document.status === DocumentStatus.REJECTED);
     const pendingDocuments = visibleDocuments.filter((document) => document.status === DocumentStatus.PENDING);
     const producedDocument = producedDocumentEvidence(application.documents);
@@ -160,6 +195,75 @@ export default async function ClientApplicationPage({
                       >
                         Continue payment
                       </Link>
+                    ) : null}
+                    {latestPayment.status === PaymentStatus.PENDING &&
+                    latestPayment.method === PaymentMethod.EFT ? (
+                      <details className="mt-3 border border-[#d8d1c3] bg-[#fffdf8] p-3">
+                        <summary className="cursor-pointer font-semibold text-[#1f2724]">
+                          View EFT banking details
+                        </summary>
+                        {eftBankingDetailsAvailable ? (
+                          <div className="mt-3 border-t border-[#eee8dc] pt-3">
+                            <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                              <div>
+                                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Bank</dt>
+                                <dd>{workspaceSetting?.eftBankName}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account holder</dt>
+                                <dd>{workspaceSetting?.eftAccountHolder}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account number</dt>
+                                <dd>{workspaceSetting?.eftAccountNumber}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Branch code</dt>
+                                <dd>{workspaceSetting?.eftBranchCode || "Not provided"}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Account type</dt>
+                                <dd>{workspaceSetting?.eftAccountType || "Not provided"}</dd>
+                              </div>
+                              <div>
+                                <dt className="text-xs font-semibold uppercase text-[#6b5e4f]">Reference</dt>
+                                <dd className="font-semibold">{latestPayment.reference}</dd>
+                              </div>
+                            </dl>
+                            <p className="mt-3 text-xs leading-5 text-[#6b5e4f]">
+                              {workspaceSetting?.eftReferenceInstruction ||
+                                "Use the payment reference shown above for your EFT."}
+                            </p>
+                          </div>
+                        ) : (
+                          <p className="mt-3 border-t border-[#eee8dc] pt-3 text-sm font-semibold text-[#6b5e4f]">
+                            EFT banking details are not configured yet. Please contact The License Hub before paying.
+                          </p>
+                        )}
+                      </details>
+                    ) : null}
+                    {alternativePaymentMethod ? (
+                      <details className="mt-3 border border-[#d8d1c3] bg-white p-3">
+                        <summary className="cursor-pointer font-semibold text-[#1f2724]">
+                          Change payment method
+                        </summary>
+                        <p className="mt-2 text-xs leading-5 text-[#6b5e4f]">
+                          This changes only the pending payment instruction. Your submitted application and documents
+                          remain unchanged, and the previous payment attempt will be cancelled.
+                        </p>
+                        <form action={changeClientPendingPaymentMethod} className="mt-3">
+                          <input type="hidden" name="applicationId" value={application.id} />
+                          <input type="hidden" name="publicToken" value={application.publicToken} />
+                          <input type="hidden" name="paymentMethod" value={alternativePaymentMethod} />
+                          <button className="border border-[#1f2724] bg-white px-3 py-2 text-sm font-semibold text-[#1f2724]">
+                            Switch to {alternativePaymentMethod === PaymentMethod.PAYSTACK ? "Paystack" : "EFT"}
+                          </button>
+                        </form>
+                      </details>
+                    ) : hasEftProof && latestPayment.status === PaymentStatus.PENDING ? (
+                      <p className="mt-3 text-xs leading-5 text-[#6b5e4f]">
+                        The payment method can no longer be changed because EFT proof has already been uploaded.
+                      </p>
                     ) : null}
                   </div>
                 ) : (

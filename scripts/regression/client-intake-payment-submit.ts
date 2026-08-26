@@ -89,25 +89,25 @@ async function cleanupApplication(db: Client, applicationId: string) {
   );
 }
 
-async function verifyDefaultServiceBootstrap(db: Client) {
-  const snapshot = await db.query<{ isActive: boolean }>(
-    `select "isActive" from "Service" where slug = 'duplicate-certificate'`,
-  );
-
-  if (snapshot.rowCount === 1) {
-    await db.query(`update "Service" set "isActive" = false where slug = 'duplicate-certificate'`);
-  }
-
-  const { findActiveServiceBySlug } = await import("@/lib/services");
-  const service = await findActiveServiceBySlug("duplicate-certificate");
-
-  if (service.slug !== "duplicate-certificate" || !service.isActive) {
-    throw new Error("Default duplicate-certificate service was not bootstrapped as active.");
-  }
-}
-
 async function clickProceed(page: Page) {
   await page.getByRole("button", { name: "Proceed" }).click();
+}
+
+function southAfricanIdNumber(prefix: string) {
+  const sum = prefix.split("").reduce((total, value, index) => {
+    let digit = Number(value);
+
+    if (index % 2 === 1) {
+      digit *= 2;
+      if (digit > 9) {
+        digit -= 9;
+      }
+    }
+
+    return total + digit;
+  }, 0);
+
+  return `${prefix}${(10 - (sum % 10)) % 10}`;
 }
 
 async function verifyServicePreselection(page: Page) {
@@ -123,8 +123,6 @@ async function main() {
 
   console.log("Connecting to regression database...");
   const db = await createDbClient();
-  console.log("Checking default service bootstrap...");
-  await verifyDefaultServiceBootstrap(db);
   const tmpDir = await mkdtemp(join(tmpdir(), "license-hub-intake-"));
   const idPhotoPath = join(tmpDir, "owner-id.png");
   const licenceDiskPath = join(tmpDir, "licence-disk.png");
@@ -153,6 +151,7 @@ async function main() {
     console.log("Completing service and ownership steps...");
     await clickProceed(page);
     await clickProceed(page);
+    await page.getByRole("button", { name: /Private owner/ }).click();
     await clickProceed(page);
 
     console.log("Completing client details...");
@@ -160,7 +159,8 @@ async function main() {
     await page.getByLabel("Full name").fill("Regression Intake");
     await page.getByLabel("Cellphone number").fill("0820000000");
     await page.getByLabel("Email address").fill(`intake-${Date.now()}@example.com`);
-    await page.getByLabel("ID number").fill(`900101500908${Math.floor(Math.random() * 10)}`);
+    const idSequence = String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    await page.getByLabel("ID number").fill(southAfricanIdNumber(`900101${idSequence}08`));
     await page.getByLabel("Address line 1").fill("1 Regression Street");
     await page.getByLabel("City").fill("Johannesburg");
     await page.getByLabel("Postal code").fill("2000");
@@ -169,14 +169,15 @@ async function main() {
 
     console.log("Completing vehicle details...");
     await page.locator('input[name="licenceDiskPhoto"]').setInputFiles(licenceDiskPath);
-    await page.getByRole("textbox", { name: "Registration number" }).fill("REG123GP");
+    await page.getByRole("textbox", { name: "Register" }).fill("REG123GP");
     await page.getByLabel("VIN / chassis number").fill("VINREGRESSION12345");
     await page.getByLabel("Vehicle make").fill("Toyota");
     await page.getByLabel("Vehicle model").fill("Corolla");
     await page.getByLabel(/I confirm these vehicle details/).check();
     await clickProceed(page);
 
-    console.log("Reviewing document checklist...");
+    console.log("Completing referral step...");
+    await page.getByRole("textbox", { name: "Who/which company referred you to us?" }).fill("Regression referrer");
     await clickProceed(page);
 
     console.log("Uploading mandate documents and signing...");
@@ -213,6 +214,59 @@ async function main() {
 
     submittedApplicationId = applicationId;
     await expect(page.getByRole("heading", { name: "Application received" })).toBeVisible();
+    const submittedApplication = await db.query<{ publicToken: string; referralSource: string }>(
+      `select "publicToken", "referralSource" from "Application" where id = $1`,
+      [applicationId],
+    );
+    const publicToken = submittedApplication.rows[0]?.publicToken;
+
+    if (!publicToken) {
+      throw new Error("Submitted application public token was not found.");
+    }
+
+    await db.query(
+      `update "Payment"
+       set method = 'PAYSTACK', "checkoutUrl" = 'https://example.com/regression-checkout', "providerReference" = 'regression-access-code'
+       where "applicationId" = $1 and status = 'PENDING'`,
+      [applicationId],
+    );
+
+    console.log("Changing the pending payment method from the client status page...");
+    await page.goto(`/client/${encodeURIComponent(publicToken)}`, { waitUntil: "domcontentloaded" });
+    await expect(page.getByText("PAYSTACK · pending")).toBeVisible();
+    await page.getByText("Change payment method", { exact: true }).click();
+    await page.getByRole("button", { name: "Switch to EFT" }).click();
+    await expect(page.getByText("EFT · pending")).toBeVisible();
+    await expect(page.getByText("View EFT banking details", { exact: true })).toBeVisible();
+
+    console.log("Uploading EFT proof and confirming the payment method is locked...");
+    await page.getByRole("link", { name: "Continue payment" }).last().click();
+    await page.locator('input[name="eftProof"]').setInputFiles(proofOfAddressPath);
+    await page.waitForURL(/eftUploaded=1/, { timeout: 15000 });
+    await expect(page.getByText("Your EFT proof has been uploaded.")).toBeVisible();
+    await page.getByRole("link", { name: "Manage payment options" }).click();
+    await expect(
+      page.getByText("The payment method can no longer be changed because EFT proof has already been uploaded."),
+    ).toBeVisible();
+    await expect(page.getByText("Change payment method", { exact: true })).toHaveCount(0);
+
+    const applicationCount = await db.query<{ count: string }>(
+      `select count(*)::text as count from "Application" where id = $1`,
+      [applicationId],
+    );
+    expect(Number(applicationCount.rows[0]?.count)).toBe(1);
+    const unchangedApplication = await db.query<{ referralSource: string }>(
+      `select "referralSource" from "Application" where id = $1`,
+      [applicationId],
+    );
+    expect(unchangedApplication.rows[0]?.referralSource).toBe("Regression referrer");
+    const paymentAttempts = await db.query<{ method: string; status: string; proofDocumentId: string | null }>(
+      `select method, status, "proofDocumentId" from "Payment" where "applicationId" = $1 order by "createdAt" asc`,
+      [applicationId],
+    );
+    expect(paymentAttempts.rows[0]).toMatchObject({ method: "PAYSTACK", status: "CANCELLED" });
+    expect(paymentAttempts.rows[1]).toMatchObject({ method: "EFT", status: "PENDING" });
+    expect(paymentAttempts.rows[1]?.proofDocumentId).toBeTruthy();
     console.log(`Client intake payment submit regression passed for ${applicationId}.`);
   } finally {
     await browser.close();

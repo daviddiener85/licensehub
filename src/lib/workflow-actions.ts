@@ -506,7 +506,7 @@ async function saveUploadedDocument(
 
   await writeFile(path.join(uploadDirectory, storedFileName), bytes);
 
-  await prisma.document.upsert({
+  return prisma.document.upsert({
     where: {
       applicationId_type_version: {
         applicationId,
@@ -536,6 +536,7 @@ async function saveUploadedDocument(
       storageKey: `/uploads/${uploadFolder}/${applicationId}/${storedFileName}`,
       proofDocumentDate,
     },
+    select: { id: true },
   });
 }
 
@@ -2208,11 +2209,18 @@ async function buildPaymentRequest(options: {
   };
 }
 
-export async function switchPendingPaymentToPaystack(formData: FormData) {
+export async function changeClientPendingPaymentMethod(formData: FormData) {
   const applicationId = getApplicationId(formData);
   const publicToken = getRequiredString(formData, "publicToken", "Public token");
+  const requestedMethod = getRequiredString(formData, "paymentMethod", "Payment method");
 
-  if (!isPaystackConfigured()) {
+  if (requestedMethod !== PaymentMethod.EFT && requestedMethod !== PaymentMethod.PAYSTACK) {
+    throw new Error("Select a valid payment method.");
+  }
+
+  const paymentMethod = requestedMethod as PaymentMethod;
+
+  if (paymentMethod === PaymentMethod.PAYSTACK && !isPaystackConfigured()) {
     throw new Error("Paystack is not configured.");
   }
 
@@ -2220,22 +2228,41 @@ export async function switchPendingPaymentToPaystack(formData: FormData) {
     where: {
       id: applicationId,
       publicToken,
+      currentStatus: {
+        in: [
+          ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT,
+          ApplicationStatus.ADDITIONAL_CHARGE_RAISED,
+        ],
+      },
     },
     select: {
+      currentStatus: true,
       client: {
         select: {
           email: true,
         },
       },
+      documents: {
+        where: {
+          type: DocumentType.PROOF_OF_EFT_PAYMENT,
+          status: { not: DocumentStatus.SUPERSEDED },
+        },
+        take: 1,
+        select: { id: true },
+      },
       payments: {
         where: { status: PaymentStatus.PENDING },
         orderBy: { createdAt: "desc" },
-        take: 1,
+        take: 2,
         select: {
           id: true,
+          chargeId: true,
+          type: true,
           method: true,
           amount: true,
+          currency: true,
           reference: true,
+          proofDocumentId: true,
         },
       },
     },
@@ -2246,29 +2273,95 @@ export async function switchPendingPaymentToPaystack(formData: FormData) {
     throw new Error("No pending payment was found.");
   }
 
-  if (payment.method !== PaymentMethod.EFT) {
-    throw new Error("This payment is already set to Paystack.");
+  if (application.payments.length !== 1) {
+    throw new Error("This payment cannot be changed online. Please contact The License Hub for assistance.");
   }
 
+  if (application.documents.length > 0) {
+    throw new Error("The payment method cannot be changed after EFT proof has been uploaded.");
+  }
+
+  if (payment.method === paymentMethod) {
+    redirect(`/client/${encodeURIComponent(publicToken)}`);
+  }
+
+  const paymentReference = `PAY-${applicationId}-M${Date.now().toString(36).toUpperCase()}-${randomUUID()
+    .slice(0, 6)
+    .toUpperCase()}`;
   const paymentRequest = await buildPaymentRequest({
     applicationId,
     email: application.client.email,
     amount: payment.amount.toString(),
-    reference: payment.reference,
-    paymentMethod: PaymentMethod.PAYSTACK,
+    reference: paymentReference,
+    paymentMethod,
   });
 
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      method: PaymentMethod.PAYSTACK,
-      checkoutUrl: paymentRequest.checkoutUrl,
-      providerReference: paymentRequest.providerReference,
-    },
+  await prisma.$transaction(async (transaction) => {
+    const currentApplication = await transaction.application.findFirst({
+      where: {
+        id: applicationId,
+        publicToken,
+        currentStatus: application.currentStatus,
+        documents: {
+          none: {
+            type: DocumentType.PROOF_OF_EFT_PAYMENT,
+            status: { not: DocumentStatus.SUPERSEDED },
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!currentApplication) {
+      throw new Error("The application changed while the payment method was being updated. Please try again.");
+    }
+
+    const cancelledPayment = await transaction.payment.updateMany({
+      where: {
+        id: payment.id,
+        applicationId,
+        status: PaymentStatus.PENDING,
+        method: payment.method,
+        proofDocumentId: payment.proofDocumentId,
+      },
+      data: {
+        status: PaymentStatus.CANCELLED,
+        checkoutUrl: null,
+      },
+    });
+
+    if (cancelledPayment.count !== 1) {
+      throw new Error("The payment changed while the request was being processed. Please refresh and try again.");
+    }
+
+    await transaction.payment.create({
+      data: {
+        applicationId,
+        chargeId: payment.chargeId,
+        type: payment.type,
+        method: paymentRequest.method,
+        status: PaymentStatus.PENDING,
+        amount: payment.amount,
+        currency: payment.currency,
+        reference: paymentReference,
+        checkoutUrl: paymentRequest.checkoutUrl,
+        providerReference: paymentRequest.providerReference,
+      },
+    });
+
+    await transaction.statusHistory.create({
+      data: {
+        applicationId,
+        fromStatus: application.currentStatus,
+        toStatus: application.currentStatus,
+        note: `Client changed the pending payment method from ${payment.method} to ${paymentMethod}. Previous payment reference ${payment.reference} was cancelled.`,
+      },
+    });
   });
 
   refreshWorkflowPages();
-  redirect(`/apply/submitted?application=${encodeURIComponent(applicationId)}`);
+  revalidatePath(`/apply/submitted?application=${encodeURIComponent(applicationId)}`);
+  redirect(`/client/${encodeURIComponent(publicToken)}`);
 }
 
 export async function publishAdminQuote(formData: FormData) {
@@ -2666,11 +2759,66 @@ export async function confirmEftPayment(formData: FormData) {
 
 export async function uploadEftProof(formData: FormData) {
   const applicationId = getApplicationId(formData);
+  const publicToken = getRequiredString(formData, "publicToken", "Public token");
   const eftProof = getRequiredFile(formData, "eftProof", "Proof of EFT payment", [
     ...documentUploadTypes,
   ]);
 
-  await saveUploadedDocument(applicationId, eftProof, DocumentType.PROOF_OF_EFT_PAYMENT, "client-documents");
+  const application = await prisma.application.findFirst({
+    where: {
+      id: applicationId,
+      publicToken,
+      currentStatus: {
+        in: [
+          ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT,
+          ApplicationStatus.ADDITIONAL_CHARGE_RAISED,
+        ],
+      },
+    },
+    select: {
+      payments: {
+        where: { status: PaymentStatus.PENDING },
+        orderBy: { createdAt: "desc" },
+        take: 2,
+        select: {
+          id: true,
+          method: true,
+          proofDocumentId: true,
+        },
+      },
+    },
+  });
+  const payment = application?.payments[0];
+
+  if (!application || !payment || application.payments.length !== 1 || payment.method !== PaymentMethod.EFT) {
+    throw new Error("EFT proof can only be uploaded for the active pending EFT payment.");
+  }
+
+  const proofDocument = await saveUploadedDocument(
+    applicationId,
+    eftProof,
+    DocumentType.PROOF_OF_EFT_PAYMENT,
+    "client-documents",
+  );
+  const linkedPayment = await prisma.payment.updateMany({
+    where: {
+      id: payment.id,
+      applicationId,
+      method: PaymentMethod.EFT,
+      status: PaymentStatus.PENDING,
+      proofDocumentId: payment.proofDocumentId,
+    },
+    data: { proofDocumentId: proofDocument.id },
+  });
+
+  if (linkedPayment.count !== 1) {
+    await prisma.document.update({
+      where: { id: proofDocument.id },
+      data: { status: DocumentStatus.SUPERSEDED },
+    });
+    throw new Error("The payment changed while the proof was uploading. Please refresh and try again.");
+  }
+
   await appendStatusHistoryNote(applicationId, null, "Client uploaded proof of EFT payment.");
 
   refreshWorkflowPages();

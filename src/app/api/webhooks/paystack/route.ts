@@ -1,4 +1,4 @@
-import { ApplicationStatus, PaymentStatus } from "@/generated/prisma/client";
+import { ApplicationStatus, PaymentMethod, PaymentStatus } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { markChargesPaidForConfirmedPayment } from "@/lib/payment-confirmation";
 import {
@@ -40,14 +40,16 @@ export async function POST(request: Request) {
 
   for (const item of items) {
     const payment = await prisma.payment.findFirst({
-      where: { reference: item.reference },
+      where: {
+        reference: item.reference,
+        method: PaymentMethod.PAYSTACK,
+        status: PaymentStatus.PENDING,
+      },
       select: {
         id: true,
         applicationId: true,
         chargeId: true,
-        method: true,
         providerReference: true,
-        status: true,
         application: {
           select: {
             id: true,
@@ -58,12 +60,16 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!payment || payment.status === PaymentStatus.CONFIRMED) {
+    if (!payment) {
       continue;
     }
 
-    await prisma.payment.update({
-      where: { id: payment.id },
+    const confirmedPayment = await prisma.payment.updateMany({
+      where: {
+        id: payment.id,
+        method: PaymentMethod.PAYSTACK,
+        status: PaymentStatus.PENDING,
+      },
       data: {
         status: PaymentStatus.CONFIRMED,
         confirmedAt: new Date(),
@@ -74,6 +80,10 @@ export async function POST(request: Request) {
         })(),
       },
     });
+
+    if (confirmedPayment.count !== 1) {
+      continue;
+    }
 
     await markChargesPaidForConfirmedPayment({
       applicationId: payment.application.id,
