@@ -5,6 +5,7 @@ import { AdminApplicationCell } from "@/components/admin-application-cell";
 import { AdminWhatsappComposer } from "@/components/admin-whatsapp-composer";
 import { AdminRefreshController } from "@/components/admin-refresh-controller";
 import { AdminSeenOrders } from "@/components/admin-seen-orders";
+import { PoweredByTiqet } from "@/components/powered-by-tiqet";
 import { AdminDocumentQuickView } from "@/components/admin-document-quick-view";
 import { AdminDocumentUploadForm } from "@/components/admin-document-upload-form";
 import { ConfirmActionForm } from "@/components/confirm-action-form";
@@ -1669,6 +1670,9 @@ export default async function AdminPage({
             </div>
           </aside>
         </section>
+        <footer className="mt-8 flex justify-center border-t border-[#d8d1c3] pt-6 sm:justify-end">
+          <PoweredByTiqet />
+        </footer>
       </div>
     </main>
   );

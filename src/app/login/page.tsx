@@ -1,5 +1,6 @@
 import { loginWithRolePasscode } from "@/lib/auth-actions";
 import { LoginForm } from "@/components/login-form";
+import { PoweredByTiqet } from "@/components/powered-by-tiqet";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,9 @@ export default async function LoginPage({
           Sign in with your role access key to continue.
         </p>
         <LoginForm nextPath={nextPath} action={loginWithRolePasscode} />
+        <div className="mt-8 flex justify-center border-t border-[#eee8dc] pt-6">
+          <PoweredByTiqet />
+        </div>
       </section>
     </main>
   );
