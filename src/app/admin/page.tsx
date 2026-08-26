@@ -695,6 +695,12 @@ export default async function AdminPage({
               </Link>
               <Link
                 className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
+                href="/admin/referrals"
+              >
+                Referrals
+              </Link>
+              <Link
+                className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
                 href="/admin/settings"
               >
                 Settings
@@ -834,6 +840,12 @@ export default async function AdminPage({
               href="/admin/clients"
             >
               Clients
+            </Link>
+            <Link
+              className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
+              href="/admin/referrals"
+            >
+              Referrals
             </Link>
             <Link
               className="border border-[#d8d1c3] px-4 py-2 text-sm font-semibold text-[#52615b]"
