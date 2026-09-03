@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { ApplicationStatus, DocumentType, PaymentMethod, PaymentStatus, PaymentType } from "@/generated/prisma/client";
 import { EftProofUploadForm } from "@/components/eft-proof-upload-form";
@@ -18,9 +19,18 @@ export default async function ApplicationSubmittedPage({
     showUpload?: string;
     reference?: string;
     trxref?: string;
+    paymentCheck?: string;
   }>;
 }) {
-  const { application, eftUploaded, showUpload, reference, trxref } = await searchParams;
+  const { application, eftUploaded, showUpload, reference, trxref, paymentCheck } = await searchParams;
+  // Existing checkout links still return here. Route them through verification
+  // without mutating payment records during a Server Component render.
+  if (application && (reference || trxref)) {
+    const callbackParams = new URLSearchParams({ application });
+    if (reference) callbackParams.set("reference", reference);
+    if (trxref) callbackParams.set("trxref", trxref);
+    redirect(`/api/payments/paystack/callback?${callbackParams}`);
+  }
   const applicationRecord = application
     ? await prisma.application.findUnique({
         where: { id: application },
@@ -89,14 +99,9 @@ export default async function ApplicationSubmittedPage({
   const quoteApprovedAwaitingPayment =
     applicationRecord?.currentStatus === ApplicationStatus.QUOTE_APPROVED_AWAITING_PAYMENT;
   const additionalChargeRaised = applicationRecord?.currentStatus === ApplicationStatus.ADDITIONAL_CHARGE_RAISED;
-  const paystackReturnReference = reference ?? trxref;
-  const returnedFromPaystack =
-    payment?.method === PaymentMethod.PAYSTACK &&
-    typeof paystackReturnReference === "string" &&
-    paystackReturnReference === payment.reference;
   const paymentConfirmed = payment?.status === PaymentStatus.CONFIRMED;
   const applicationProcessing =
-    applicationRecord?.currentStatus === ApplicationStatus.PENDING_REVIEW || paymentConfirmed || returnedFromPaystack;
+    applicationRecord?.currentStatus === ApplicationStatus.PENDING_REVIEW || paymentConfirmed;
   const paymentRequested = quoteApprovedAwaitingPayment || additionalChargeRaised;
   const pageTitle = applicationProcessing ? "Thank you" : additionalChargeRaised ? "Additional charge required" : "Application received";
   const pageSummary = applicationProcessing
@@ -168,15 +173,10 @@ export default async function ApplicationSubmittedPage({
             <p className="mt-2 text-sm leading-6 text-[#52615b]">
               Your application has been submitted for review. We will get back to you shortly.
             </p>
-            {returnedFromPaystack && !paymentConfirmed ? (
-              <p className="mt-3 border border-[#d8d1c3] bg-white p-3 text-sm text-[#52615b]">
-                Paystack has returned you after payment. Confirmation can take a short moment to finish in our system.
-              </p>
-            ) : null}
           </div>
         ) : null}
 
-        {payment && amountLabel && paymentRequested && !applicationProcessing ? (
+        {payment && amountLabel && applicationRecord && paymentRequested && !applicationProcessing ? (
           <div className="mt-6 border border-[#d8d1c3] bg-[#fffdf8] p-4">
             <p className="text-xs font-semibold uppercase text-[#6b5e4f]">{chargeLabel}</p>
             <p className="mt-2 text-lg font-semibold">{amountLabel}</p>
@@ -197,6 +197,20 @@ export default async function ApplicationSubmittedPage({
             <div className="mt-3 space-y-3">
                   {payment.method === PaymentMethod.PAYSTACK ? (
                     <>
+                      {paymentCheck && !paymentConfirmed ? (
+                        <p role="status" className="border border-[#d8b267] bg-[#fff8df] p-3 text-sm text-[#52615b]">
+                          {paymentCheck === "pending"
+                            ? "Paystack has not confirmed a successful payment yet."
+                            : "We could not confirm your payment right now."}{" "}
+                          If money has left your account, do not pay again. Check the payment status below or contact The License Hub for help.
+                        </p>
+                      ) : null}
+                      <a
+                        href={`/api/payments/paystack/callback?${new URLSearchParams({ application: applicationRecord.id, reference: payment.reference })}`}
+                        className="inline-flex border border-[#d8d1c3] px-3 py-2 text-sm font-semibold text-[#52615b]"
+                      >
+                        Check payment status
+                      </a>
                       <p className="text-sm leading-6 text-[#52615b]">
                         Complete your Paystack payment using reference{" "}
                         <span className="font-semibold">{payment.reference}</span>.
@@ -207,7 +221,7 @@ export default async function ApplicationSubmittedPage({
                         </summary>
                         <ol className="mt-2 list-decimal space-y-1 pl-5">
                           <li>Open the Paystack checkout link below.</li>
-                          <li>Pay with the test card or payment method provided by Paystack.</li>
+                          <li>Complete payment using a payment method offered by Paystack.</li>
                           <li>After payment succeeds, your application moves to document review automatically.</li>
                         </ol>
                       </details>

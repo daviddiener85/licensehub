@@ -12,7 +12,7 @@ const publicKey = value("PAYSTACK_PUBLIC_KEY");
 const secretKey = value("PAYSTACK_SECRET_KEY");
 const webhookSecret = value("PAYSTACK_WEBHOOK_SECRET");
 const appBaseUrl = value("APP_BASE_URL") || "http://localhost:3000";
-const callbackUrl = `${appBaseUrl.replace(/\/+$/, "")}/apply/submitted`;
+const callbackUrl = `${appBaseUrl.replace(/\/+$/, "")}/api/payments/paystack/callback`;
 const webhookUrl = `${appBaseUrl.replace(/\/+$/, "")}/api/webhooks/paystack`;
 
 const results = [

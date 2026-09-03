@@ -17,6 +17,8 @@
     "test:intake-payment": "tsx --tsconfig tsconfig.json scripts/regression/client-intake-payment-submit.ts",
     "test:entities": "tsx --tsconfig tsconfig.json scripts/entity-flow-simulation.ts",
     "test:retention": "tsx --tsconfig tsconfig.json scripts/regression/retention-purge.ts",
+    "test:paystack": "tsx --tsconfig tsconfig.json --test scripts/regression/paystack-confirmation.ts",
+    "test:paystack-db": "tsx --tsconfig tsconfig.json scripts/regression/paystack-postgres.ts",
     "check:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-config-smoke-check.ts",
     "check:whatsapp": "tsx --tsconfig tsconfig.json scripts/whatsapp-config-smoke-check.ts",
     "dry-run:paystack": "tsx --tsconfig tsconfig.json scripts/paystack-checkout-dry-run.ts",

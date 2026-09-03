@@ -23,7 +23,68 @@ export function isPaystackConfigured() {
 }
 
 export function paystackCallbackUrl(applicationId: string, baseUrl = appBaseUrl()) {
-  return `${baseUrl}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
+  return `${baseUrl}/api/payments/paystack/callback?application=${encodeURIComponent(applicationId)}`;
+}
+
+export type PaystackTransaction = {
+  reference: string;
+  status: string;
+  amount: number;
+  currency: string;
+  providerReference: string;
+};
+
+export function isValidPaystackReference(reference: string) {
+  return /^[a-zA-Z0-9.=-]{1,200}$/.test(reference);
+}
+
+function parsePaystackTransaction(data: unknown): PaystackTransaction {
+  if (typeof data !== "object" || data === null) {
+    throw new Error("Invalid Paystack transaction data.");
+  }
+
+  const transaction = data as Record<string, unknown>;
+  const id = transaction.id;
+  if (
+    typeof transaction.reference !== "string" || !isValidPaystackReference(transaction.reference) ||
+    typeof transaction.status !== "string" || !transaction.status ||
+    typeof transaction.amount !== "number" || !Number.isSafeInteger(transaction.amount) || transaction.amount <= 0 ||
+    typeof transaction.currency !== "string" || !/^[A-Z]{3}$/.test(transaction.currency) ||
+    !((typeof id === "number" && Number.isSafeInteger(id) && id > 0) ||
+      (typeof id === "string" && /^[1-9][0-9]*$/.test(id)))
+  ) {
+    throw new Error("Invalid Paystack transaction data.");
+  }
+
+  return {
+    reference: transaction.reference,
+    status: transaction.status,
+    amount: transaction.amount,
+    currency: transaction.currency,
+    providerReference: String(id),
+  };
+}
+
+export async function verifyPaystackTransaction(reference: string): Promise<PaystackTransaction> {
+  if (!isValidPaystackReference(reference)) {
+    throw new Error("Invalid Paystack reference.");
+  }
+
+  const response = await fetch(`${PAYSTACK_API_BASE}/transaction/verify/${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${requiredEnv("PAYSTACK_SECRET_KEY")}` },
+    cache: "no-store",
+    signal: AbortSignal.timeout(10000),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.status !== true) {
+    throw new Error("Unable to verify the Paystack transaction.");
+  }
+
+  const transaction = parsePaystackTransaction(payload.data);
+  if (transaction.reference !== reference) {
+    throw new Error("Paystack returned a different transaction reference.");
+  }
+  return transaction;
 }
 
 export async function initializePaystackTransaction(options: {
@@ -97,7 +158,7 @@ export function verifyPaystackWebhookSignature(rawBody: string, signatureHeader:
     return false;
   }
 
-  if (!signatureHeader) {
+  if (!signatureHeader || !/^[a-f0-9]{128}$/i.test(signatureHeader)) {
     return false;
   }
 
@@ -110,32 +171,18 @@ export function verifyPaystackWebhookSignature(rawBody: string, signatureHeader:
   }
 }
 
-export function extractPaystackChargeSuccess(payload: unknown) {
-  if (typeof payload !== "object" || payload === null || !("event" in payload) || !("data" in payload)) {
-    return [];
+export function extractPaystackChargeSuccess(payload: unknown): PaystackTransaction[] {
+  if (typeof payload !== "object" || payload === null || !("event" in payload)) {
+    throw new Error("Invalid Paystack event.");
   }
 
   if ((payload as { event?: unknown }).event !== "charge.success") {
     return [];
   }
 
-  const data = (payload as { data?: unknown }).data;
-
-  if (typeof data !== "object" || data === null) {
-    return [];
+  const transaction = parsePaystackTransaction("data" in payload ? payload.data : undefined);
+  if (transaction.status !== "success") {
+    throw new Error("Invalid Paystack success event.");
   }
-
-  const reference = "reference" in data ? String((data as { reference?: unknown }).reference ?? "") : "";
-  const status = "status" in data ? String((data as { status?: unknown }).status ?? "") : "";
-
-  if (!reference || status !== "success") {
-    return [];
-  }
-
-  return [
-    {
-      reference,
-      raw: data,
-    },
-  ];
+  return [transaction];
 }

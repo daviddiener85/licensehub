@@ -1,4 +1,4 @@
-import { ChargeStatus, PaymentStatus } from "@/generated/prisma/client";
+import { ChargeStatus, PaymentStatus, type Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
 type ConfirmedPayment = {
@@ -7,13 +7,16 @@ type ConfirmedPayment = {
   status: PaymentStatus;
 };
 
-export async function markChargesPaidForConfirmedPayment(payment: ConfirmedPayment) {
+export async function markChargesPaidForConfirmedPayment(
+  payment: ConfirmedPayment,
+  database: Pick<Prisma.TransactionClient, "charge"> = prisma,
+) {
   if (payment.status !== PaymentStatus.CONFIRMED) {
     return;
   }
 
   if (payment.chargeId) {
-    await prisma.charge.updateMany({
+    await database.charge.updateMany({
       where: {
         id: payment.chargeId,
         applicationId: payment.applicationId,
@@ -26,7 +29,7 @@ export async function markChargesPaidForConfirmedPayment(payment: ConfirmedPayme
     return;
   }
 
-  await prisma.charge.updateMany({
+  await database.charge.updateMany({
     where: {
       applicationId: payment.applicationId,
       status: ChargeStatus.PENDING,

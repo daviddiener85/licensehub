@@ -68,6 +68,14 @@ jobs:
       - name: Run lint
         run: npm run lint
 
+      - name: Run Paystack confirmation regressions
+        run: npm run test:paystack
+
+      - name: Run Paystack PostgreSQL regressions
+        run: npm run test:paystack-db
+        env:
+          PAYSTACK_TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+
       - name: Run production build
         run: npm run build
 

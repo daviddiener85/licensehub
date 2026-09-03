@@ -76,6 +76,14 @@ Use Paystack test keys while developing and testing. Swap to live keys only afte
 
 Callback and webhook URLs are configured in the Paystack dashboard, not in `.env`.
 
+Checkout initialization supplies `/api/payments/paystack/callback?application=...` as the callback URL. This handler verifies the reference with Paystack before confirming payment. Existing checkouts returning to `/apply/submitted` are forwarded to the same verification handler. Keep the webhook URL at `/api/webhooks/paystack`.
+
+Confirmation validates the amount and currency against the stored payment and commits the payment, charges, application status, and history together. Duplicate notifications are safe; temporary database failures return HTTP 500 for webhook retry. Mismatched, cancelled, or unknown payments are not automatically applied and require reconciliation. This does not retroactively repair inconsistent historical payment records.
+
+Run `npm run test:paystack` for isolated confirmation and callback regressions. It does not load credentials, connect to a database, or contact Paystack.
+
+For real PostgreSQL rollback/concurrency coverage, explicitly set `PAYSTACK_TEST_DATABASE_URL` to a loopback test database and run `npm run test:paystack-db`. This creates and removes a uniquely named disposable schema; it never touches existing schemas or contacts Paystack. Both suites run in CI.
+
 Run `npm run check:paystack` to verify the local env setup before testing checkout.
 
 Run `npm run dry-run:paystack -- --application-id LH-DRYRUN-0001 --email test@example.com --amount 499.00` to print a sample Paystack initialize payload without making a network request.

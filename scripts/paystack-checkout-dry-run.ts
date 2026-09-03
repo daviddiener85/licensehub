@@ -64,7 +64,7 @@ const amount = argv.amount || "499.00";
 const reference = argv.reference || `PAY-${applicationId}-Q1`;
 const channels = argv.channels && argv.channels.length > 0 ? argv.channels : ["card", "bank_transfer", "eft"];
 const appBaseUrl = value("APP_BASE_URL") || "http://localhost:3000";
-const callbackUrl = `${appBaseUrl.replace(/\/+$/, "")}/apply/submitted?application=${encodeURIComponent(applicationId)}`;
+const callbackUrl = `${appBaseUrl.replace(/\/+$/, "")}/api/payments/paystack/callback?application=${encodeURIComponent(applicationId)}`;
 const webhookUrl = `${appBaseUrl.replace(/\/+$/, "")}/api/webhooks/paystack`;
 const amountInSubunits = Math.round(Number(amount) * 100);
 const publicKey = value("PAYSTACK_PUBLIC_KEY");
